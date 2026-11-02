@@ -56,4 +56,16 @@ describe('progress', () => {
     mem.set(STORAGE_KEY, JSON.stringify({ version: 1, trust: 70, completed: { 'gone-9': { trust: 1 } } }));
     expect(loadProgress(storage).completed).toEqual({});
   });
+
+  it('keeps a valid avatar and drops a broken one', () => {
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) };
+    const avatar = { name: 'Sarat', look: { skin: '#f1c27d', hair: '#5a3a22', hairStyle: 'curly' as const, hat: 'beanie' as const, hatColor: '#c0392b', shirt: '#2b6cb0', accent: '#ffffff', pants: '#2d3748' } };
+    saveProgress(storage, { ...newProgress(), avatar });
+    expect(loadProgress(storage).avatar).toEqual(avatar);
+    mem.set(STORAGE_KEY, JSON.stringify({ ...newProgress(), avatar: { name: 'x', look: { ...avatar.look, hat: 'crown' } } }));
+    expect(loadProgress(storage).avatar).toBeUndefined();
+    mem.set(STORAGE_KEY, JSON.stringify({ ...newProgress(), avatar: { name: 'x', look: { ...avatar.look, skin: 'red;}' } } }));
+    expect(loadProgress(storage).avatar).toBeUndefined();
+  });
 });

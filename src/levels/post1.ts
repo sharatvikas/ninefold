@@ -26,7 +26,7 @@ type Trip = { name: string; house: string | undefined; onArrive: (receivedBy: st
 
 class PostStage {
   revealed = new Set<string>();
-  private carrier = new CharacterSheet({ ...LOOKS.player, hat: '#3b6fb5', hatHi: '#6a98e0', shirt: '#3b6fb5', accent: '#f8d030' });
+  private carrier = new CharacterSheet({ ...LOOKS.player, hat: 'cap', hatColor: '#3b6fb5', shirt: '#3b6fb5', accent: '#f8d030', hair: '#3a2a1a' });
   private residents = Object.fromEntries(Object.entries(STYLE).map(([k, s]) => [k, new CharacterSheet(s.look)]));
   private x = POST_X;
   private phase: 'idle' | 'out' | 'react' | 'back' | 'shrug' = 'idle';

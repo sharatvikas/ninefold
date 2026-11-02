@@ -1,4 +1,4 @@
-import { CharacterSheet, LOOKS, type Dir } from '../art/characters';
+import { CharacterSheet, LOOKS, type Dir, type Look } from '../art/characters';
 import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art/pixels';
 import { barn, boat, container, flowers, fountain, house, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
@@ -26,7 +26,7 @@ export interface LevelResult {
 export class TownScene implements Scene {
   private ground = new Layer(() => this.buildGround());
   private player = { box: { x: PLAYER_START.x * TILE + 3, y: PLAYER_START.y * TILE + 10, w: 10, h: 6 }, dir: 'down' as Dir, walk: 0, moving: false };
-  private playerSheet = new CharacterSheet(LOOKS.player);
+  private playerSheet: CharacterSheet;
   private npcs: Npc[];
   private cam = { x: 0, y: 0 };
   private trees: [number, number][] = [];
@@ -44,6 +44,7 @@ export class TownScene implements Scene {
         if (GRID[y][x] === 'T') this.trees.push([x, y]);
         if (GRID[y][x] === 'w') this.water.push([x, y]);
       }
+    this.playerSheet = new CharacterSheet(game.progress.avatar?.look ?? LOOKS.player);
     this.npcs = NPCS.map((n) => ({
       ...n,
       sheet: new CharacterSheet(LOOKS[n.look as keyof typeof LOOKS]),
@@ -58,6 +59,7 @@ export class TownScene implements Scene {
     ui.hud.setTrust(this.game.progress.trust);
     ui.hud.el.classList.remove('hidden');
     ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel);
+    ui.hud.avatarBtn.onclick = () => this.editAvatar();
     if (!this.greeted) {
       this.greeted = true;
       const first = Object.keys(this.game.progress.completed).length === 0;
@@ -65,14 +67,28 @@ export class TownScene implements Scene {
         '',
         first
           ? [
-              'Welcome to Ninefold, our new on-call engineer!',
+              `Welcome to Ninefold, ${this.game.progress.avatar?.name ?? 'our new on-call engineer'}! You're our new on-call engineer.`,
               'Walk with the arrow keys or WASD. Talk to people with E.',
               'A "!" means someone has a ticket for you. Press Q any time to see every ticket in town.',
               'Every district has six tickets, from friendly puzzles to real terminals. Start with anyone showing a "!"…',
             ]
-          : ['Welcome back to Ninefold. Press Q to see your tickets.'],
+          : [`Welcome back, ${this.game.progress.avatar?.name ?? 'on-call'}. Press Q to see your tickets.`],
       );
     }
+  }
+
+  setPlayerLook(look: Look): void {
+    this.playerSheet.setLook(look);
+  }
+
+  editAvatar(): void {
+    const ui = this.game.ui;
+    if (ui.busy) return;
+    ui.avatar.show(this.game.progress.avatar, (a) => {
+      this.game.setAvatar(a);
+      this.playerSheet.setLook(a.look);
+      ui.toast(`LOOKING GOOD, ${a.name.toUpperCase()}!`, 'good');
+    });
   }
 
   /** Called by main when a level scene hands control back. */

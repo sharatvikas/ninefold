@@ -1,6 +1,7 @@
 import type { Input } from '../engine/input';
 import { DISTRICTS, levelsIn } from '../levels/catalog';
 import { levelStatus, type Progress } from '../state/progress';
+import { AvatarCreator } from './avatar';
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -84,6 +85,7 @@ class Hud {
   private trustNum = h('span', 'num');
   private clock = h('div', 'clock panel');
   readonly ticketsBtn = h('button', 'btn tickets', 'Q · TICKETS');
+  readonly avatarBtn = h('button', 'btn avatar-btn', '👤 AVATAR');
   private minutes = 9 * 60;
   private acc = 0;
 
@@ -92,7 +94,7 @@ class Hud {
     const bar = h('span', 'bar');
     bar.append(this.trustFill);
     trust.append(h('span', 'label', 'TRUST'), bar, this.trustNum);
-    this.el.append(trust, this.clock, this.ticketsBtn);
+    this.el.append(trust, this.clock, this.ticketsBtn, this.avatarBtn);
     this.renderClock();
   }
 
@@ -183,6 +185,7 @@ export class UI {
   readonly hud = new Hud();
   readonly dialog = new Dialog();
   readonly questLog: QuestLog;
+  readonly avatar = new AvatarCreator();
   /** Per-scene layer, emptied on every scene change. */
   readonly scene = h('div', 'scene-layer');
   private toastEl = h('div', 'toast hidden');
@@ -193,12 +196,12 @@ export class UI {
     private input: Input,
   ) {
     this.questLog = new QuestLog(() => (this.input.enabled = true));
-    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.touchControls());
+    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.avatar.el, this.touchControls());
   }
 
   /** True while something modal is on screen and the world should not move. */
   get busy(): boolean {
-    return this.dialog.open || this.questLog.open;
+    return this.dialog.open || this.questLog.open || this.avatar.open;
   }
 
   clearScene(): void {

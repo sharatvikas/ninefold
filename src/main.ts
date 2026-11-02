@@ -67,8 +67,14 @@ async function boot(): Promise<void> {
   };
 
   const town = new TownScene(game, startLevel);
-  game.setScene(town);
   game.start();
+  if (game.progress.avatar) game.setScene(town);
+  else
+    game.ui.avatar.show(undefined, (a) => {
+      game.setAvatar(a);
+      town.setPlayerLook(a.look);
+      game.setScene(town);
+    });
 
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated play-checks. Not included in production builds.

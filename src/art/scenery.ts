@@ -1,13 +1,36 @@
 import { disc, ellipse, pixelText, rect, shade, snap, type Ctx } from './pixels';
 
+const OUT = '#2a1e1a';
+
+/** Filled circle on a half-pixel grid (cx, cy, r in half-pixel units, origin at x, y). */
+function blobU(c: Ctx, x: number, y: number, cx: number, cy: number, r: number, col: string): void {
+  for (let yy = -r; yy <= r; yy++) {
+    const w = Math.round(Math.sqrt(r * r - yy * yy));
+    rect(c, x + (cx - w) * 0.5, y + (cy + yy) * 0.5, (2 * w + 1) * 0.5, 0.5, col);
+  }
+}
+
+/** A 16×16 tree drawn with double detail. `sway` nudges the canopy by half-pixels. */
 export function tree(c: Ctx, x: number, y: number, sway = 0): void {
-  rect(c, x + 6, y + 12, 4, 4, '#6b4423');
-  rect(c, x + 6, y + 15, 4, 1, '#4a2e17');
-  ellipse(c, x + 8, y + 14, 6, 2, 'rgba(0,0,0,0.18)');
-  disc(c, x + 8 + sway, y + 7, 7, '#24502e');
-  disc(c, x + 8 + sway, y + 6, 6, '#2f7a3d');
-  disc(c, x + 6 + sway, y + 4, 3, '#4fa04f');
-  rect(c, x + 5 + sway, y + 3, 1, 1, '#7cc46a');
+  const U = (px: number, py: number, w: number, h: number, col: string) => rect(c, x + px * 0.5, y + py * 0.5, w * 0.5, h * 0.5, col);
+  ellipse(c, x + 8, y + 15, 6, 1, 'rgba(0,0,0,0.2)');
+  // trunk
+  U(12, 21, 8, 10, OUT);
+  U(13, 21, 6, 9, '#7a4a28');
+  U(14, 22, 1, 7, '#5a3418');
+  U(17, 23, 1, 5, '#9a6438');
+  U(11, 29, 10, 1, '#5a3418');
+  // canopy
+  const s = sway * 2;
+  blobU(c, x, y, 16 + s, 12, 13, OUT);
+  blobU(c, x, y, 16 + s, 12, 12, '#24602f');
+  blobU(c, x, y, 15 + s, 11, 10, '#2f7a3d');
+  blobU(c, x, y, 11 + s, 8, 6, '#3f9a4a');
+  blobU(c, x, y, 20 + s, 9, 5, '#3f9a4a');
+  blobU(c, x, y, 10 + s, 6, 3, '#58b45a');
+  blobU(c, x, y, 19 + s, 7, 2, '#58b45a');
+  for (const [px, py] of [[9, 4], [12, 6], [20, 6], [8, 9], [22, 10], [15, 3]]) U(px + s, py, 1, 1, '#8ad070');
+  for (const [px, py] of [[13, 16], [18, 17], [9, 14], [23, 14], [16, 19]]) U(px + s, py, 2, 1, '#1d4a26');
 }
 
 export interface HouseStyle {
@@ -18,28 +41,61 @@ export interface HouseStyle {
 
 /** A cozy house that exactly fills the box (x, y, w, h). The door sits on the bottom edge at the centre. */
 export function house(c: Ctx, x: number, y: number, w: number, h: number, s: HouseStyle): void {
+  const H = 0.5;
   rect(c, x + 2, y + h - 1, w - 2, 3, 'rgba(0,0,0,0.2)');
+  // walls
   const wy = y + Math.floor(h * 0.45);
+  rect(c, x + 1.5, wy, w - 3, y + h - wy + H, OUT);
   rect(c, x + 2, wy, w - 4, y + h - wy, s.wall);
-  for (let i = wy; i < y + h; i += 4) rect(c, x + 2, i, w - 4, 1, 'rgba(0,0,0,0.06)');
+  for (let i = wy + 2.5; i < y + h - 1; i += 3) {
+    rect(c, x + 2, i, w - 4, H, shade(s.wall, -18));
+    rect(c, x + 2, i + H, w - 4, H, shade(s.wall, 10));
+  }
+  rect(c, x + 2, wy, 1.5, y + h - wy, shade(s.wall, -28));
+  rect(c, x + w - 3.5, wy, 1.5, y + h - wy, shade(s.wall, -28));
+  // roof: shingle rows with offset tiles
   const rh = Math.floor(h * 0.5);
-  for (let j = 0; j < rh; j++) {
-    const inset = j < 2 ? 2 - j : 0;
-    rect(c, x + inset, y + j, w - inset * 2, 1, j % 3 === 0 ? shade(s.roof, -25) : s.roof);
+  rect(c, x - H, y - H, w + 1, rh + 1, OUT);
+  for (let j = 0; j < rh; j += 2) {
+    const inset = j < 3 ? (3 - j) * 0.5 : 0;
+    const rowCol = j % 4 === 0 ? s.roof : shade(s.roof, -10);
+    rect(c, x + inset, y + j, w - inset * 2, 2, rowCol);
+    rect(c, x + inset, y + j + 1.5, w - inset * 2, H, shade(s.roof, -38));
+    for (let k = x + inset + (j % 4 === 0 ? 2 : 4); k < x + w - inset - 1; k += 4) rect(c, k, y + j, H, 1.5, shade(s.roof, -30));
   }
-  rect(c, x, y + rh - 1, w, 2, shade(s.roof, -45));
-  const dx = x + Math.floor(w / 2) - 4;
-  rect(c, dx, y + h - 12, 8, 12, '#5a3a22');
-  rect(c, dx + 1, y + h - 11, 6, 11, '#7a4f2e');
-  rect(c, dx + 5, y + h - 6, 1, 1, '#ffd866');
-  for (const wx of [x + 6, x + w - 16]) {
-    rect(c, wx, y + h - 14, 10, 8, '#2a2a3a');
-    rect(c, wx + 1, y + h - 13, 8, 6, '#8fd0ff');
-    rect(c, wx + 1, y + h - 13, 3, 2, '#d8f0ff');
-    rect(c, wx + 5, y + h - 13, 1, 6, '#2a2a3a');
-    rect(c, wx - 1, y + h - 6, 12, 2, '#c8a070');
+  rect(c, x + 1, y + H, w - 2, H, shade(s.roof, 35));
+  rect(c, x - 1, y + rh - 1.5, w + 2, 2, shade(s.roof, -50));
+  rect(c, x - 1, y + rh + H, w + 2, H, 'rgba(0,0,0,0.25)');
+  // chimney
+  rect(c, x + w - 13, y - 4, 5, 6, OUT);
+  rect(c, x + w - 12.5, y - 3.5, 4, 5.5, '#a05040');
+  rect(c, x + w - 12.5, y - 3.5, 4, H, '#c87060');
+  // door with frame and step
+  const dx = x + Math.floor(w / 2) - 4.5;
+  rect(c, dx - H, y + h - 13, 10, 13, OUT);
+  rect(c, dx, y + h - 12.5, 9, 12.5, '#6a4024');
+  rect(c, dx + 1, y + h - 11.5, 3, 5, '#7e4f2e');
+  rect(c, dx + 5, y + h - 11.5, 3, 5, '#7e4f2e');
+  rect(c, dx + 1, y + h - 5.5, 7, 4.5, '#7e4f2e');
+  rect(c, dx + 7, y + h - 6.5, 1, 1, '#ffd866');
+  rect(c, dx - 1, y + h, 11, 1.5, '#b8a890');
+  // windows: frame, glass, glint, curtains, sill and flower box
+  for (const wx of [x + 5, x + w - 16]) {
+    const wy2 = y + h - 15;
+    rect(c, wx - H, wy2 - H, 12, 10, OUT);
+    rect(c, wx, wy2, 11, 9, '#f4ead8');
+    rect(c, wx + 1, wy2 + 1, 9, 7, '#7fbfe8');
+    rect(c, wx + 1, wy2 + 1, 9, 2, '#a8d8f4');
+    rect(c, wx + 2, wy2 + 3.5, 1, 1, '#ffffff');
+    rect(c, wx + 3, wy2 + 2.5, 1, 1, '#ffffff');
+    rect(c, wx + 1, wy2 + 1, 2, 7, '#e8a0a0');
+    rect(c, wx + 8, wy2 + 1, 2, 7, '#e8a0a0');
+    rect(c, wx + 5.25, wy2 + 1, H, 7, '#f4ead8');
+    rect(c, wx - 1, wy2 + 9, 13, 1.5, '#8a5a30');
+    rect(c, wx, wy2 + 10.5, 11, 1.5, '#6a4024');
+    for (let f = 0; f < 5; f++) rect(c, wx + 0.5 + f * 2.25, wy2 + 9.5 - (f % 2) * H, 1, 1, ['#ff7aa8', '#ffe066', '#ffffff', '#b48cff', '#ff7aa8'][f]);
   }
-  sign(c, x + w / 2, y + rh + 1, s.label);
+  if (s.label) sign(c, x + w / 2, y + rh + 1, s.label);
 }
 
 export function sign(c: Ctx, cx: number, y: number, label: string): void {

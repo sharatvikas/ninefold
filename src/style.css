@@ -385,3 +385,32 @@ pre.mini { margin: 0; font-family: ui-monospace, Menlo, monospace; font-size: 1.
 .outcome.bad { background: #fde2dd; color: var(--red); }
 .outcome.ok { background: #dff5e4; color: var(--green); }
 .side .cap:empty { display: none; }
+
+/* ---------- avatar creator ---------- */
+.avatar-btn { position: absolute; top: 16.5cqh; right: 1.2cqw; }
+.avatar-card { width: 88cqw; max-height: 94cqh; overflow: auto; padding: 1.4cqw 2cqw; display: flex; flex-direction: column; gap: 0.8cqw; animation: pop2 0.3s ease-out; }
+.avatar-card .title { color: var(--wood); font-size: 1.8cqw; }
+.avatar-body { display: grid; grid-template-columns: 26cqw 1fr; gap: 2.4cqw; align-items: start; }
+.avatar-left { display: flex; flex-direction: column; gap: 1cqw; align-items: center; }
+.avatar-preview {
+  width: 24cqw; height: 24cqw; border-radius: 1cqw; border: 0.4cqw solid var(--wood);
+  background: radial-gradient(circle at 50% 70%, #8fd07a 0 38%, #6dbd55 39% 100%);
+}
+input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px); font-size: 1.3cqw; }
+.avatar-right { display: flex; flex-direction: column; gap: 0.6cqw; }
+.avatar-right .sub { font-size: 0.95cqw; color: var(--wood); }
+.presets { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.6cqw; }
+.preset {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3cqw; cursor: pointer;
+  background: #fff8e8; border: 0.25cqw solid var(--wood-light); border-radius: 0.6cqw; padding: 0.4cqw;
+  font-family: var(--px); font-size: 0.85cqw; color: var(--ink);
+}
+.preset:hover { border-color: #f8d030; transform: translateY(-0.2cqw); }
+.preset-cv { width: 6cqw; height: 6cqw; }
+.arow { display: grid; grid-template-columns: 11cqw 1fr; align-items: center; gap: 1cqw; }
+.arow .k { font-size: 0.9cqw; color: var(--ink); }
+.swatches { display: flex; flex-wrap: wrap; gap: 0.45cqw; }
+.swatch { width: 2.6cqw; height: 2.6cqw; border-radius: 50%; border: 0.25cqw solid var(--wood-dark); cursor: pointer; padding: 0; }
+.swatch:hover { transform: scale(1.12); }
+.swatch.on { outline: 0.35cqw solid #f8d030; outline-offset: 0.15cqw; }
+.avatar-actions { display: flex; justify-content: flex-end; gap: 1cqw; margin-top: 0.6cqw; }

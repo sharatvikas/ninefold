@@ -1,9 +1,16 @@
+import type { Look } from '../art/characters';
 import { LEVELS, levelsIn, type DistrictId, type LevelMeta } from '../levels/catalog';
+
+export interface Avatar {
+  name: string;
+  look: Look;
+}
 
 export interface Progress {
   version: 1;
   trust: number;
   completed: Record<string, { trust: number }>;
+  avatar?: Avatar;
 }
 
 export const STORAGE_KEY = 'ninefold.save.v1';
@@ -56,7 +63,8 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | undefined): Pro
     }
     const known = new Set(LEVELS.map((l) => l.id));
     const completed = Object.fromEntries(Object.entries(data.completed).filter(([id]) => known.has(id)));
-    return { version: 1, trust: clampTrust(data.trust), completed };
+    const avatar = validAvatar(data.avatar);
+    return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}) };
   } catch {
     return newProgress();
   }
@@ -68,4 +76,20 @@ export function saveProgress(storage: Pick<Storage, 'setItem'> | undefined, p: P
   } catch {
     // Private mode or blocked storage: the game still works, it just won't remember.
   }
+}
+
+const HAIR_STYLES = ['short', 'long', 'bun', 'curly', 'spiky', 'bald'];
+const HATS = ['none', 'cap', 'beanie', 'hardhat', 'chef', 'beret'];
+const COLOR = /^#[0-9a-f]{6}$/i;
+
+/** Accept a saved avatar only if every field is something the game can draw. */
+export function validAvatar(a: unknown): Avatar | undefined {
+  if (!a || typeof a !== 'object') return undefined;
+  const { name, look } = a as Partial<Avatar>;
+  if (typeof name !== 'string' || !look || typeof look !== 'object') return undefined;
+  const l = look as unknown as Record<string, unknown>;
+  const colors = ['skin', 'hair', 'hatColor', 'shirt', 'accent', 'pants'];
+  if (!colors.every((k) => typeof l[k] === 'string' && COLOR.test(l[k] as string))) return undefined;
+  if (!HAIR_STYLES.includes(l.hairStyle as string) || !HATS.includes(l.hat as string)) return undefined;
+  return { name: name.trim().slice(0, 16) || 'On-call', look: { ...(look as Look) } };
 }
