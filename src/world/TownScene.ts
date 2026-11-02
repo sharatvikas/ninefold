@@ -58,7 +58,7 @@ export class TownScene implements Scene {
     const ui = this.game.ui;
     ui.hud.setTrust(this.game.progress.trust);
     ui.hud.el.classList.remove('hidden');
-    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress);
+    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel);
     if (!this.greeted) {
       this.greeted = true;
       const first = Object.keys(this.game.progress.completed).length === 0;
@@ -118,7 +118,7 @@ export class TownScene implements Scene {
 
       this.nearby = this.findNearby();
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
-      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress);
+      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel);
     }
 
     this.smoke.step(dt);

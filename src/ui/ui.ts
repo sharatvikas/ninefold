@@ -134,7 +134,7 @@ class QuestLog {
     });
   }
 
-  show(p: Progress): void {
+  show(p: Progress, onPlay?: (levelId: string) => void): void {
     this.el.replaceChildren();
     const box = h('div', 'panel questlog');
     const head = h('div', 'ql-head');
@@ -151,11 +151,19 @@ class QuestLog {
         const row = h('div', `ql-level ${st}`);
         row.title = `${l.concept} · Act ${l.act} · ${STATUS_TEXT[st]}`;
         row.append(h('span', 'ic', STATUS_ICON[st]), h('span', '', `${l.num}. ${l.title}`));
+        if (onPlay && l.built && (st === 'available' || st === 'done')) {
+          row.classList.add('playable');
+          row.title += ' · click to play';
+          row.addEventListener('click', () => {
+            this.close();
+            onPlay(l.id);
+          });
+        }
         col.append(row);
       }
       grid.append(col);
     }
-    box.append(head, grid, h('div', 'ql-foot', '! ready   ✓ done   … coming soon   · finish the previous ticket first'));
+    box.append(head, grid, h('div', 'ql-foot', '! ready   ✓ done (click to replay)   … coming soon   · finish the previous ticket first'));
     this.el.append(box);
     this.el.classList.remove('hidden');
     this.open = true;
@@ -197,9 +205,9 @@ export class UI {
     this.scene.replaceChildren();
   }
 
-  openQuestLog(p: Progress): void {
+  openQuestLog(p: Progress, onPlay?: (levelId: string) => void): void {
     this.input.enabled = false;
-    this.questLog.show(p);
+    this.questLog.show(p, onPlay);
   }
 
   toast(msg: string, kind: 'good' | 'bad' | 'info' = 'info'): void {

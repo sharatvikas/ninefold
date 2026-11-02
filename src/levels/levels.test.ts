@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
-import { newInvestigateState, useTool, REWARD_INVESTIGATED, REWARD_LUCKY, type ToolRule } from './kits/investigate';
-import { moveItem, newSortState, sortTrust, type SortPuzzle } from './kits/sort';
 import { completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
 
 describe('catalog', () => {
@@ -19,65 +17,6 @@ describe('catalog', () => {
   it('marks the two v0.1 levels as built', () => {
     expect(getLevel('harbor-1').built).toBe(true);
     expect(getLevel('post-1').built).toBe(true);
-  });
-});
-
-describe('investigate kit', () => {
-  const tools: ToolRule[] = [
-    { id: 'logs', kind: 'investigate' },
-    { id: 'rollback', kind: 'fix', resolves: false, penalty: 3 },
-    { id: 'limits', kind: 'fix', resolves: true },
-    { id: 'trace', kind: 'locked' },
-  ];
-
-  it('rewards investigating before fixing', () => {
-    let s = newInvestigateState();
-    s = useTool(tools, s, 'logs').state;
-    const r = useTool(tools, s, 'limits');
-    expect(r.outcome).toEqual({ type: 'resolved', trust: REWARD_INVESTIGATED, lucky: false });
-    expect(r.state.trust).toBe(REWARD_INVESTIGATED);
-  });
-
-  it('gives only a small reward for a lucky guess', () => {
-    const r = useTool(tools, newInvestigateState(), 'limits');
-    expect(r.outcome).toMatchObject({ type: 'resolved', lucky: true, trust: REWARD_LUCKY });
-  });
-
-  it('costs trust for a wrong fix and counts the mistake', () => {
-    const r = useTool(tools, newInvestigateState(), 'rollback');
-    expect(r.outcome).toEqual({ type: 'wrong', trust: -3 });
-    expect(r.state.mistakes).toBe(1);
-  });
-
-  it('ignores locked tools and fixes after resolution', () => {
-    expect(useTool(tools, newInvestigateState(), 'trace').outcome.type).toBe('locked');
-    const done = useTool(tools, newInvestigateState(), 'limits').state;
-    expect(useTool(tools, done, 'rollback').outcome.type).toBe('already-resolved');
-  });
-});
-
-describe('sort kit', () => {
-  const p: SortPuzzle = {
-    items: ['bakery', 'butcher'],
-    slots: ['7', '12'],
-    initial: { bakery: '7', butcher: '7' },
-    answer: { bakery: '12', butcher: '7' },
-  };
-
-  it('starts unsolved and solves when everything matches', () => {
-    const s = newSortState(p);
-    expect(s.solved).toBe(false);
-    const r = moveItem(p, s, 'bakery', '12');
-    expect(r.correct).toBe(true);
-    expect(r.state.solved).toBe(true);
-    expect(sortTrust(r.state)).toBe(5);
-  });
-
-  it('counts wrong moves against the reward, never below 1', () => {
-    let s = newSortState(p);
-    for (let i = 0; i < 6; i++) s = moveItem(p, s, 'butcher', i % 2 ? '7' : '12').state;
-    expect(s.wrongMoves).toBe(3);
-    expect(sortTrust({ ...s, wrongMoves: 10 })).toBe(1);
   });
 });
 

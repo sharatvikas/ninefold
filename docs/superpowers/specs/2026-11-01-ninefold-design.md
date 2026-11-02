@@ -120,15 +120,20 @@ There are 8 districts with 6 levels each: levels 1–2 are Act 1, 3–4 are Act 
 - **Act 2, Festival Meltdown**: a traffic spike leads to exhausted connections, then a cascading failure.
 - **Act 3, The Long Night**: a DNS change, an expired certificate, and a failover, all at once, at the terminal.
 
-## Level kits (keeps 51 levels cheap to author)
+## How a level plays (hands-on, not multiple choice)
 
-Each level is data plus one reusable "kit":
+*Changed 2026-11-01 after playtesting v0.1: clicking the "right tool" felt like a quiz. Every level now follows the same four steps, shown as a tracker at the top of the screen.*
 
-- **Investigate & Fix**: an animated scene, a tool belt, and a notes panel. Investigative tools set flags; fix tools resolve or fail with a Trust change. (Sinking Ships)
-- **Sort & Match**: drag items to slots. (Wrong Address, the postmortem timeline)
-- **Build**: lay pieces in order. (Pipeline stages, dashboards)
-- **Review**: read a diff or plan and flag the danger. (The Destroy Line)
-- **Terminal**: a simulated shell with a fake filesystem and commands. (All Act 3 levels)
+1. **Understand**: a ticket card says what people are seeing, what you know, and the goal.
+2. **Find the cause**: tools show evidence you have to read and interpret. Click the log line that explains it, read the chart, knock on doors, run a lookup. Nothing tells you the answer.
+3. **Change**: edit the actual setting with your own values (a manifest field, a line on the sorting wall). There's no "fix" button. Red herrings exist (crew size, "give up after sinking").
+4. **Verify**: your change runs in the live simulation (the next voyages, a test letter). A wrong value visibly fails, and you adjust and try again.
+
+At the end, a **before/after card** shows the old and new state side by side, explains why the change worked, and gives the same fix with real tools (`kubectl`, `dig`, YAML, zone files).
+
+**Trust scoring** (`src/levels/sims/score.ts`): start at 6; −1 for changing things before finding evidence; −1 per change that didn't fix it; −1 for a fix far bigger than needed; never below 1.
+
+Each level is a scene (`IncidentScene` subclass) plus pure, unit-tested rules in `src/levels/sims/`. Common shapes we expect to reuse: logs and charts to read, a config to edit, a live simulation to verify against, and a terminal for Act 3.
 
 ## Core systems
 
@@ -147,7 +152,7 @@ Each level is data plus one reusable "kit":
 
 1. A walkable town with collisions, a following camera, NPCs, a dialogue box, and the HUD.
 2. A data-driven level registry with all 51 levels listed. Unbuilt ones show "coming soon".
-3. Two playable levels: **Harbor 1, Sinking Ships** (Investigate & Fix) and **Post Office 1, Wrong Address** (Sort & Match).
+3. Two playable levels: **Harbor 1, Sinking Ships** and **Post Office 1, Wrong Address**, both hands-on (see above).
 4. Trust and progress saved in the browser.
 5. A Pages deploy workflow. Creating the GitHub repo waits for the user's go-ahead.
 

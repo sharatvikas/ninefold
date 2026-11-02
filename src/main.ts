@@ -1,14 +1,15 @@
 import './style.css';
 import { Game, VIEW_H, VIEW_W } from './engine/game';
-import { InvestigateScene, SortScene } from './levels/kits/scenes';
-import { harbor1 } from './levels/stages/harbor1';
-import { post1 } from './levels/stages/post1';
-import type { InvestigateLevel, SortLevel } from './levels/types';
+import type { Scene } from './engine/game';
+import { HarborScene } from './levels/harbor1';
+import type { Exit } from './levels/incident';
+import { PostScene } from './levels/post1';
 import { TownScene, type LevelResult } from './world/TownScene';
 
-const PLAYABLE: Record<string, InvestigateLevel | SortLevel> = {
-  'harbor-1': harbor1,
-  'post-1': post1,
+/** Every playable level, keyed by catalog id. */
+const PLAYABLE: Record<string, (game: Game, exit: Exit) => Scene> = {
+  'harbor-1': (g, e) => new HarborScene(g, e),
+  'post-1': (g, e) => new PostScene(g, e),
 };
 
 function fitStage(stage: HTMLElement): void {
@@ -47,10 +48,8 @@ async function boot(): Promise<void> {
   };
 
   const startLevel = (id: string) => {
-    const lvl = PLAYABLE[id];
-    if (!lvl) return;
-    if (lvl.meta.kit === 'investigate') game.setScene(new InvestigateScene(game, lvl as InvestigateLevel, backToTown));
-    else game.setScene(new SortScene(game, lvl as SortLevel, backToTown));
+    const make = PLAYABLE[id];
+    if (make) game.setScene(make(game, backToTown));
   };
 
   const town = new TownScene(game, startLevel);
