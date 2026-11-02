@@ -114,5 +114,6 @@ export const LOOKS = {
   bo: { hat: '#3a2a1a', hatHi: '#5a4a3a', hair: '#9a9a9a', skin: '#f1c27d', shirt: '#b5523b', accent: '#f8d030', pants: '#3a2a1a' },
   lin: { hat: '#4a3a6a', hatHi: '#6a5a9a', hair: '#1a1a2a', skin: '#e8c8a0', shirt: '#6a5a9a', accent: '#ffe680', pants: '#2a2a3a' },
   kit: { hat: '#7a4fa0', hatHi: '#a07ac8', hair: '#d06030', skin: '#f6d0b0', shirt: '#3a3a4a', accent: '#c0c0c0', pants: '#2a2a3a' },
+  juno: { hat: '#c0392b', hatHi: '#f05a48', hair: '#2a1a1a', skin: '#8a5a3a', shirt: '#2a2a3a', accent: '#f8d030', pants: '#3a2a1a' },
   gus: { hat: '#c8a040', hatHi: '#e8c860', hair: '#6a4a2a', skin: '#d8a070', shirt: '#4a7a3a', accent: '#c8a040', pants: '#5a3a1a' },
 } satisfies Record<string, Look>;

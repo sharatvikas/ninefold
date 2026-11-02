@@ -115,12 +115,12 @@ export const LEVELS: LevelMeta[] = [
       concept,
       ticket,
       kit,
-      built: built ?? false,
+      built: built ?? true,
     })),
   ),
-  { id: 'big-1', district: 'big', num: 1, act: 1, title: 'The Quiet Morning', concept: 'Cross-district incident', ticket: 'Everything was fine until it wasn\'t.', kit: 'investigate', built: false },
-  { id: 'big-2', district: 'big', num: 2, act: 2, title: 'Festival Meltdown', concept: 'Cascading failure', ticket: 'The festival crowd broke three districts at once.', kit: 'investigate', built: false },
-  { id: 'big-3', district: 'big', num: 3, act: 3, title: 'The Long Night', concept: 'Multi-system outage at the terminal', ticket: 'DNS, certificates and a failover, all before dawn.', kit: 'terminal', built: false },
+  { id: 'big-1', district: 'big', num: 1, act: 1, title: 'The Quiet Morning', concept: 'Cross-district incident', ticket: 'Everything was fine until it wasn\'t.', kit: 'investigate', built: true },
+  { id: 'big-2', district: 'big', num: 2, act: 2, title: 'Festival Meltdown', concept: 'Cascading failure', ticket: 'The festival crowd broke three districts at once.', kit: 'investigate', built: true },
+  { id: 'big-3', district: 'big', num: 3, act: 3, title: 'The Long Night', concept: 'Multi-system outage at the terminal', ticket: 'DNS, certificates and a failover, all before dawn.', kit: 'terminal', built: true },
 ];
 
 export function getLevel(id: string): LevelMeta {

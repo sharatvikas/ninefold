@@ -4,12 +4,15 @@ import type { Scene } from './engine/game';
 import { HarborScene } from './levels/harbor1';
 import type { Exit } from './levels/incident';
 import { PostScene } from './levels/post1';
+import { SpecScene } from './levels/SpecScene';
+import { ALL_SPECS } from './levels/content';
 import { TownScene, type LevelResult } from './world/TownScene';
 
 /** Every playable level, keyed by catalog id. */
 const PLAYABLE: Record<string, (game: Game, exit: Exit) => Scene> = {
   'harbor-1': (g, e) => new HarborScene(g, e),
   'post-1': (g, e) => new PostScene(g, e),
+  ...Object.fromEntries(ALL_SPECS.map((spec) => [spec.id, (g: Game, e: Exit) => new SpecScene(g, spec, e)])),
 };
 
 function fitStage(stage: HTMLElement): void {

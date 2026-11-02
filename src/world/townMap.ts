@@ -50,6 +50,7 @@ export const NPCS: NpcSpawn[] = [
   { id: 'lin', name: 'Lin', look: 'lin', x: 33, y: 14, district: 'watch' },
   { id: 'kit', name: 'Kit', look: 'kit', x: 8, y: 23, district: 'lock' },
   { id: 'gus', name: 'Gus', look: 'gus', x: 18, y: 23, district: 'granary' },
+  { id: 'juno', name: 'Chief Juno', look: 'juno', x: 24, y: 14, district: 'big' },
 ];
 
 export const PLAYER_START = { x: 20, y: 17 };

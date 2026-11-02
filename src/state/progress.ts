@@ -31,8 +31,14 @@ export type LevelStatus = 'done' | 'available' | 'locked' | 'soon';
 export function levelStatus(p: Progress, l: LevelMeta): LevelStatus {
   if (p.completed[l.id]) return 'done';
   if (!l.built) return 'soon';
+  if (l.district === 'big') return bigIncidentBlockers(p, l.act).length === 0 ? 'available' : 'locked';
   if (l.num === 1) return 'available';
   return p.completed[`${l.district}-${l.num - 1}`] ? 'available' : 'locked';
+}
+
+/** Big Incident N unlocks once every district ticket in acts 1..N is closed. Returns what's still open. */
+export function bigIncidentBlockers(p: Progress, act: number): LevelMeta[] {
+  return LEVELS.filter((l) => l.district !== 'big' && l.act <= act && !p.completed[l.id]);
 }
 
 /** The next ticket a district's NPC should offer (first not-done level), or undefined if all done. */

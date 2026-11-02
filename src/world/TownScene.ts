@@ -3,7 +3,7 @@ import { makeCanvas, rect, rng, disc, type Ctx } from '../art/pixels';
 import { barn, boat, container, flowers, fountain, house, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
-import { levelStatus, nextLevelIn } from '../state/progress';
+import { bigIncidentBlockers, levelStatus, nextLevelIn } from '../state/progress';
 import { moveBox, type Box } from './collision';
 import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, isSolidTile, tileAt, type NpcSpawn } from './townMap';
 
@@ -69,7 +69,7 @@ export class TownScene implements Scene {
               'Welcome to Ninefold, our new on-call engineer!',
               'Walk with the arrow keys or WASD. Talk to people with E.',
               'A "!" means someone has a ticket for you. Press Q any time to see every ticket in town.',
-              'Rosa at the Post Office and Finn down at the Harbor could really use a hand…',
+              'Every district has six tickets, from friendly puzzles to real terminals. Start with anyone showing a "!"…',
             ]
           : ['Welcome back to Ninefold. Press Q to see your tickets.'],
       );
@@ -170,11 +170,17 @@ export class TownScene implements Scene {
       return;
     }
     const st = levelStatus(prog, next);
-    const intro = n.id === 'bo' ? MAYOR_INTRO : [];
+    const intro = n.id === 'bo' && !prog.completed['hall-1'] ? MAYOR_INTRO : [];
     if (st === 'available') {
       ui.dialog.show(n.name, [...intro, next.ticket, `TICKET ${next.num}: "${next.title.toUpperCase()}". Let's go!`], () => this.startLevel(next.id));
+    } else if (next.district === 'big') {
+      const left = bigIncidentBlockers(prog, next.act).length;
+      ui.dialog.show(n.name, [
+        'I coordinate the Big Incidents: the ones that span the whole town.',
+        `The next one is "${next.title}". I'll call you once every Act ${next.act} ticket in town is closed. ${left} to go.`,
+      ]);
     } else {
-      ui.dialog.show(n.name, [...intro, next.ticket, `(Ticket ${next.num}, "${next.title}", is coming in a future update.)`]);
+      ui.dialog.show(n.name, [...intro, `Finish my earlier ticket first, then come back for "${next.title}".`]);
     }
   }
 
@@ -412,5 +418,12 @@ const MAYOR_INTRO = [
 
 const THANKS: Record<string, string> = {
   harbor: 'The ships are sailing clear! Every crate gets where it\'s going now. Thank you!',
-  post: 'Letters are reaching the bakery again! So the sorting wall is how the whole town finds each other…',
+  post: 'Letters are reaching the right doors again. Thank you!',
+  rail: 'The trains are running on time again. The whole yard owes you one!',
+  arch: 'Blueprint and town match again. That\'s how it should be.',
+  watch: 'I can see so much more from up here now. Thank you!',
+  lock: 'Every lock in town is a little safer tonight.',
+  granary: 'The granary\'s running smoothly. Have a loaf on me!',
+  hall: 'Splendid work. The town council is impressed.',
+  big: 'That was a big one. The whole town is back on its feet thanks to you.',
 };

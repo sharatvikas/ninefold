@@ -14,20 +14,28 @@ describe('catalog', () => {
     expect(levelsIn('harbor').map((l) => l.act)).toEqual([1, 1, 2, 2, 3, 3]);
   });
 
-  it('marks the two v0.1 levels as built', () => {
-    expect(getLevel('harbor-1').built).toBe(true);
-    expect(getLevel('post-1').built).toBe(true);
+  it('marks every level as built', () => {
+    expect(LEVELS.filter((l) => !l.built).map((l) => l.id)).toEqual([]);
   });
 });
 
 describe('progress', () => {
-  it('opens level 1 everywhere, chains later levels, and shows unbuilt ones as soon', () => {
+  it('opens level 1 everywhere and chains later levels', () => {
     const p = newProgress();
     expect(levelStatus(p, getLevel('harbor-1'))).toBe('available');
-    expect(levelStatus(p, getLevel('rail-1'))).toBe('soon');
+    expect(levelStatus(p, getLevel('rail-1'))).toBe('available');
+    expect(levelStatus(p, getLevel('rail-2'))).toBe('locked');
     const done = completeLevel(p, 'harbor-1', 5);
     expect(levelStatus(done, getLevel('harbor-1'))).toBe('done');
     expect(nextLevelIn(done, 'harbor')?.id).toBe('harbor-2');
+  });
+
+  it('unlocks a Big Incident only when every ticket in its acts is closed', () => {
+    let p = newProgress();
+    expect(levelStatus(p, getLevel('big-1'))).toBe('locked');
+    for (const l of LEVELS.filter((l) => l.district !== 'big' && l.act === 1)) p = completeLevel(p, l.id, 1);
+    expect(levelStatus(p, getLevel('big-1'))).toBe('available');
+    expect(levelStatus(p, getLevel('big-2'))).toBe('locked');
   });
 
   it('never awards a level twice and clamps trust', () => {
