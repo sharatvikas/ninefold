@@ -3,6 +3,7 @@ import { LEVELS } from '../catalog';
 import { passed, type LevelSpec } from '../spec';
 import { newTermState, run } from '../terminal';
 import { ALL_SPECS } from './index';
+import { VIGNETTES } from './vignettes';
 
 function hasEvidence(spec: LevelSpec): boolean {
   const inEvidence = spec.evidence.some((e) =>
@@ -20,6 +21,10 @@ function hasEvidence(spec: LevelSpec): boolean {
 describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
   it('is in the catalog', () => {
     expect(LEVELS.some((l) => l.id === spec.id)).toBe(true);
+  });
+
+  it('has its own scene diagram', () => {
+    expect(VIGNETTES[spec.id]).toBeDefined();
   });
 
   it('has evidence to find', () => {

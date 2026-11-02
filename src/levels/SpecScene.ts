@@ -6,6 +6,7 @@ import { getLevel } from './catalog';
 import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './incident';
 import { passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
 import { newTermState, run, saveFile, type TermState } from './terminal';
+import { VIGNETTES } from './content/vignettes';
 
 const CHANGE_TAB = 'change';
 const TERM_TAB = 'terminal';
@@ -31,7 +32,7 @@ export class SpecScene extends IncidentScene {
     exit: Exit,
   ) {
     super(game, getLevel(spec.id), exit);
-    this.backdrop = new Backdrop(this.meta.district);
+    this.backdrop = new Backdrop(this.meta.district, VIGNETTES[spec.id]);
     if (spec.type === 'config') {
       this.cfg = clone(spec.start);
       this.draft = clone(spec.start);
@@ -462,6 +463,30 @@ export class SpecScene extends IncidentScene {
     this.root.append(wrap);
     void spec;
     setTimeout(() => ta.focus(), 0);
+  }
+
+  /** Dev/testing only: skip the intro, mark evidence found and apply the intended fix through the real UI flow. */
+  devSolve(): void {
+    this.root.querySelector('.modal')?.remove();
+    this.complete('understand');
+    this.found();
+    const spec = this.spec;
+    if (spec.type === 'config') {
+      this.draft = clone(spec.solution);
+      this.applyConfig(spec);
+    } else {
+      spec.solve(this.term!);
+      this.markChanged();
+      this.verifyTerm(spec);
+      this.refreshTab();
+    }
+  }
+
+  /** Dev/testing only: open every tab once so each renders. */
+  devVisitTabs(): string[] {
+    const ids = this.tabs().map((t) => t.id);
+    for (const id of ids) this.openTab(id);
+    return ids;
   }
 
   // ---------------------------------------------------------------- shared

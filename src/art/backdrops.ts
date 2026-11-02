@@ -1,6 +1,7 @@
 import { CharacterSheet, LOOKS, type Look } from './characters';
 import { disc, ellipse, rect, rng, type Ctx } from './pixels';
 import { boat, container, house, tree, watchtower } from './scenery';
+import { VignetteRenderer, type Vignette } from './vignette';
 
 export type Status = 'broken' | 'verifying' | 'fixed';
 const W = 384;
@@ -24,8 +25,14 @@ export class Backdrop {
   private sparkles: { x: number; y: number; a: number }[] = [];
   private lastStatus: Status = 'broken';
 
-  constructor(private district: string) {
+  private vignette: VignetteRenderer | undefined;
+
+  constructor(
+    private district: string,
+    vignette?: Vignette,
+  ) {
     this.npc = new CharacterSheet(NPC_LOOK[district] ?? LOOKS.bo);
+    if (vignette) this.vignette = new VignetteRenderer(vignette);
   }
 
   render(c: Ctx, t: number, status: Status, board: string[]): void {
@@ -37,6 +44,7 @@ export class Backdrop {
     this.lastStatus = status;
     ANIMATE[this.district]?.(c, t, status);
     drawBoard(c, t, status, board);
+    this.vignette?.render(c, t, status);
     // district NPC
     const hop = status === 'fixed' ? Math.abs(Math.sin(t * 6)) * 3 : Math.floor(t * 2) % 2;
     this.npc.draw(c, status === 'broken' ? (Math.floor(t / 2) % 2 ? 'left' : 'right') : 'down', 0, 196, 112 - hop);

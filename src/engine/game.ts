@@ -36,6 +36,10 @@ export class Game {
     this.progress = loadProgress(safeStorage());
   }
 
+  get current(): Scene | undefined {
+    return this.scene;
+  }
+
   setScene(s: Scene): void {
     this.scene?.leave?.();
     this.ui.clearScene();

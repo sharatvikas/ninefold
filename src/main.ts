@@ -58,6 +58,16 @@ async function boot(): Promise<void> {
   const town = new TownScene(game, startLevel);
   game.setScene(town);
   game.start();
+
+  if (import.meta.env.DEV) {
+    // Dev-only hooks for automated play-checks. Not included in production builds.
+    (window as unknown as Record<string, unknown>).__ninefold = {
+      ids: Object.keys(PLAYABLE),
+      start: (id: string) => startLevel(id),
+      town: () => game.setScene(town),
+      scene: () => game.current,
+    };
+  }
 }
 
 void boot();
