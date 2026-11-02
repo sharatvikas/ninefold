@@ -4,14 +4,77 @@ A cozy pixel-art town where you learn DevOps, SRE and cloud engineering by fixin
 
 Named after "the nines" of uptime.
 
-## Play locally
+## Play it on your own computer
+
+Ninefold runs entirely in your browser. There's no server, database or account, so playing locally needs nothing beyond Node.js.
+
+### 1. Install the prerequisites (one time)
+
+| Tool | Why | Get it |
+|---|---|---|
+| **Node.js 20.19 or newer** (22 LTS recommended) | builds and serves the game | [nodejs.org](https://nodejs.org) (LTS installer), or `brew install node` on macOS, or `nvm install 22` |
+| **Git** (optional) | to clone the repo | [git-scm.com](https://git-scm.com), or download the ZIP from GitHub instead |
+
+Check it worked:
 
 ```sh
-npm install
-npm run dev     # http://localhost:5173
+node -v    # v20.19.0 or higher
+npm -v
 ```
 
-Controls: arrows/WASD to walk, **E** to talk, **Q** for the ticket list, **1–6** for tools inside an incident. Touch screens get an on-screen pad.
+### 2. Get the code
+
+```sh
+git clone https://github.com/sharatvikas/ninefold.git
+cd ninefold
+```
+
+No Git? On the GitHub page click **Code → Download ZIP**, unzip it, and open a terminal in that folder.
+
+### 3. Install and play
+
+```sh
+npm install      # first time only, ~30 seconds
+npm run play     # builds the game and opens it at http://localhost:4173
+```
+
+That's it. `npm run play` serves the optimised build, just as players would get it online. Stop it with **Ctrl+C**.
+
+If you want to change the game, use the dev server instead. It reloads instantly when you edit code:
+
+```sh
+npm run dev      # http://localhost:5173
+```
+
+### Controls
+
+Arrows/WASD to walk · **E** to talk · **Q** for the ticket list · **👤 AVATAR** to change your look · **1–6** to switch tools inside a ticket · **Esc** to leave a ticket. Touch screens get an on-screen pad.
+
+### Good to know
+
+- **Saves** live in your browser (localStorage) for that address. Using a different browser or port starts a fresh game. To start over, open the browser dev tools console and run `localStorage.removeItem('ninefold.save.v1')`, then refresh.
+- **Offline:** after `npm install`, the game itself works without internet. Only the pixel font is loaded from Google Fonts, and it falls back to a monospace font if that's unavailable.
+- **Opening `dist/index.html` directly doesn't work.** Browsers block modules on `file://`, so always use `npm run play` (or any static file server, such as `npx serve dist`).
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `npm: command not found` | Node.js isn't installed or the terminal needs reopening after install |
+| Errors mentioning `node:` or `engine` | Node is too old: install 20.19+ or 22 LTS |
+| `Port 4173 is in use` | Something else is on that port: `npx vite preview --port 4200` |
+| Blank page | Hard-refresh (Cmd/Ctrl+Shift+R); check the browser console for errors |
+
+## Sharing it online for free
+
+The build is ~300 KB of static files (about 100 KB compressed), so hosting is free on any static host and can't run up a bill: there's no server or database to pay for.
+
+| Option | Cost | Notes |
+|---|---|---|
+| **GitHub Pages** | free for public repos | Already wired up (`.github/workflows/deploy.yml`). Enable it under *Settings → Pages → Source: GitHub Actions*, and every push to `main` redeploys to `https://<user>.github.io/ninefold/`. |
+| **Cloudflare Pages** | free plan | Connect the repo, build command `npm run build`, output folder `dist`. |
+| **Netlify** | free plan | Same settings as Cloudflare. |
+| **itch.io** | free | Upload a ZIP of `dist/` as an HTML5 game; good for reaching players. |
 
 ## What's in the game
 

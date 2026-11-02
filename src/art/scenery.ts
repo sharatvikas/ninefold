@@ -109,7 +109,10 @@ export function sign(c: Ctx, cx: number, y: number, label: string): void {
 
 /** Shingled roof band, shared by station/barn-like buildings. */
 function shingles(c: Ctx, x: number, y: number, w: number, h: number, col: string, taper = 0): void {
-  rect(c, x - 0.5, y - 0.5, w + 1, h + 1, OUT);
+  for (let j = 0; j < h; j += 2) {
+    const inset = taper ? Math.max(0, ((h - j) / h) * taper) : 0;
+    rect(c, x + inset - 0.5, y + j - (j === 0 ? 0.5 : 0), w - inset * 2 + 1, 2 + (j === 0 ? 0.5 : 0), OUT);
+  }
   for (let j = 0; j < h; j += 2) {
     const inset = taper ? Math.max(0, ((h - j) / h) * taper) : 0;
     const rowCol = j % 4 === 0 ? col : shade(col, -10);
@@ -117,7 +120,7 @@ function shingles(c: Ctx, x: number, y: number, w: number, h: number, col: strin
     rect(c, x + inset, y + j + 1.5, w - inset * 2, 0.5, shade(col, -38));
     for (let k = x + inset + (j % 4 === 0 ? 2 : 4); k < x + w - inset - 1; k += 4) rect(c, k, y + j, 0.5, 1.5, shade(col, -30));
   }
-  rect(c, x + 1, y + 0.5, w - 2, 0.5, shade(col, 35));
+  rect(c, x + 1 + taper, y + 0.5, w - 2 - taper * 2, 0.5, shade(col, 35));
   rect(c, x - 1, y + h - 1.5, w + 2, 2, shade(col, -50));
 }
 

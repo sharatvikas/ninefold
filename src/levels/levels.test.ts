@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
+import { PRESETS } from '../ui/avatar';
 import { completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
 
 describe('catalog', () => {
@@ -55,6 +56,16 @@ describe('progress', () => {
     expect(loadProgress(storage)).toEqual(newProgress());
     mem.set(STORAGE_KEY, JSON.stringify({ version: 1, trust: 70, completed: { 'gone-9': { trust: 1 } } }));
     expect(loadProgress(storage).completed).toEqual({});
+  });
+
+  it('has six valid presets', () => {
+    expect(PRESETS).toHaveLength(6);
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) };
+    for (const p of PRESETS) {
+      saveProgress(storage, { ...newProgress(), avatar: p });
+      expect(loadProgress(storage).avatar, p.name).toEqual(p);
+    }
   });
 
   it('keeps a valid avatar and drops a broken one', () => {
