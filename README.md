@@ -15,9 +15,9 @@
 ![Hosting cost](https://img.shields.io/badge/hosting-%240-27ae60)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Canvas%202D-3178c6?logo=typescript&logoColor=white)
 
-<img src="docs/screenshots/sinking-ship.gif" alt="A cargo ship takes on crates until it overflows its hold and sinks: an OOMKilled crash loop" width="720">
+<a href="https://sharatvikas.github.io/ninefold/"><img src="docs/screenshots/gameplay.gif" alt="Gameplay: walk the town, take the Railyard ticket, find the missing dependency in the build log, fix the parts list, watch the build pass and the train leave, then the before/after recap" width="840"></a>
 
-<sub>↑ Ticket "Sinking Ships": each ship takes on cargo (memory) until it overflows its hold (the memory limit) and sinks. That's a Kubernetes <b>OOMKilled → CrashLoopBackOff</b>.</sub>
+<sub>↑ A real ticket, start to finish: walk the town → the build train has derailed → <b>find the cause</b> in the build log → <b>change</b> the parts list → <b>verify</b>: every station passes and the train leaves → before/after recap with the real <code>package.json</code> fix.</sub>
 
 **[▶ Play now](https://sharatvikas.github.io/ninefold/)** · [Why Ninefold?](#-why-ninefold) · [How a ticket works](#-how-a-ticket-works) · [Screenshots](#-screenshots) · [All 51 tickets](#%EF%B8%8F-the-town-8-districts--51-tickets) · [Glossary](#-glossary) · [Run it locally](#-run-it-on-your-own-computer)
 
