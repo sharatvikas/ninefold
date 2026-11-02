@@ -4,6 +4,8 @@ A cozy pixel-art town where you learn DevOps, SRE and cloud engineering by fixin
 
 Named after "the nines" of uptime.
 
+**▶ Play it now: https://sharatvikas.github.io/ninefold/** (free, runs in your browser, nothing to install)
+
 ## Play it on your own computer
 
 Ninefold runs entirely in your browser. There's no server, database or account, so playing locally needs nothing beyond Node.js.
@@ -71,7 +73,7 @@ The build is ~300 KB of static files (about 100 KB compressed), so hosting is fr
 
 | Option | Cost | Notes |
 |---|---|---|
-| **GitHub Pages** | free for public repos | Already wired up (`.github/workflows/deploy.yml`). Enable it under *Settings → Pages → Source: GitHub Actions*, and every push to `main` redeploys to `https://<user>.github.io/ninefold/`. |
+| **GitHub Pages** (in use) | free for public repos | Live at https://sharatvikas.github.io/ninefold/. Every push to `main` runs the tests and redeploys (`.github/workflows/deploy.yml`). Forks: enable *Settings → Pages → Source: GitHub Actions*. |
 | **Cloudflare Pages** | free plan | Connect the repo, build command `npm run build`, output folder `dist`. |
 | **Netlify** | free plan | Same settings as Cloudflare. |
 | **itch.io** | free | Upload a ZIP of `dist/` as an HTML5 game; good for reaching players. |
