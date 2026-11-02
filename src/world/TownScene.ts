@@ -1,5 +1,5 @@
 import { CharacterSheet, LOOKS, type Dir } from '../art/characters';
-import { makeCanvas, rect, rng, disc, type Ctx } from '../art/pixels';
+import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art/pixels';
 import { barn, boat, container, flowers, fountain, house, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
@@ -24,7 +24,7 @@ export interface LevelResult {
 }
 
 export class TownScene implements Scene {
-  private ground: HTMLCanvasElement;
+  private ground = new Layer(() => this.buildGround());
   private player = { box: { x: PLAYER_START.x * TILE + 3, y: PLAYER_START.y * TILE + 10, w: 10, h: 6 }, dir: 'down' as Dir, walk: 0, moving: false };
   private playerSheet = new CharacterSheet(LOOKS.player);
   private npcs: Npc[];
@@ -39,7 +39,6 @@ export class TownScene implements Scene {
     private game: Game,
     private startLevel: (id: string) => void,
   ) {
-    this.ground = this.buildGround();
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         if (GRID[y][x] === 'T') this.trees.push([x, y]);
@@ -126,8 +125,8 @@ export class TownScene implements Scene {
 
     const cx = p.box.x + p.box.w / 2 - VIEW_W / 2;
     const cy = p.box.y - VIEW_H / 2;
-    this.cam.x = Math.round(Math.max(0, Math.min(MAP_W * TILE - VIEW_W, cx)));
-    this.cam.y = Math.round(Math.max(0, Math.min(MAP_H * TILE - VIEW_H, cy)));
+    this.cam.x = snap(Math.max(0, Math.min(MAP_W * TILE - VIEW_W, cx)));
+    this.cam.y = snap(Math.max(0, Math.min(MAP_H * TILE - VIEW_H, cy)));
     void t;
   }
 
@@ -193,7 +192,7 @@ export class TownScene implements Scene {
   render(c: Ctx, t: number): void {
     c.save();
     c.translate(-this.cam.x, -this.cam.y);
-    c.drawImage(this.ground, 0, 0);
+    blit(c, this.ground.get(), 0, 0, MAP_W * TILE, MAP_H * TILE);
     this.drawWater(c, t);
     this.drawHarborBoat(c, t);
     this.drawDockTop(c);

@@ -1,4 +1,4 @@
-import { disc, ellipse, pixelText, rect, shade, type Ctx } from './pixels';
+import { disc, ellipse, pixelText, rect, shade, snap, type Ctx } from './pixels';
 
 export function tree(c: Ctx, x: number, y: number, sway = 0): void {
   rect(c, x + 6, y + 12, 4, 4, '#6b4423');
@@ -132,7 +132,7 @@ export function container(c: Ctx, x: number, y: number, w: number, h: number, co
 /** A cargo ship. (x, y) is the hull's top-left. Crates stack on deck; sc scales everything. */
 export function boat(c: Ctx, x: number, y: number, crates: number, tilt = 0, sc = 1): void {
   c.save();
-  c.translate(Math.round(x), Math.round(y));
+  c.translate(snap(x), snap(y));
   c.rotate(tilt);
   const R = (a: number, b: number, w: number, h: number, col: string) => {
     c.fillStyle = col;

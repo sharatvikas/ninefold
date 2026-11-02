@@ -1,5 +1,6 @@
 import './style.css';
 import { Game, VIEW_H, VIEW_W } from './engine/game';
+import { RENDER } from './art/pixels';
 import type { Scene } from './engine/game';
 import { HarborScene } from './levels/harbor1';
 import type { Exit } from './levels/incident';
@@ -15,15 +16,26 @@ const PLAYABLE: Record<string, (game: Game, exit: Exit) => Scene> = {
   ...Object.fromEntries(ALL_SPECS.map((spec) => [spec.id, (g: Game, e: Exit) => new SpecScene(g, spec, e)])),
 };
 
-function fitStage(stage: HTMLElement): void {
+/**
+ * Fill the window (keeping 16:9) and render the canvas at the display's real resolution,
+ * so pixel art stays sharp and text stays crisp on any screen size.
+ */
+function fitStage(stage: HTMLElement, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
   const fit = () => {
     const maxW = window.innerWidth - 16;
     const maxH = window.innerHeight - 16;
-    const s = Math.min(maxW / VIEW_W, maxH / VIEW_H);
-    // Integer scale keeps pixels crisp; fall back to fractional on tiny screens.
-    const scale = s >= 1 ? Math.floor(s) : s;
-    stage.style.width = `${Math.round(VIEW_W * scale)}px`;
-    stage.style.height = `${Math.round(VIEW_H * scale)}px`;
+    const css = Math.max(0.5, Math.min(maxW / VIEW_W, maxH / VIEW_H));
+    const cssW = Math.round(VIEW_W * css);
+    const cssH = Math.round(VIEW_H * css);
+    stage.style.width = `${cssW}px`;
+    stage.style.height = `${cssH}px`;
+    // Whole device pixels per game pixel, capped to keep offscreen layers a sane size.
+    const k = Math.min(8, Math.max(1, Math.ceil(css * (window.devicePixelRatio || 1))));
+    RENDER.scale = k;
+    canvas.width = VIEW_W * k;
+    canvas.height = VIEW_H * k;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.imageSmoothingEnabled = false;
   };
   window.addEventListener('resize', fit);
   fit();
@@ -33,8 +45,7 @@ async function boot(): Promise<void> {
   const stage = document.getElementById('stage')!;
   const canvas = document.getElementById('game') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
-  ctx.imageSmoothingEnabled = false;
-  fitStage(stage);
+  fitStage(stage, canvas, ctx);
 
   try {
     await Promise.race([document.fonts.load('8px "Press Start 2P"'), new Promise((r) => setTimeout(r, 2500))]);

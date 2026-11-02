@@ -1,4 +1,4 @@
-import { makeCanvas, sprite, type Ctx, type Palette } from './pixels';
+import { Layer, makeCanvas, RENDER, snap, sprite, type Ctx, type Palette } from './pixels';
 
 export type Dir = 'down' | 'up' | 'left' | 'right';
 
@@ -80,9 +80,13 @@ const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
 
 /** A pre-rendered 4-direction x 3-frame sheet of 16x16 sprites. */
 export class CharacterSheet {
-  readonly canvas: HTMLCanvasElement;
+  private layer: Layer;
 
   constructor(look: Look) {
+    this.layer = new Layer(() => CharacterSheet.build(look));
+  }
+
+  private static build(look: Look): HTMLCanvasElement {
     const [cv, c] = makeCanvas(16 * 3, 16 * 4);
     const pal = palette(look);
     DIRS.forEach((dir, row) => {
@@ -96,12 +100,13 @@ export class CharacterSheet {
         sprite(c, legs, x, y + 12, pal, 1, flip);
       }
     });
-    this.canvas = cv;
+    return cv;
   }
 
   draw(c: Ctx, dir: Dir, frame: number, x: number, y: number): void {
     const row = DIRS.indexOf(dir);
-    c.drawImage(this.canvas, frame * 16, row * 16, 16, 16, Math.round(x), Math.round(y), 16, 16);
+    const k = RENDER.scale;
+    c.drawImage(this.layer.get(), frame * 16 * k, row * 16 * k, 16 * k, 16 * k, snap(x), snap(y), 16, 16);
   }
 }
 

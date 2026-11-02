@@ -1,5 +1,5 @@
 import { CharacterSheet, LOOKS, type Look } from '../art/characters';
-import { disc, rect, rng, type Ctx } from '../art/pixels';
+import { blit, disc, Layer, makeCanvas, rect, rng, type Ctx } from '../art/pixels';
 import { house, tree } from '../art/scenery';
 import type { Game } from '../engine/game';
 import { h } from '../ui/ui';
@@ -34,7 +34,7 @@ class PostStage {
   private trip: Trip | undefined;
   private popups: { house: string; text: string; ttl: number; happy: boolean }[] = [];
   private hearts: { x: number; y: number; a: number }[] = [];
-  private ground: HTMLCanvasElement | undefined;
+  private ground = new Layer(buildGround);
 
   get busy(): boolean {
     return this.phase !== 'idle';
@@ -99,8 +99,7 @@ class PostStage {
   }
 
   render(c: Ctx, t: number): void {
-    if (!this.ground) this.ground = buildGround();
-    c.drawImage(this.ground, 0, 0);
+    blit(c, this.ground.get(), 0, 0, W, 216);
     for (let i = 0; i < 3; i++) {
       const x = ((i * 140 + t * 5) % (W + 60)) - 30;
       disc(c, x, 10 + i * 4, 5, '#fff');
@@ -170,10 +169,7 @@ function heart(c: Ctx, x: number, y: number, a: number): void {
 }
 
 function buildGround(): HTMLCanvasElement {
-  const cv = document.createElement('canvas');
-  cv.width = W;
-  cv.height = 216;
-  const c = cv.getContext('2d')!;
+  const [cv, c] = makeCanvas(W, 216);
   const R = rng(3);
   ['#bfe6ff', '#c9ebff', '#d4efff', '#def3ff'].forEach((col, i) => rect(c, 0, i * 7, W, 7, col));
   rect(c, 0, 28, W, 90, '#5fae4a');

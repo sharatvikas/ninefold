@@ -1,5 +1,5 @@
 import { CharacterSheet, LOOKS, type Look } from './characters';
-import { disc, ellipse, rect, rng, type Ctx } from './pixels';
+import { blit, disc, ellipse, Layer, makeCanvas, rect, rng, type Ctx } from './pixels';
 import { boat, container, house, tree, watchtower } from './scenery';
 import { VignetteRenderer, type Vignette } from './vignette';
 
@@ -21,7 +21,7 @@ const NPC_LOOK: Record<string, Look> = {
 /** Draws a district scene for a hands-on level. The top ~135px is what the player sees above the tool tray. */
 export class Backdrop {
   private npc: CharacterSheet;
-  private bg: HTMLCanvasElement | undefined;
+  private bg: Layer;
   private sparkles: { x: number; y: number; a: number }[] = [];
   private lastStatus: Status = 'broken';
 
@@ -32,12 +32,12 @@ export class Backdrop {
     vignette?: Vignette,
   ) {
     this.npc = new CharacterSheet(NPC_LOOK[district] ?? LOOKS.bo);
+    this.bg = new Layer(() => staticLayer(district));
     if (vignette) this.vignette = new VignetteRenderer(vignette);
   }
 
   render(c: Ctx, t: number, status: Status, board: string[]): void {
-    if (!this.bg) this.bg = staticLayer(this.district);
-    c.drawImage(this.bg, 0, 0);
+    blit(c, this.bg.get(), 0, 0, W, 216);
     if (status === 'fixed' && this.lastStatus !== 'fixed') {
       for (let i = 0; i < 24; i++) this.sparkles.push({ x: 40 + Math.random() * 300, y: 30 + Math.random() * 90, a: 1 + Math.random() });
     }
@@ -111,10 +111,7 @@ function windowPane(c: Ctx, x: number, y: number, w: number, h: number, night = 
 }
 
 function staticLayer(d: string): HTMLCanvasElement {
-  const cv = document.createElement('canvas');
-  cv.width = W;
-  cv.height = 216;
-  const c = cv.getContext('2d')!;
+  const [cv, c] = makeCanvas(W, 216);
   switch (d) {
     case 'post': {
       sky(c, ['#bfe6ff', '#c9ebff', '#d4efff', '#def3ff'], 7);
