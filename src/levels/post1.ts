@@ -1,6 +1,6 @@
 import { CharacterSheet, LOOKS, type Look } from '../art/characters';
 import { blit, disc, Layer, makeCanvas, rect, rng, type Ctx } from '../art/pixels';
-import { house, tree } from '../art/scenery';
+import { house, lampPost, tree } from '../art/scenery';
 import type { Game } from '../engine/game';
 import { h } from '../ui/ui';
 import { getLevel } from './catalog';
@@ -181,6 +181,8 @@ function buildGround(): HTMLCanvasElement {
   tree(c, 128, 84);
   tree(c, 288, 88);
   house(c, -18, 50, 62, 66, { roof: '#3b6fb5', wall: '#f0d6a8', label: 'POST' });
+  // lamp posts in the gaps between houses
+  for (const lx of [58, 138, 218, 298]) lampPost(c, lx, STREET_Y - 16, false);
   for (const no of HOUSES) {
     const s = STYLE[RESIDENTS[no]];
     const x = HOUSE_X[no];

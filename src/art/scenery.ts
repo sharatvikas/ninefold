@@ -107,19 +107,49 @@ export function sign(c: Ctx, cx: number, y: number, label: string): void {
   pixelText(c, label, sx + 3, y + 7, '#3a2a1a');
 }
 
-/** Railway station: open-fronted shed with a platform. */
+/** Shingled roof band, shared by station/barn-like buildings. */
+function shingles(c: Ctx, x: number, y: number, w: number, h: number, col: string, taper = 0): void {
+  rect(c, x - 0.5, y - 0.5, w + 1, h + 1, OUT);
+  for (let j = 0; j < h; j += 2) {
+    const inset = taper ? Math.max(0, ((h - j) / h) * taper) : 0;
+    const rowCol = j % 4 === 0 ? col : shade(col, -10);
+    rect(c, x + inset, y + j, w - inset * 2, 2, rowCol);
+    rect(c, x + inset, y + j + 1.5, w - inset * 2, 0.5, shade(col, -38));
+    for (let k = x + inset + (j % 4 === 0 ? 2 : 4); k < x + w - inset - 1; k += 4) rect(c, k, y + j, 0.5, 1.5, shade(col, -30));
+  }
+  rect(c, x + 1, y + 0.5, w - 2, 0.5, shade(col, 35));
+  rect(c, x - 1, y + h - 1.5, w + 2, 2, shade(col, -50));
+}
+
+/** Railway station: open-fronted shed with a platform, timetable, bench and lamp. */
 export function station(c: Ctx, x: number, y: number, w: number, h: number): void {
   rect(c, x + 2, y + h - 1, w - 2, 3, 'rgba(0,0,0,0.2)');
   const rh = Math.floor(h * 0.45);
-  for (let j = 0; j < rh; j++) rect(c, x, y + j, w, 1, j % 3 === 0 ? '#7a5030' : '#946238');
-  rect(c, x, y + rh - 1, w, 2, '#5a3a1a');
-  rect(c, x + 2, y + rh + 1, w - 4, h - rh - 1, '#d9c7a7');
-  for (let px = x + 4; px < x + w - 4; px += 14) rect(c, px, y + rh + 1, 3, h - rh - 1, '#8a6a42');
-  rect(c, x + 8, y + h - 14, 22, 9, '#3a2a1a');
-  rect(c, x + 9, y + h - 13, 20, 7, '#f4f0e6');
-  pixelText(c, '9:00', x + 10, y + h - 7, '#3a2a1a', 5);
-  rect(c, x + w - 34, y + h - 13, 10, 8, '#c0392b');
-  rect(c, x + w - 22, y + h - 13, 10, 8, '#2b6cb0');
+  shingles(c, x, y, w, rh, '#946238');
+  // back wall and posts
+  rect(c, x + 2, y + rh, w - 4, h - rh, OUT);
+  rect(c, x + 2.5, y + rh, w - 5, h - rh - 0.5, '#e6d6b6');
+  for (let yy = y + rh + 3; yy < y + h - 2; yy += 3) rect(c, x + 2.5, yy, w - 5, 0.5, '#d4c29e');
+  for (let px = x + 4; px < x + w - 4; px += 14) {
+    rect(c, px - 0.5, y + rh, 4, h - rh, OUT);
+    rect(c, px, y + rh, 3, h - rh - 0.5, '#8a6a42');
+    rect(c, px, y + rh, 1, h - rh - 0.5, '#a88a5a');
+  }
+  // platform edge
+  rect(c, x, y + h - 2, w, 2, '#b8a888');
+  rect(c, x, y + h - 2, w, 0.5, '#f8d030');
+  // timetable board
+  rect(c, x + 8.5, y + h - 15, 23, 10, OUT);
+  rect(c, x + 9, y + h - 14.5, 22, 9, '#24313a');
+  pixelText(c, '9:00 ✓', x + 10.5, y + h - 9, '#b8f0c8', 4);
+  pixelText(c, '9:30', x + 10.5, y + h - 6, '#f8ecd0', 3);
+  // luggage
+  rect(c, x + w - 34.5, y + h - 12.5, 11, 9, OUT);
+  rect(c, x + w - 34, y + h - 12, 10, 8, '#c0392b');
+  rect(c, x + w - 30, y + h - 13.5, 2, 1.5, OUT);
+  rect(c, x + w - 22.5, y + h - 11.5, 11, 8, OUT);
+  rect(c, x + w - 22, y + h - 11, 10, 7, '#2b6cb0');
+  rect(c, x + w - 22, y + h - 8, 10, 0.5, '#1a4a80');
   sign(c, x + w / 2, y + rh + 1, 'RAILYARD');
 }
 
@@ -127,43 +157,79 @@ export function station(c: Ctx, x: number, y: number, w: number, h: number): voi
 export function barn(c: Ctx, x: number, y: number, w: number, h: number): void {
   rect(c, x + 2, y + h - 1, w - 2, 3, 'rgba(0,0,0,0.2)');
   const rh = Math.floor(h * 0.4);
-  for (let j = 0; j < rh; j++) {
-    const inset = Math.max(0, Math.floor((rh - j) / 2) - 2);
-    rect(c, x + inset, y + j, w - inset * 2, 1, j % 3 === 0 ? '#6a3020' : '#8a3a28');
+  shingles(c, x, y, w, rh, '#7a3424', w * 0.18);
+  rect(c, x + 1.5, y + rh, w - 3, h - rh, OUT);
+  rect(c, x + 2, y + rh, w - 4, h - rh - 0.5, '#b5432b');
+  for (let px = x + 2; px < x + w - 2; px += 3) {
+    rect(c, px, y + rh, 0.5, h - rh - 0.5, '#8a2f1e');
+    rect(c, px + 0.5, y + rh, 0.5, h - rh - 0.5, '#c8553a');
   }
-  rect(c, x + 2, y + rh, w - 4, h - rh, '#b5432b');
-  for (let px = x + 2; px < x + w - 2; px += 4) rect(c, px, y + rh, 1, h - rh, '#9a3524');
+  // hay loft window
+  rect(c, x + w / 2 - 4.5, y + rh - 6, 9, 7, '#f0e0c0');
+  rect(c, x + w / 2 - 3.5, y + rh - 5, 7, 5, '#3a2210');
+  rect(c, x + w / 2 - 3, y + rh - 2, 6, 2, '#e8c860');
+  // big door with white X trim
   const dw = 18;
   const dx = x + Math.floor(w / 2 - dw / 2);
+  rect(c, dx - 0.5, y + h - 16.5, dw + 1, 16.5, OUT);
   rect(c, dx, y + h - 16, dw, 16, '#f0e0c0');
-  rect(c, dx + 2, y + h - 14, dw - 4, 14, '#7a4f2e');
-  c.strokeStyle = '#f0e0c0';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.moveTo(dx + 2.5, y + h - 13.5);
-  c.lineTo(dx + dw - 2.5, y - 0.5 + h);
-  c.moveTo(dx + dw - 2.5, y + h - 13.5);
-  c.lineTo(dx + 2.5, y - 0.5 + h);
-  c.stroke();
+  rect(c, dx + 1.5, y + h - 14.5, dw - 3, 14.5, '#7a4f2e');
+  for (let i = 0; i < 13; i++) {
+    const t = i / 12;
+    rect(c, dx + 1.5 + t * (dw - 4), y + h - 14.5 + t * 13.5, 1, 1, '#f0e0c0');
+    rect(c, dx + dw - 2.5 - t * (dw - 4), y + h - 14.5 + t * 13.5, 1, 1, '#f0e0c0');
+  }
+  rect(c, dx + dw / 2 - 0.25, y + h - 14.5, 0.5, 14.5, '#5a3418');
   sign(c, x + w / 2, y + rh + 1, 'GRANARY');
 }
 
-/** Watchtower for observability. The lamp is drawn by the animated layer. */
+/** Watchtower for observability: braced wooden legs, a lookout cabin and a ladder. */
 export function watchtower(c: Ctx, x: number, y: number, w: number, h: number): void {
   const tx = x + Math.floor(w / 2) - 7;
-  rect(c, tx + 2, y + h - 1, 12, 3, 'rgba(0,0,0,0.2)');
-  rect(c, tx, y + 14, 14, h - 14, '#a88a62');
-  for (let ty = y + 16; ty < y + h; ty += 6) rect(c, tx, ty, 14, 1, '#8a6e48');
-  rect(c, tx - 3, y + 8, 20, 7, '#5a3a22');
-  disc(c, tx + 7, y + 6, 8, '#4a3a2a');
-  rect(c, tx + 4, y + h - 10, 6, 10, '#5a3a22');
+  rect(c, tx + 1, y + h - 1, 14, 3, 'rgba(0,0,0,0.2)');
+  // legs
+  for (const lx of [tx, tx + 12]) {
+    rect(c, lx - 0.5, y + 14, 3, h - 14, OUT);
+    rect(c, lx, y + 14, 2, h - 14.5, '#8a6a42');
+    rect(c, lx, y + 14, 0.5, h - 14.5, '#a88a5a');
+  }
+  // cross braces
+  for (let yy = y + 17; yy < y + h - 4; yy += 9) {
+    for (let i = 0; i < 10; i++) {
+      rect(c, tx + 2 + i, yy + i * 0.7, 1, 0.5, '#6a4a2a');
+      rect(c, tx + 11 - i, yy + i * 0.7, 1, 0.5, '#6a4a2a');
+    }
+  }
+  // ladder
+  rect(c, tx + 5, y + 14, 0.5, h - 14, '#5a3418');
+  rect(c, tx + 8.5, y + 14, 0.5, h - 14, '#5a3418');
+  for (let yy = y + 16; yy < y + h; yy += 2.5) rect(c, tx + 5, yy, 4, 0.5, '#7a5030');
+  // cabin + railing
+  rect(c, tx - 3.5, y + 7.5, 21, 8, OUT);
+  rect(c, tx - 3, y + 8, 20, 7, '#7a5030');
+  for (let px = tx - 2; px < tx + 17; px += 2) rect(c, px, y + 8, 0.5, 7, '#5a3418');
+  rect(c, tx - 3, y + 8, 20, 0.5, '#a88a5a');
+  // roof
+  for (let j = 0; j < 8; j++) rect(c, tx + 7 - j * 1.5 - 1, y + j, j * 3 + 2, 1, j % 2 ? '#4a3a2a' : '#5a4a3a');
+  rect(c, tx - 4, y + 7, 22, 1, OUT);
 }
 
+/** Town fountain: stone ring, rippling water, central column and basin. */
 export function fountain(c: Ctx, cx: number, cy: number): void {
   ellipse(c, cx, cy + 2, 13, 7, 'rgba(0,0,0,0.15)');
-  ellipse(c, cx, cy, 12, 7, '#7d8894');
-  ellipse(c, cx, cy, 10, 5, '#4aa3e0');
-  rect(c, cx - 1, cy - 8, 3, 8, '#9aa6b2');
+  ellipse(c, cx, cy, 13, 8, OUT);
+  ellipse(c, cx, cy, 12, 7, '#9aa6b2');
+  for (let a = 0; a < 16; a++) {
+    const ang = (a / 16) * Math.PI * 2;
+    rect(c, cx + Math.cos(ang) * 11.5, cy + Math.sin(ang) * 6.5, 0.5, 0.5, '#7d8894');
+  }
+  ellipse(c, cx, cy, 10, 5, '#3f8fd0');
+  ellipse(c, cx, cy - 0.5, 9, 4, '#4aa3e0');
+  ellipse(c, cx - 3, cy - 1, 4, 1, '#7fc2f0');
+  rect(c, cx - 1.5, cy - 8, 4, 9, OUT);
+  rect(c, cx - 1, cy - 8, 3, 8.5, '#b8c2cc');
+  rect(c, cx - 1, cy - 8, 1, 8.5, '#d8e0e8');
+  ellipse(c, cx + 0.5, cy - 8, 4, 1, '#9aa6b2');
 }
 
 export function flowers(c: Ctx, x: number, y: number, seed: number): void {
@@ -172,17 +238,28 @@ export function flowers(c: Ctx, x: number, y: number, seed: number): void {
     const fx = x + ((seed * 7 + i * 5) % 14) + 1;
     const fy = y + ((seed * 3 + i * 9) % 14) + 1;
     const col = cols[(seed + i) % cols.length];
-    rect(c, fx - 1, fy, 3, 1, col);
-    rect(c, fx, fy - 1, 1, 3, col);
-    rect(c, fx, fy, 1, 1, '#f8f8a0');
+    rect(c, fx + 0.25, fy + 1.5, 0.5, 2, '#3f8a36');
+    rect(c, fx - 0.75, fy + 2.5, 1, 0.5, '#4fa04f');
+    rect(c, fx - 1, fy, 2.5, 1.5, col);
+    rect(c, fx - 0.25, fy - 0.75, 1, 3, col);
+    rect(c, fx, fy + 0.25, 0.5, 0.5, '#f8e070');
   }
 }
 
+/** Shipping container: corrugated sides, highlight, door bars and lock handles. */
 export function container(c: Ctx, x: number, y: number, w: number, h: number, col: string): void {
-  rect(c, x, y, w, h, '#2a1e1a');
-  rect(c, x + 1, y + 1, w - 2, h - 2, col);
-  rect(c, x + 1, y + 1, w - 2, 1, 'rgba(255,255,255,0.35)');
-  for (let k = 3; k < w - 1; k += 3) rect(c, x + k, y + 2, 1, h - 3, 'rgba(0,0,0,0.18)');
+  rect(c, x, y, w, h, OUT);
+  rect(c, x + 0.5, y + 0.5, w - 1, h - 1, col);
+  for (let k = 1.5; k < w - 1; k += 2) {
+    rect(c, x + k, y + 1.5, 0.5, h - 3, shade(col, -28));
+    rect(c, x + k + 0.5, y + 1.5, 0.5, h - 3, shade(col, 18));
+  }
+  rect(c, x + 0.5, y + 0.5, w - 1, 1, shade(col, 40));
+  rect(c, x + 0.5, y + h - 1.5, w - 1, 1, shade(col, -40));
+  rect(c, x + w - 4, y + 1.5, 0.5, h - 3, '#2a1e1a');
+  rect(c, x + w - 2.5, y + 1.5, 0.5, h - 3, '#2a1e1a');
+  rect(c, x + w - 4.5, y + h / 2 - 0.5, 1.5, 1, '#d8d8d8');
+  rect(c, x + w - 3, y + h / 2 + 0.5, 1.5, 1, '#d8d8d8');
 }
 
 /** A cargo ship. (x, y) is the hull's top-left. Crates stack on deck; sc scales everything. */
@@ -194,22 +271,157 @@ export function boat(c: Ctx, x: number, y: number, crates: number, tilt = 0, sc 
     c.fillStyle = col;
     c.fillRect(a * sc, b * sc, w * sc, h * sc);
   };
-  R(0, 0, 30, 6, '#2a1e1a');
-  R(1, 0, 28, 5, '#8a5a2e');
-  R(2, 4, 26, 2, '#5a3a1a');
-  R(1, 1, 28, 1, '#a87444');
-  R(4, -14, 1, 14, '#2a1e1a');
-  R(5, -13, 9, 9, '#2a1e1a');
-  R(5, -12, 8, 7, '#f4f0e6');
-  R(5, -15, 4, 2, '#c0392b');
+  // hull: tapered bow, planks, waterline stripe, portholes
+  R(-0.5, -0.5, 31.5, 7, OUT);
+  R(30, 0, 1.5, 3, OUT);
+  for (let j = 0; j < 6; j += 0.5) {
+    const inset = j > 3 ? (j - 3) * 0.8 : 0;
+    R(inset, j, 30 - inset * 1.5, 0.5, j < 1 ? '#b8804c' : j > 4.5 ? '#9a2a1e' : j % 1.5 === 0 ? '#7a4a24' : '#8a5a2e');
+  }
+  R(0, 4.5, 29, 0.5, '#e8e0d0');
+  for (const px of [6, 12, 18, 24]) {
+    R(px, 2, 1.5, 1.5, OUT);
+    R(px + 0.25, 2.25, 1, 1, '#8fd0ff');
+  }
+  // wheelhouse at the stern
+  R(1, -5.5, 8, 5.5, OUT);
+  R(1.5, -5, 7, 5, '#f4f0e6');
+  R(1.5, -5, 7, 0.5, '#ffffff');
+  R(2.5, -4, 2, 1.5, '#5aaee0');
+  R(5.5, -4, 2, 1.5, '#5aaee0');
+  R(1, -6.5, 8, 1, '#c0392b');
+  // mast, sail and flag
+  R(10, -15, 1, 15, OUT);
+  R(11, -14, 8.5, 9.5, OUT);
+  R(11.5, -13.5, 7.5, 8.5, '#f4f0e6');
+  R(11.5, -13.5, 0.5, 8.5, '#d8d0c0');
+  for (let k = 0; k < 4; k++) R(12.5 + k * 1.8, -13.5, 0.25, 8.5, '#e0d8c8');
+  R(10.5, -16.5, 4.5, 2, '#c0392b');
+  R(15, -16, 1, 1, '#c0392b');
+  // crates with plank lines and highlights
   const cols = ['#c0392b', '#2b6cb0', '#27ae60', '#e8a030'];
   for (let i = 0; i < crates; i++) {
-    const cx = 16 + (i % 3) * 4;
+    const cx = 18 + (i % 3) * 4;
     const cy = -4 - Math.floor(i / 3) * 4;
-    R(cx, cy, 4, 4, '#2a1e1a');
-    R(cx, cy, 3, 3, cols[i % 4]);
+    R(cx, cy, 4, 4, OUT);
+    R(cx + 0.5, cy + 0.5, 3, 3, cols[i % 4]);
+    R(cx + 0.5, cy + 0.5, 3, 0.5, 'rgba(255,255,255,0.35)');
+    R(cx + 0.5, cy + 2, 3, 0.5, 'rgba(0,0,0,0.25)');
   }
   c.restore();
+}
+
+/** A dockside crane: lattice tower, boom, operator cab, cable and hook. */
+export function crane(c: Ctx, x: number, y: number, height: number, boom: number, sway = 0): void {
+  const Y = '#e8a030';
+  const D = '#b07818';
+  rect(c, x - 0.5, y - 0.5, 8, height + 1, OUT);
+  rect(c, x, y, 7, height, Y);
+  rect(c, x, y, 1, height, '#f8c860');
+  for (let yy = y + 2; yy < y + height - 2; yy += 6) {
+    for (let i = 0; i < 6; i++) {
+      rect(c, x + 1 + i, yy + i, 0.5, 0.5, D);
+      rect(c, x + 6 - i, yy + i, 0.5, 0.5, D);
+    }
+    rect(c, x, yy, 7, 0.5, D);
+  }
+  // boom
+  rect(c, x - boom - 0.5, y - 0.5, boom + 8, 6, OUT);
+  rect(c, x - boom, y, boom + 7, 5, Y);
+  rect(c, x - boom, y, boom + 7, 0.5, '#f8c860');
+  for (let bx = x - boom + 1; bx < x; bx += 4) {
+    rect(c, bx, y + 1, 0.5, 3, D);
+    for (let i = 0; i < 4; i++) rect(c, bx + i, y + 1 + i * 0.75, 0.5, 0.5, D);
+  }
+  // cab
+  rect(c, x - 3.5, y + 5.5, 9, 7, OUT);
+  rect(c, x - 3, y + 6, 8, 6, '#d88020');
+  rect(c, x - 2, y + 7, 6, 3, '#8fd0ff');
+  // cable + hook + hanging container
+  const hx = x - boom + 8;
+  const len = 22 + sway;
+  rect(c, hx, y + 5, 0.5, len, '#3a3a3a');
+  container(c, hx - 5, y + 5 + len, 11, 7, '#2b6cb0');
+}
+
+/** A railway carriage (or a locomotive). (x, y) is the top-left; w wide, 16 tall. */
+export function railCar(c: Ctx, x: number, y: number, w: number, col: string, loco = false): void {
+  rect(c, x - 0.5, y - 0.5, w + 1, 15, OUT);
+  rect(c, x, y, w, 14, col);
+  rect(c, x, y, w, 1, shade(col, 40));
+  rect(c, x, y + 11, w, 3, shade(col, -35));
+  rect(c, x, y - 1.5, w, 1.5, OUT);
+  rect(c, x + 0.5, y - 1, w - 1, 1, shade(col, -20));
+  if (loco) {
+    rect(c, x + w - 9, y + 2, 7, 5, OUT);
+    rect(c, x + w - 8.5, y + 2.5, 6, 4, '#8fd0ff');
+    rect(c, x + 3, y - 7, 5, 6, OUT);
+    rect(c, x + 3.5, y - 6.5, 4, 5.5, '#3a3a3a');
+    rect(c, x + w - 1, y + 9, 2, 3, '#f8e070');
+  } else {
+    for (let wx = x + 2; wx < x + w - 5; wx += 6) {
+      rect(c, wx - 0.5, y + 2.5, 5, 5, OUT);
+      rect(c, wx, y + 3, 4, 4, '#8fd0ff');
+      rect(c, wx, y + 3, 1.5, 1, '#d8f0ff');
+    }
+  }
+  for (const wx of [x + 4, x + w - 4]) {
+    disc(c, wx, y + 15, 3, OUT);
+    disc(c, wx, y + 15, 2, '#5a5a5a');
+    rect(c, wx - 0.25, y + 13, 0.5, 4, '#2a2a2a');
+    rect(c, wx - 2, y + 14.75, 4, 0.5, '#2a2a2a');
+  }
+}
+
+/** Old-fashioned street lamp; `lit` adds a warm glow. */
+export function lampPost(c: Ctx, x: number, y: number, lit = true): void {
+  rect(c, x - 0.5, y, 2, 18, OUT);
+  rect(c, x, y, 1, 17.5, '#3a3a4a');
+  rect(c, x - 2, y + 16.5, 5, 1.5, '#3a3a4a');
+  rect(c, x - 2.5, y - 4.5, 6, 5, OUT);
+  rect(c, x - 2, y - 4, 5, 4, lit ? '#ffe680' : '#a8a080');
+  rect(c, x - 3, y - 5.5, 7, 1.5, '#3a3a4a');
+  if (lit) disc(c, x + 0.5, y - 2, 6, 'rgba(255,230,128,0.18)');
+}
+
+/** A tied grain sack. */
+export function sack(c: Ctx, x: number, y: number): void {
+  ellipse(c, x + 4, y + 6, 4, 4, OUT);
+  ellipse(c, x + 4, y + 6, 3, 3, '#e8d098');
+  rect(c, x + 2.5, y + 5, 1.5, 3, '#f4e0b0');
+  rect(c, x + 3, y + 1, 2, 2.5, '#d8b878');
+  rect(c, x + 2.5, y + 2.5, 3, 0.5, '#8a6a30');
+  rect(c, x + 3, y + 7.5, 3, 0.5, '#c8a868');
+}
+
+/** Bookshelf for interiors. */
+export function bookshelf(c: Ctx, x: number, y: number, w: number, h: number): void {
+  rect(c, x - 0.5, y - 0.5, w + 1, h + 1, OUT);
+  rect(c, x, y, w, h, '#6a4024');
+  const cols = ['#c0392b', '#2b6cb0', '#27ae60', '#e8a030', '#7a4fa0', '#f4f0e6'];
+  for (let sy = y + 1; sy < y + h - 4; sy += 7) {
+    rect(c, x + 1, sy + 5, w - 2, 1, '#4a2a14');
+    let bx = x + 1.5;
+    let i = Math.floor(sy);
+    while (bx < x + w - 2) {
+      const bw = 1.5 + (i % 3) * 0.5;
+      const bh = 4 + (i % 2) * 0.5;
+      rect(c, bx, sy + 5 - bh, bw, bh, cols[i % cols.length]);
+      rect(c, bx, sy + 5 - bh + 1, bw, 0.5, 'rgba(255,255,255,0.3)');
+      bx += bw + 0.5;
+      i += 7;
+    }
+  }
+}
+
+/** Potted plant for interiors. */
+export function plant(c: Ctx, x: number, y: number): void {
+  for (const [dx, dy, r] of [[3, 3, 3], [6, 2, 3], [4.5, 0, 2.5]] as const) disc(c, x + dx, y + dy, r, '#2f7a3d');
+  rect(c, x + 3, y - 1, 1, 1, '#58b45a');
+  rect(c, x + 6, y + 1, 1, 1, '#58b45a');
+  rect(c, x + 1.5, y + 5.5, 7, 6, OUT);
+  rect(c, x + 2, y + 6, 6, 5, '#c0603a');
+  rect(c, x + 2, y + 6, 6, 1, '#d87a50');
 }
 
 export interface Particle {

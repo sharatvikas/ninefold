@@ -122,7 +122,7 @@ burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than sustainable
     id: 'hall-3',
     type: 'config',
     alert: 'HARVEST FESTIVAL NEXT WEEK',
-    board: { broken: ['expected: 2000 req/s', 'capacity: 600 req/s'], fixed: ['festival: handled', 'p95 < 1s ✓'] },
+    board: { broken: ['expected: 2000 req/s', 'capacity: ~1000 req/s'], fixed: ['festival: handled', 'p95 < 1s ✓'] },
     intro: {
       symptom: 'Last year\'s festival took the bakery site down for four hours. This year 2,000 requests per second are expected at peak, five times normal.',
       known: [

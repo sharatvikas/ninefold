@@ -1,6 +1,6 @@
 import { CharacterSheet, LOOKS } from '../art/characters';
 import { disc, rect, type Ctx } from '../art/pixels';
-import { boat, container, Smoke } from '../art/scenery';
+import { boat, container, crane, Smoke } from '../art/scenery';
 import type { Game } from '../engine/game';
 import { h } from '../ui/ui';
 import { getLevel } from './catalog';
@@ -74,19 +74,29 @@ class HarborStage {
   }
 
   render(c: Ctx, t: number): void {
-    ['#ffd9a0', '#ffe2b0', '#ffeac4', '#fff0d6', '#fdf4e2'].forEach((col, i) => rect(c, 0, i * 15, W, 15, col));
+    // sky: soft bands, sun with glow, two layers of hills
+    const skyCols = ['#ffcf90', '#ffd9a0', '#ffe2b0', '#ffe8bc', '#ffeec8', '#fff2d4', '#fff6e0'];
+    skyCols.forEach((col, i) => rect(c, 0, i * 11, W, 11, col));
+    disc(c, 300, 38, 22, 'rgba(255,240,180,0.35)');
     disc(c, 300, 38, 15, '#fff4c0');
     disc(c, 300, 38, 12, '#ffe680');
+    disc(c, 297, 35, 4, '#fff8d8');
     for (let x = 0; x < W; x++) {
+      const far = 14 + Math.sin(x / 45 + 1) * 6;
+      rect(c, x, 74 - far, 1, far, '#b8d4a8');
       const hh = 8 + Math.sin(x / 30) * 5 + Math.sin(x / 11) * 2;
-      rect(c, x, 74 - hh, 1, hh, '#9cc48a');
+      rect(c, x, 74 - hh, 1, hh, '#8cbc7a');
+      rect(c, x, 74 - hh, 1, 0.5, '#a8d494');
     }
+    // sea with depth, waves and sparkles
     rect(c, 0, 74, W, 66, '#3d8fd1');
-    for (let i = 0; i < 46; i++) {
+    rect(c, 0, 74, W, 3, '#5aaee0');
+    rect(c, 0, 118, W, 22, '#3482c4');
+    for (let i = 0; i < 70; i++) {
       const oy = (i * 11) % 62;
       const sx = ((i * 53 + t * (8 + oy / 6)) % (W + 20)) - 10;
-      rect(c, sx, 76 + oy, 6, 1, '#7fc2f0');
-      if (i % 4 === 0) rect(c, sx + 2, 75 + oy, 2, 1, '#c8e8fa');
+      rect(c, sx, 76 + oy, 5 + (i % 3), 0.5, '#7fc2f0');
+      if (i % 4 === 0) rect(c, sx + 2, 75.5 + oy, 2, 0.5, '#e0f4ff');
     }
     for (let i = 0; i < 3; i++) {
       const x = ((40 + i * 120 + t * 12) % (W + 20)) - 10;
@@ -95,22 +105,40 @@ class HarborStage {
       rect(c, x, y, 2, 1, '#3a3a3a');
       rect(c, x + 3, y, 2, 1, '#3a3a3a');
       rect(c, x + 2, y + (f ? 1 : -1), 1, 1, '#3a3a3a');
+      rect(c, x + 2, y + 0.5, 1, 0.5, '#f4f0e6');
     }
     if (!this.stopped) this.drawShip(c, t);
+    // dock: planks with nails and shading, posts into the water
+    for (let x = 6; x < W; x += 28) {
+      rect(c, x - 0.5, 128, 5, 12, '#2a1e1a');
+      rect(c, x, 128, 4, 11.5, '#5a3a20');
+      rect(c, x, 128, 1, 11.5, '#7a5030');
+    }
     rect(c, 0, 136, W, 80, '#8a6a42');
-    for (let y = 136; y < 216; y += 6) rect(c, 0, y, W, 1, '#6b4a2a');
-    for (let x = 0; x < W; x += 40) rect(c, x + ((x / 40) % 2) * 20, 136, 1, 80, '#6b4a2a');
-    rect(c, 0, 134, W, 3, '#5a3a1a');
+    for (let y = 136; y < 216; y += 6) {
+      rect(c, 0, y, W, 0.5, '#5a3a1a');
+      rect(c, 0, y + 0.5, W, 0.5, '#a88458');
+      const off = ((y - 136) / 6) % 2 ? 20 : 0;
+      for (let x = off; x < W; x += 40) {
+        rect(c, x, y, 0.5, 6, '#5a3a1a');
+        rect(c, x + 2, y + 2.5, 0.5, 0.5, '#3a2210');
+        rect(c, x + 37, y + 2.5, 0.5, 0.5, '#3a2210');
+      }
+    }
+    rect(c, 0, 133.5, W, 3, '#2a1e1a');
+    rect(c, 0, 134, W, 2, '#6a4424');
     container(c, 8, 116, 30, 18, '#c0392b');
     container(c, 8, 98, 30, 18, '#2b6cb0');
     container(c, 8, 80, 30, 18, '#27ae60');
     container(c, 40, 116, 30, 18, '#e8a030');
-    rect(c, 330, 40, 7, 96, '#e8a030');
-    for (let y = 44; y < 136; y += 8) rect(c, 330, y, 7, 1, '#b07818');
-    rect(c, 250, 40, 87, 5, '#e8a030');
-    const sw = Math.sin(t) * 4;
-    rect(c, 262, 45, 1, 26 + sw, '#2a1e1a');
-    rect(c, 258, 71 + sw, 9, 6, '#2b6cb0');
+    // bollard and coiled rope
+    rect(c, 110, 128, 6, 8, '#2a1e1a');
+    rect(c, 110.5, 128.5, 5, 7, '#4a4a5a');
+    rect(c, 109, 127, 8, 2, '#3a3a4a');
+    disc(c, 130, 132, 4, '#2a1e1a');
+    disc(c, 130, 132, 3, '#c8a868');
+    disc(c, 130, 132, 1, '#8a6a30');
+    crane(c, 330, 40, 96, 80, Math.sin(t) * 4);
     this.smoke.draw(c);
     const bob = Math.floor(t * 2) % 2;
     this.finn.draw(c, this.happy ? 'down' : 'right', 0, 180, 120 - bob);

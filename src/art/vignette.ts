@@ -9,9 +9,9 @@ export type Vignette =
   | { kind: 'tiles'; label: string; items: string[]; bad: number[]; fixedItems?: string[] };
 
 const X = 10;
-const Y = 42;
+const Y = 36;
 const W = 206;
-const H = 58;
+const H = 44;
 const RED = '#e05a48';
 const GREEN = '#58d080';
 const INK = '#f8ecd0';
@@ -39,7 +39,7 @@ export class VignetteRenderer {
     const n = nodes.length;
     const gap = (W - 12) / n;
     const bw = Math.min(gap - 8, 56);
-    const cy = Y + 34;
+    const cy = Y + 27;
     const cx = (i: number) => X + 6 + gap * i + gap / 2;
     // edges
     for (let i = 0; i < n - 1; i++) {
@@ -82,7 +82,7 @@ export class VignetteRenderer {
     this.shown = this.shown === undefined ? v.broken : this.shown + (target - this.shown) * 0.06;
     const val = this.shown;
     const bx = X + 6;
-    const by = Y + 22;
+    const by = Y + 15;
     const bw = W - 12;
     const frac = Math.max(0, Math.min(1, val / v.max));
     const bad = v.limit === undefined ? status !== 'fixed' : v.lowIsGood ? val > v.limit : val < v.limit;
@@ -96,12 +96,12 @@ export class VignetteRenderer {
     }
     c.font = '6px "Press Start 2P"';
     c.fillStyle = bad ? '#ffb0a0' : '#b8f0c8';
-    c.fillText(`${fmt(val)}${v.unit ?? ''}`, bx, by + 24);
+    c.fillText(`${fmt(val)}${v.unit ?? ''}`, bx, by + 21);
     if (v.limit !== undefined) {
       c.font = '4px "Press Start 2P"';
       c.fillStyle = '#f8d030';
       const txt = `${v.lowIsGood ? 'limit' : 'need'} ${fmt(v.limit)}${v.unit ?? ''}`;
-      c.fillText(txt, bx + bw - txt.length * 4.2, by + 24);
+      c.fillText(txt, bx + bw - txt.length * 4.2, by + 21);
     }
   }
 
@@ -111,11 +111,11 @@ export class VignetteRenderer {
     const cols = n > 4 ? 3 : n;
     const rows = Math.ceil(n / cols);
     const tw = (W - 12 - (cols - 1) * 4) / cols;
-    const th = rows > 1 ? 16 : 22;
+    const th = rows > 1 ? 11 : 17;
     items.forEach((label, i) => {
       const bad = !fixed && v.bad.includes(i);
       const x = X + 6 + (i % cols) * (tw + 4);
-      const y = Y + 15 + Math.floor(i / cols) * (th + 3);
+      const y = Y + 13 + Math.floor(i / cols) * (th + 3);
       const blink = bad && Math.floor(t * 2.5 + i) % 2 === 0;
       rect(c, x - 1, y - 1, tw + 2, th + 2, bad ? (blink ? RED : '#8a3030') : fixed ? GREEN : '#6a8a9a');
       rect(c, x, y, tw, th, '#1d2730');

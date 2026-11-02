@@ -1,6 +1,6 @@
 import { CharacterSheet, LOOKS, type Dir, type Look } from '../art/characters';
 import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art/pixels';
-import { barn, boat, container, flowers, fountain, house, Smoke, station, tree, watchtower } from '../art/scenery';
+import { barn, boat, container, crane, flowers, fountain, house, lampPost, railCar, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
 import { bigIncidentBlockers, levelStatus, nextLevelIn } from '../state/progress';
@@ -297,36 +297,15 @@ export class TownScene implements Scene {
   }
 
   private drawDockTop(c: Ctx): void {
-    // Crane (drawn after water so it stands over the edge)
-    const x = CRANE.x * TILE + 5;
-    const y = (CRANE.y - 2) * TILE;
-    rect(c, x, y, 6, 5 * TILE + 8, '#e8a030');
-    for (let yy = y + 4; yy < y + 5 * TILE; yy += 8) rect(c, x, yy, 6, 1, '#b07818');
-    rect(c, x - 70, y, 76, 5, '#e8a030');
-    rect(c, x - 60, y + 5, 1, 22, '#2a1e1a');
-    rect(c, x - 64, y + 27, 9, 6, '#2b6cb0');
+    crane(c, CRANE.x * TILE + 5, (CRANE.y - 2) * TILE, 5 * TILE + 8, 70);
   }
 
   private drawTrain(c: Ctx, t: number): void {
     const x = ((t * 46) % (MAP_W * TILE + 240)) - 120;
-    const y = 2 * TILE + 4;
-    const cars: [number, string][] = [
-      [0, '#2b6cb0'],
-      [30, '#b5523b'],
-      [54, '#e8a030'],
-      [78, '#27ae60'],
-    ];
-    for (const [o, col] of cars) {
-      const w = o === 0 ? 26 : 22;
-      rect(c, x - o, y, w, 16, '#2a1e1a');
-      rect(c, x - o + 1, y + 1, w - 2, 13, col);
-      rect(c, x - o + 1, y + 1, w - 2, 2, 'rgba(255,255,255,0.3)');
-      disc(c, x - o + 5, y + 17, 2, '#222');
-      disc(c, x - o + w - 5, y + 17, 2, '#222');
-    }
-    rect(c, x + 16, y + 3, 7, 5, '#8fd0ff');
-    rect(c, x + 3, y - 5, 5, 6, '#2a1e1a');
-    if (Math.floor(t * 4) % 2) disc(c, x + 4, y - 9, 3, 'rgba(240,240,240,0.7)');
+    const y = 2 * TILE + 3;
+    const cars: [string, boolean][] = [['#2b6cb0', true], ['#b5523b', false], ['#e8a030', false], ['#27ae60', false]];
+    cars.forEach(([col, loco], i) => railCar(c, x - i * 30, y, 28, col, loco));
+    if (Math.floor(t * 4) % 2) disc(c, x + 6, y - 10, 3, 'rgba(240,240,240,0.7)');
   }
 
   private drawLamp(c: Ctx, t: number): void {
@@ -418,6 +397,7 @@ export class TownScene implements Scene {
       else watchtower(c, x, y, w, hgt);
     }
     fountain(c, FOUNTAIN.x * TILE, FOUNTAIN.y * TILE);
+    for (const [lx, ly] of [[18, 13], [21, 13], [11, 14], [26, 14], [16, 25], [23, 25]] as const) lampPost(c, lx * TILE + 7, ly * TILE - 2);
     container(c, 33 * TILE, 19 * TILE + 3, 20, 13, '#c0392b');
     container(c, 34 * TILE + 6, 19 * TILE + 3, 20, 13, '#2b6cb0');
     container(c, 36 * TILE - 4, 19 * TILE + 3, 18, 13, '#27ae60');
