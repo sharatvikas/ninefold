@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
-import { completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
+import { resetProgress, completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
 
 describe('catalog', () => {
   it('has 6 levels for each of the 8 districts plus 3 big incidents', () => {
@@ -56,6 +56,15 @@ describe('progress', () => {
     expect(loadProgress(storage)).toEqual(newProgress());
     mem.set(STORAGE_KEY, JSON.stringify({ version: 1, trust: 70, completed: { 'gone-9': { trust: 1 } } }));
     expect(loadProgress(storage).completed).toEqual({});
+  });
+
+  it('resets tickets and trust but keeps the avatar', () => {
+    const p = { ...completeLevel(newProgress(), 'harbor-1', 5), avatar: PRESETS[2] };
+    const r = resetProgress(p);
+    expect(r.completed).toEqual({});
+    expect(r.trust).toBe(newProgress().trust);
+    expect(r.avatar).toEqual(PRESETS[2]);
+    expect(resetProgress(newProgress()).avatar).toBeUndefined();
   });
 
   it('has six valid presets', () => {

@@ -136,7 +136,7 @@ class QuestLog {
     });
   }
 
-  show(p: Progress, onPlay?: (levelId: string) => void): void {
+  show(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void): void {
     this.el.replaceChildren();
     const box = h('div', 'panel questlog');
     const head = h('div', 'ql-head');
@@ -165,7 +165,31 @@ class QuestLog {
       }
       grid.append(col);
     }
-    box.append(head, grid, h('div', 'ql-foot', '! ready   ✓ done (click to replay)   … coming soon   · finish the previous ticket first'));
+    const foot = h('div', 'ql-foot');
+    foot.append(h('span', '', '! ready   ✓ done (click to replay)   · finish the previous ticket first'));
+    if (onReset) {
+      const reset = h('button', 'btn reset-btn', '↺ RESET PROGRESS');
+      let armed = false;
+      let timer = 0;
+      reset.addEventListener('click', () => {
+        if (!armed) {
+          armed = true;
+          reset.classList.add('armed');
+          reset.textContent = 'CLEAR ALL TICKETS & TRUST? CLICK AGAIN';
+          timer = window.setTimeout(() => {
+            armed = false;
+            reset.classList.remove('armed');
+            reset.textContent = '↺ RESET PROGRESS';
+          }, 4000);
+          return;
+        }
+        clearTimeout(timer);
+        this.close();
+        onReset();
+      });
+      foot.append(reset);
+    }
+    box.append(head, grid, foot);
     this.el.append(box);
     this.el.classList.remove('hidden');
     this.open = true;
@@ -208,9 +232,9 @@ export class UI {
     this.scene.replaceChildren();
   }
 
-  openQuestLog(p: Progress, onPlay?: (levelId: string) => void): void {
+  openQuestLog(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void): void {
     this.input.enabled = false;
-    this.questLog.show(p, onPlay);
+    this.questLog.show(p, onPlay, onReset);
   }
 
   toast(msg: string, kind: 'good' | 'bad' | 'info' = 'info'): void {

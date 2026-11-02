@@ -133,7 +133,10 @@ body {
 .ql-level.done { color: var(--green); }
 .ql-level.playable { cursor: pointer; border-radius: 0.3cqw; }
 .ql-level.playable:hover { background: rgba(248, 208, 48, 0.35); }
-.ql-foot { font-size: 0.9cqw; color: #7a6a5a; }
+.ql-foot { font-size: 0.9cqw; color: #7a6a5a; display: flex; justify-content: space-between; align-items: center; gap: 1cqw; }
+.reset-btn { background: #8a5a5a; border-color: #5a3a3a; box-shadow: 0 0.3cqw 0 #5a3a3a; font-size: 0.9cqw; }
+.reset-btn.armed { background: var(--red); border-color: #7a1a10; box-shadow: 0 0.3cqw 0 #7a1a10; animation: pulse2 0.8s infinite; }
+@keyframes pulse2 { 50% { filter: brightness(1.2); } }
 
 /* ---------- Level chrome ---------- */
 .level { position: absolute; inset: 0; }

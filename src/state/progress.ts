@@ -19,6 +19,11 @@ export function newProgress(): Progress {
   return { version: 1, trust: 50, completed: {} };
 }
 
+/** Start over: every ticket and all Trust are cleared, but the player keeps their avatar. */
+export function resetProgress(p: Progress): Progress {
+  return { ...newProgress(), ...(p.avatar ? { avatar: p.avatar } : {}) };
+}
+
 export const clampTrust = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
 
 /** Record a finished level. Replaying a level never earns its Trust twice. */

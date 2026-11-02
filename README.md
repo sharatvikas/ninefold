@@ -54,7 +54,7 @@ Arrows/WASD to walk · **E** to talk · **Q** for the ticket list · **👤 AVAT
 
 ### Good to know
 
-- **Saves** live in your browser (localStorage) for that address. Using a different browser or port starts a fresh game. To start over, open the browser dev tools console and run `localStorage.removeItem('ninefold.save.v1')`, then refresh.
+- **Saves** live in your browser (localStorage) for that address. Using a different browser or port starts a fresh game. To start over, press **Q** and use **↺ Reset progress** (it keeps your avatar).
 - **Offline:** after `npm install`, the game itself works without internet. Only the pixel font is loaded from Google Fonts, and it falls back to a monospace font if that's unavailable.
 - **Opening `dist/index.html` directly doesn't work.** Browsers block modules on `file://`, so always use `npm run play` (or any static file server, such as `npx serve dist`).
 

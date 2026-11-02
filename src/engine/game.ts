@@ -1,7 +1,7 @@
 import type { Ctx } from '../art/pixels';
 import { Input } from './input';
 import { UI } from '../ui/ui';
-import { completeLevel, loadProgress, saveProgress, type Avatar, type Progress } from '../state/progress';
+import { completeLevel, loadProgress, resetProgress, saveProgress, type Avatar, type Progress } from '../state/progress';
 
 export const VIEW_W = 384;
 export const VIEW_H = 216;
@@ -45,6 +45,11 @@ export class Game {
     this.ui.clearScene();
     this.scene = s;
     s.enter?.();
+  }
+
+  resetProgress(): void {
+    this.progress = resetProgress(this.progress);
+    saveProgress(safeStorage(), this.progress);
   }
 
   setAvatar(a: Avatar): void {

@@ -58,7 +58,7 @@ export class TownScene implements Scene {
     const ui = this.game.ui;
     ui.hud.setTrust(this.game.progress.trust);
     ui.hud.el.classList.remove('hidden');
-    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel);
+    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel, this.reset);
     ui.hud.avatarBtn.onclick = () => this.editAvatar();
     if (!this.greeted) {
       this.greeted = true;
@@ -76,6 +76,18 @@ export class TownScene implements Scene {
       );
     }
   }
+
+  /** Wipe tickets and Trust (keeping the avatar) and start the town tour again. */
+  private reset = (): void => {
+    const ui = this.game.ui;
+    this.game.resetProgress();
+    this.player.box = { ...this.player.box, x: PLAYER_START.x * TILE + 3, y: PLAYER_START.y * TILE + 10 };
+    this.player.dir = 'down';
+    ui.hud.setTrust(this.game.progress.trust);
+    ui.toast('PROGRESS RESET · FRESH START', 'info');
+    this.greeted = false;
+    this.enter();
+  };
 
   setPlayerLook(look: Look): void {
     this.playerSheet.setLook(look);
@@ -133,7 +145,7 @@ export class TownScene implements Scene {
 
       this.nearby = this.findNearby();
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
-      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel);
+      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset);
     }
 
     this.smoke.step(dt);
