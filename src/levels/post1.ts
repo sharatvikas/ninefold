@@ -250,7 +250,7 @@ export class PostScene extends IncidentScene {
   }
 
   private knock(no: string): void {
-    if (this.root.querySelector('.modal')) return;
+    if (this.blocked) return;
     const first = !this.stage.revealed.has(no);
     this.stage.knock(no);
     const who = RESIDENTS[no];

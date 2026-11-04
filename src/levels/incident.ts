@@ -46,6 +46,9 @@ export interface Recap {
  * A hands-on incident: understand → find the cause → change something → verify.
  * Subclasses provide the stage, tabs (tools) and the rules.
  */
+/** Where the player is in a ticket. Keys and clicks on the stage only act during 'play'. */
+export type Phase = 'intro' | 'play' | 'resolving' | 'recap';
+
 export abstract class IncidentScene implements Scene {
   protected root = h('div', 'level');
   protected steps: Record<StepId, boolean> = { understand: false, cause: false, fix: false, verify: false };
@@ -58,7 +61,9 @@ export abstract class IncidentScene implements Scene {
   private feed = h('div', 'feed hidden');
   private alertEl = h('div', 'alert hidden');
   protected activeTab = '';
-  private done = false;
+  protected phase: Phase = 'intro';
+  /** Pop-ups opened on top of play (e.g. the file editor). */
+  private overlays = 0;
   private timers: number[] = [];
   /** When the player last pressed Esc mid-ticket; a second press soon after really leaves. */
   private escAt = -Infinity;
@@ -76,6 +81,7 @@ export abstract class IncidentScene implements Scene {
   abstract render(c: Ctx, t: number): void;
 
   enter(): void {
+    this.game.ui.touch.classList.add('hidden');
     this.game.ui.hud.el.classList.add('hidden');
     const top = h('div', 'level-top');
     const title = h('div', 'panel level-title');
@@ -109,6 +115,7 @@ export abstract class IncidentScene implements Scene {
   }
 
   leave(): void {
+    this.game.ui.touch.classList.remove('hidden');
     this.timers.forEach((id) => clearTimeout(id));
     this.timers = [];
     this.game.ui.hud.el.classList.remove('hidden');
@@ -127,7 +134,7 @@ export abstract class IncidentScene implements Scene {
   protected baseUpdate(t: number): void {
     this.now = t;
     const { input } = this.game;
-    if (input.wasPressed('escape') && !this.done && !this.root.querySelector('.modal')) {
+    if (input.wasPressed('escape') && !this.blocked) {
       // Leaving throws away work on this ticket, so once something has happened, ask for a second press.
       const started = this.steps.cause || this.steps.fix;
       if (!started || t - this.escAt < 2.5) this.leaveLevel();
@@ -137,7 +144,7 @@ export abstract class IncidentScene implements Scene {
       }
     }
     this.tabs().forEach((tab, i) => {
-      if (input.wasPressed(String(i + 1)) && !this.root.querySelector('.modal')) this.openTab(tab.id);
+      if (input.wasPressed(String(i + 1)) && !this.blocked) this.openTab(tab.id);
     });
   }
 
@@ -178,6 +185,34 @@ export abstract class IncidentScene implements Scene {
     if (!this.steps.cause) this.attempts.guessedFirst = true;
   }
 
+  /** True when shared keys and stage clicks should do nothing: intro, solving, recap, or a pop-up is open. */
+  protected get blocked(): boolean {
+    return this.phase !== 'play' || this.overlays > 0;
+  }
+
+  /** Show a pop-up over the level. Returns a function that closes it. */
+  protected openOverlay(el: HTMLElement): () => void {
+    this.overlays++;
+    this.root.append(el);
+    let open = true;
+    return () => {
+      if (!open) return;
+      open = false;
+      this.overlays--;
+      el.remove();
+    };
+  }
+
+  /** Dev/testing only: dismiss the intro card as if START was pressed. */
+  protected devSkipIntro(): void {
+    this.introClose?.();
+    this.introClose = undefined;
+    this.phase = 'play';
+    this.complete('understand');
+  }
+
+  private introClose: (() => void) | undefined;
+
   private showIntro(): void {
     const i = this.intro();
     const wrap = h('div', 'modal');
@@ -186,7 +221,9 @@ export abstract class IncidentScene implements Scene {
     for (const k of i.known) known.append(h('li', '', k));
     const btn = h('button', 'btn primary', 'START INVESTIGATING ▶');
     btn.addEventListener('click', () => {
-      wrap.remove();
+      this.introClose?.();
+      this.introClose = undefined;
+      this.phase = 'play';
       this.complete('understand');
       this.openTab(this.tabs()[0].id);
     });
@@ -202,19 +239,21 @@ export abstract class IncidentScene implements Scene {
       btn,
     );
     wrap.append(card);
-    this.root.append(wrap);
+    this.phase = 'intro';
+    this.introClose = this.openOverlay(wrap);
     setTimeout(() => btn.focus(), 50);
   }
 
   protected finish(r: Recap): void {
-    if (this.done) return;
-    this.done = true;
+    if (this.phase === 'resolving' || this.phase === 'recap') return;
+    this.phase = 'resolving';
     this.complete('verify');
     const trust = trustFor(this.attempts);
     this.later(() => this.showRecap(r, trust), 1800);
   }
 
   private showRecap(r: Recap, trust: number): void {
+    this.phase = 'recap';
     const wrap = h('div', 'modal');
     const card = h('div', 'panel recap');
     const ba = h('div', 'ba');

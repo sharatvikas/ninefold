@@ -303,6 +303,8 @@ export class UI {
   /** Per-scene layer, emptied on every scene change. */
   readonly scene = h('div', 'scene-layer');
   private toastEl = h('div', 'toast hidden');
+  /** On-screen walking pad for touch screens (only useful in town). */
+  readonly touch: HTMLElement;
   private toastTimer = 0;
 
   constructor(
@@ -310,7 +312,8 @@ export class UI {
     private input: Input,
   ) {
     this.questLog = new QuestLog(() => (this.input.enabled = true));
-    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.avatar.el, this.touchControls());
+    this.touch = this.touchControls();
+    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.avatar.el, this.touch);
   }
 
   /** True while something modal is on screen and the world should not move. */

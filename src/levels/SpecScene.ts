@@ -440,8 +440,9 @@ export class SpecScene extends IncidentScene {
     ta.spellcheck = false;
     const save = h('button', 'btn primary', '💾 SAVE');
     const cancel = h('button', 'btn', 'CANCEL');
+    let closeOverlay = (): void => {};
     const close = () => {
-      wrap.remove();
+      closeOverlay();
       this.refreshTab();
     };
     save.addEventListener('click', () => {
@@ -465,15 +466,14 @@ export class SpecScene extends IncidentScene {
     bar.append(h('span', '', `✎ ${path}   (Ctrl/⌘+S to save, Esc to cancel)`), cancel, save);
     box.append(bar, ta);
     wrap.append(box);
-    this.root.append(wrap);
+    closeOverlay = this.openOverlay(wrap);
     void spec;
     setTimeout(() => ta.focus(), 0);
   }
 
   /** Dev/testing only: skip the intro, mark evidence found and apply the intended fix through the real UI flow. */
   devSolve(): void {
-    this.root.querySelector('.modal')?.remove();
-    this.complete('understand');
+    this.devSkipIntro();
     this.found();
     const spec = this.spec;
     if (spec.type === 'config') {
