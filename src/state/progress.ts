@@ -62,16 +62,49 @@ export function loadProgress(storage: Pick<Storage, 'getItem'> | undefined): Pro
   try {
     const raw = storage?.getItem(STORAGE_KEY);
     if (!raw) return newProgress();
-    const data = JSON.parse(raw) as Partial<Progress>;
-    if (data.version !== 1 || typeof data.trust !== 'number' || typeof data.completed !== 'object' || !data.completed) {
-      return newProgress();
-    }
-    const known = new Set(LEVELS.map((l) => l.id));
-    const completed = Object.fromEntries(Object.entries(data.completed).filter(([id]) => known.has(id)));
-    const avatar = validAvatar(data.avatar);
-    return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}) };
+    return parseProgress(JSON.parse(raw)) ?? newProgress();
   } catch {
     return newProgress();
+  }
+}
+
+/** Turn untrusted data (storage or a pasted save code) into a valid Progress, or undefined. */
+export function parseProgress(raw: unknown): Progress | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const data = raw as Partial<Progress>;
+  if (data.version !== 1 || typeof data.trust !== 'number' || !Number.isFinite(data.trust)) return undefined;
+  if (typeof data.completed !== 'object' || !data.completed || Array.isArray(data.completed)) return undefined;
+  const known = new Set(LEVELS.map((l) => l.id));
+  const completed: Progress['completed'] = {};
+  for (const [id, v] of Object.entries(data.completed)) {
+    const t = (v as { trust?: unknown } | null)?.trust;
+    if (known.has(id) && typeof t === 'number' && Number.isFinite(t)) completed[id] = { trust: Math.round(t) };
+  }
+  const avatar = validAvatar(data.avatar);
+  return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}) };
+}
+
+const CODE_PREFIX = 'NF1-';
+
+/** A copy-pasteable save code, so progress can move between browsers and devices. */
+export function encodeSave(p: Progress): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(p));
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return CODE_PREFIX + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Read a save code back. Whitespace and line breaks from copy-paste are ignored. */
+export function decodeSave(code: string): Progress | undefined {
+  const c = code.replace(/\s+/g, '');
+  if (!c.startsWith(CODE_PREFIX)) return undefined;
+  try {
+    const b64 = c.slice(CODE_PREFIX.length).replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    return parseProgress(JSON.parse(new TextDecoder().decode(bytes)));
+  } catch {
+    return undefined;
   }
 }
 

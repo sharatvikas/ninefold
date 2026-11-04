@@ -1,6 +1,6 @@
 import type { Input } from '../engine/input';
 import { DISTRICTS, levelsIn } from '../levels/catalog';
-import { levelStatus, type Progress } from '../state/progress';
+import { decodeSave, encodeSave, levelStatus, type Progress } from '../state/progress';
 import { AvatarCreator } from './avatar';
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
@@ -136,7 +136,7 @@ class QuestLog {
     });
   }
 
-  show(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void): void {
+  show(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void, onImport?: (p: Progress) => void): void {
     this.el.replaceChildren();
     const box = h('div', 'panel questlog');
     const head = h('div', 'ql-head');
@@ -167,6 +167,12 @@ class QuestLog {
     }
     const foot = h('div', 'ql-foot');
     foot.append(h('span', '', '! ready   ✓ done (click to replay)   · finish the previous ticket first'));
+    const btns = h('div', 'ql-btns');
+    const codeBtn = h('button', 'btn', '⇄ SAVE CODE');
+    codeBtn.title = 'Move your progress to another browser or device';
+    codeBtn.addEventListener('click', () => this.showSaveCode(p, () => this.show(p, onPlay, onReset, onImport), onImport));
+    btns.append(codeBtn);
+    foot.append(btns);
     if (onReset) {
       const reset = h('button', 'btn reset-btn', '↺ RESET PROGRESS');
       let armed = false;
@@ -187,13 +193,88 @@ class QuestLog {
         this.close();
         onReset();
       });
-      foot.append(reset);
+      btns.append(reset);
     }
     box.append(head, grid, foot);
     this.el.append(box);
     this.el.classList.remove('hidden');
     this.open = true;
     this.fresh = true;
+  }
+
+  /** Copy your save out as a code, or paste one in from another device. */
+  private showSaveCode(p: Progress, back: () => void, onImport?: (p: Progress) => void): void {
+    this.el.replaceChildren();
+    const box = h('div', 'panel questlog savecode');
+    const head = h('div', 'ql-head');
+    const backBtn = h('button', 'btn', '◀ BACK');
+    backBtn.addEventListener('click', back);
+    head.append(h('div', 'title', 'SAVE CODE'), backBtn);
+
+    const out = h('textarea', 'text sc-code') as HTMLTextAreaElement;
+    out.readOnly = true;
+    out.value = encodeSave(p);
+    out.rows = 3;
+    out.addEventListener('focus', () => out.select());
+    const copy = h('button', 'btn primary', 'COPY');
+    copy.addEventListener('click', async () => {
+      out.select();
+      try {
+        await navigator.clipboard.writeText(out.value);
+      } catch {
+        document.execCommand?.('copy');
+      }
+      copy.textContent = 'COPIED ✓';
+      setTimeout(() => (copy.textContent = 'COPY'), 1600);
+    });
+    const done = Object.keys(p.completed).length;
+    const sec1 = h('div', 'sc-sec');
+    sec1.append(
+      h('div', 'sub', 'YOUR CODE'),
+      h('div', 'sc-help', `${done} ticket${done === 1 ? '' : 's'} closed · Trust ${p.trust}${p.avatar ? ` · ${p.avatar.name}` : ''}. Paste this code into Ninefold on any other browser or device to carry on there. It isn't sent anywhere.`),
+      out,
+      copy,
+    );
+
+    const sec2 = h('div', 'sc-sec');
+    const inp = h('textarea', 'text sc-code') as HTMLTextAreaElement;
+    inp.placeholder = 'Paste a code that starts with NF1-';
+    inp.rows = 3;
+    const msg = h('div', 'sc-msg');
+    const load = h('button', 'btn', 'LOAD THIS SAVE');
+    let pending: Progress | undefined;
+    inp.addEventListener('input', () => {
+      pending = undefined;
+      load.textContent = 'LOAD THIS SAVE';
+      load.classList.remove('armed');
+      msg.textContent = '';
+    });
+    load.addEventListener('click', () => {
+      const got = decodeSave(inp.value);
+      if (!got) {
+        msg.className = 'sc-msg bad';
+        msg.textContent = "That doesn't look like a Ninefold save code. Check you copied all of it.";
+        return;
+      }
+      if (!pending) {
+        pending = got;
+        const n = Object.keys(got.completed).length;
+        msg.className = 'sc-msg';
+        msg.textContent = `Found ${n} closed ticket${n === 1 ? '' : 's'}, Trust ${got.trust}${got.avatar ? `, ${got.avatar.name}` : ''}. This replaces the progress in this browser.`;
+        load.textContent = 'REPLACE MY PROGRESS? CLICK AGAIN';
+        load.classList.add('armed');
+        return;
+      }
+      this.close();
+      onImport?.(pending);
+    });
+    sec2.append(h('div', 'sub', 'LOAD A CODE'), inp, load, msg);
+    if (!onImport) sec2.classList.add('hidden');
+
+    const body = h('div', 'sc-body');
+    body.append(sec1, sec2);
+    box.append(head, body);
+    this.el.append(box);
   }
 
   close(): void {
@@ -232,9 +313,9 @@ export class UI {
     this.scene.replaceChildren();
   }
 
-  openQuestLog(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void): void {
+  openQuestLog(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void, onImport?: (p: Progress) => void): void {
     this.input.enabled = false;
-    this.questLog.show(p, onPlay, onReset);
+    this.questLog.show(p, onPlay, onReset, onImport);
   }
 
   toast(msg: string, kind: 'good' | 'bad' | 'info' = 'info'): void {

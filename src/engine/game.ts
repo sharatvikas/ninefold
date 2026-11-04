@@ -52,6 +52,12 @@ export class Game {
     saveProgress(safeStorage(), this.progress);
   }
 
+  /** Swap in progress loaded from a save code. */
+  replaceProgress(p: Progress): void {
+    this.progress = p;
+    saveProgress(safeStorage(), this.progress);
+  }
+
   setAvatar(a: Avatar): void {
     this.progress = { ...this.progress, avatar: a };
     saveProgress(safeStorage(), this.progress);

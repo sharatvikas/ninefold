@@ -3,7 +3,7 @@ import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art
 import { barn, boat, container, crane, flowers, fountain, house, lampPost, railCar, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
-import { bigIncidentBlockers, levelStatus, nextLevelIn } from '../state/progress';
+import { bigIncidentBlockers, levelStatus, nextLevelIn, type Progress } from '../state/progress';
 import { moveBox, type Box } from './collision';
 import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, isSolidTile, tileAt, type NpcSpawn } from './townMap';
 
@@ -58,7 +58,7 @@ export class TownScene implements Scene {
     const ui = this.game.ui;
     ui.hud.setTrust(this.game.progress.trust);
     ui.hud.el.classList.remove('hidden');
-    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel, this.reset);
+    ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
     ui.hud.avatarBtn.onclick = () => this.editAvatar();
     if (!this.greeted) {
       this.greeted = true;
@@ -87,6 +87,16 @@ export class TownScene implements Scene {
     ui.toast('PROGRESS RESET · FRESH START', 'info');
     this.greeted = false;
     this.enter();
+  };
+
+  /** Load progress from a save code pasted in from another browser or device. */
+  private importSave = (p: Progress): void => {
+    const ui = this.game.ui;
+    this.game.replaceProgress(p);
+    this.playerSheet.setLook(p.avatar?.look ?? LOOKS.player);
+    ui.hud.setTrust(p.trust);
+    const n = Object.keys(p.completed).length;
+    ui.toast(`SAVE LOADED · ${n} TICKET${n === 1 ? '' : 'S'} CLOSED`, 'good');
   };
 
   setPlayerLook(look: Look): void {
@@ -145,7 +155,7 @@ export class TownScene implements Scene {
 
       this.nearby = this.findNearby();
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
-      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset);
+      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
     }
 
     this.smoke.step(dt);

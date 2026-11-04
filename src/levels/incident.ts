@@ -219,10 +219,29 @@ export abstract class IncidentScene implements Scene {
     const btn = h('button', 'btn primary', `CLOSE TICKET · TRUST +${trust}`);
     btn.addEventListener('click', () => this.exit({ levelId: this.meta.id, trust, completed: true }));
     const foot = h('div', 'recap-foot');
+    const fb = h('a', 'feedback-link', '💬 Was this ticket confusing or wrong? Tell me') as HTMLAnchorElement;
+    fb.href = feedbackUrl(this.meta.id, this.meta.title);
+    fb.target = '_blank';
+    fb.rel = 'noopener';
     foot.append(h('div', 'score', notes.length ? `Trust: ${notes.join(', ')}.` : 'Clean fix: evidence first, one change, verified. Full Trust!'), btn);
-    card.append(h('div', 'title', '✓ TICKET SOLVED'), h('div', 'headline', r.headline), ba, lower, foot);
+    card.append(h('div', 'title', '✓ TICKET SOLVED'), h('div', 'headline', r.headline), ba, lower, foot, fb);
     wrap.append(card);
     this.root.append(wrap);
     btn.focus();
   }
+}
+
+/** A pre-filled GitHub issue for one ticket. Only the ticket's id and title go in; nothing about the player. */
+export function feedbackUrl(id: string, title: string): string {
+  const body = [
+    `**Ticket:** ${id} · ${title}`,
+    '',
+    '**What was confusing, wrong or broken?**',
+    '',
+    '',
+    '**What did you expect instead?**',
+    '',
+  ].join('\n');
+  const q = new URLSearchParams({ title: `Ticket feedback: ${id} · ${title}`, body });
+  return `https://github.com/sharatvikas/ninefold/issues/new?${q}`;
 }

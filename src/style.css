@@ -134,6 +134,17 @@ body {
 .ql-level.playable { cursor: pointer; border-radius: 0.3cqw; }
 .ql-level.playable:hover { background: rgba(248, 208, 48, 0.35); }
 .ql-foot { font-size: 0.9cqw; color: #7a6a5a; display: flex; justify-content: space-between; align-items: center; gap: 1cqw; }
+.ql-btns { display: flex; gap: 0.8cqw; flex-shrink: 0; }
+.ql-btns .btn { font-size: 0.9cqw; }
+.savecode .sc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; margin-top: 1cqw; }
+.sc-sec { display: flex; flex-direction: column; gap: 0.8cqw; align-items: flex-start; }
+.sc-help { font-family: system-ui, sans-serif; font-size: 1.15cqw; color: #5a4a3a; line-height: 1.4; }
+.sc-code { width: 100%; box-sizing: border-box; font-family: ui-monospace, Menlo, monospace; font-size: 1cqw; resize: none; word-break: break-all; }
+.sc-msg { font-family: system-ui, sans-serif; font-size: 1.1cqw; color: #5a4a3a; min-height: 1.4em; }
+.sc-msg.bad { color: var(--red); }
+.btn.armed { background: var(--red); border-color: #7a1a10; box-shadow: 0 0.3cqw 0 #7a1a10; color: #fff; }
+.feedback-link { display: block; margin-top: 0.8cqw; font-family: system-ui, sans-serif; font-size: 1.05cqw; color: #7a6a5a; text-align: right; }
+.feedback-link:hover { color: var(--wood-dark); }
 .reset-btn { background: #8a5a5a; border-color: #5a3a3a; box-shadow: 0 0.3cqw 0 #5a3a3a; font-size: 0.9cqw; }
 .reset-btn.armed { background: var(--red); border-color: #7a1a10; box-shadow: 0 0.3cqw 0 #7a1a10; animation: pulse2 0.8s infinite; }
 @keyframes pulse2 { 50% { filter: brightness(1.2); } }
@@ -246,13 +257,13 @@ body {
 .btn.sm { font-size: 1cqw; padding: 0.35cqw 0.8cqw; }
 .btn.sm.on { background: var(--green); border-color: #0e5a2e; }
 .seg { display: inline-flex; gap: 0.4cqw; }
-input.num, input.text {
+input.num, input.text, textarea.text {
   font-family: ui-monospace, Menlo, monospace; font-size: 1.5cqw; color: var(--ink);
   background: #fffaf0; border: 0.25cqw solid var(--wood); border-radius: 0.4cqw; padding: 0.3cqw 0.6cqw;
 }
 input.num { width: 5cqw; text-align: center; }
 input.text { width: 18cqw; }
-input:focus { outline: 0.3cqw solid #f8d030; }
+input:focus, textarea:focus { outline: 0.3cqw solid #f8d030; }
 .mgrid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2cqw; }
 .mcol { display: flex; flex-direction: column; gap: 0.5cqw; }
 .mcol > .btn.primary { align-self: flex-start; }
