@@ -1,6 +1,7 @@
 import { CharacterSheet, LOOKS, type Look } from './characters';
 import { blit, disc, ellipse, Layer, makeCanvas, rect, rng, shade, type Ctx } from './pixels';
 import { boat, bookshelf, container, crane, house, lampPost, plant, railCar, sack, tree, watchtower } from './scenery';
+import { SceneFx, trainX } from './sceneFx';
 import { VignetteRenderer, type Vignette } from './vignette';
 
 export type Status = 'broken' | 'verifying' | 'fixed';
@@ -26,6 +27,7 @@ export class Backdrop {
   private lastStatus: Status = 'broken';
 
   private vignette: VignetteRenderer | undefined;
+  private fx: SceneFx;
 
   constructor(
     private district: string,
@@ -34,20 +36,27 @@ export class Backdrop {
     this.npc = new CharacterSheet(NPC_LOOK[district] ?? LOOKS.bo);
     this.bg = new Layer(() => staticLayer(district));
     if (vignette) this.vignette = new VignetteRenderer(vignette);
+    this.fx = new SceneFx(district);
   }
 
   render(c: Ctx, t: number, status: Status, board: string[]): void {
+    const shake = this.fx.step(t, status);
+    c.save();
+    c.translate(shake.dx, shake.dy);
     blit(c, this.bg.get(), 0, 0, W, 216);
     if (status === 'fixed' && this.lastStatus !== 'fixed') {
       for (let i = 0; i < 24; i++) this.sparkles.push({ x: 40 + Math.random() * 300, y: 30 + Math.random() * 90, a: 1 + Math.random() });
     }
     this.lastStatus = status;
     ANIMATE[this.district]?.(c, t, status);
+    this.fx.drawUnder(c, t, status);
     drawBoard(c, t, status, board);
     this.vignette?.render(c, t, status);
     // district NPC
     const hop = status === 'fixed' ? Math.abs(Math.sin(t * 6)) * 3 : Math.floor(t * 2) % 2;
-    this.npc.draw(c, status === 'broken' ? (Math.floor(t / 2) % 2 ? 'left' : 'right') : 'down', 0, 196, 112 - hop);
+    const dir = status === 'broken' ? (Math.floor(t / 2) % 2 ? 'left' : 'right') : 'down';
+    const blink = (t + 0.9) % 3.3 < 0.13 && status !== 'fixed';
+    this.npc.draw(c, dir, blink ? 3 : 0, 196, 112 - hop);
     if (status === 'broken') {
       // worried sweat drop
       const dy = (t * 6) % 6;
@@ -63,6 +72,8 @@ export class Backdrop {
       c.globalAlpha = 1;
     }
     this.sparkles = this.sparkles.filter((s) => s.a > 0);
+    this.fx.drawOver(c, t, status);
+    c.restore();
   }
 }
 
@@ -80,7 +91,11 @@ function drawBoard(c: Ctx, t: number, status: Status, lines: string[]): void {
   c.fillStyle = '#9fb4c0';
   c.fillText(status === 'fixed' ? 'ALL GOOD' : status === 'verifying' ? 'CHECKING…' : 'PROBLEM', x + 14, y + 9);
   c.fillStyle = status === 'fixed' ? '#b8f0c8' : '#f8ecd0';
+  // While checking, the text flickers like an old terminal refreshing.
+  if (status === 'verifying' && Math.floor(t * 12) % 5 === 0) c.globalAlpha = 0.6;
   lines.forEach((l, i) => c.fillText(l.slice(0, 28), x + 5, y + 19 + i * 9));
+  c.globalAlpha = 1;
+  for (let yy = y + 1; yy < y + h; yy += 2) rect(c, x, yy, w, 0.5, 'rgba(0,0,0,0.12)');
 }
 
 // ------------------------------------------------------------------ static layers
@@ -229,6 +244,7 @@ function staticLayer(d: string): HTMLCanvasElement {
       sky(c, ['#1d2140', '#232a50', '#2a3360', '#323d70', '#3b4880'], 16);
       const R = rng(9);
       for (let i = 0; i < 60; i++) rect(c, (R() * W) | 0, (R() * 70) | 0, 1, 1, '#ffffff');
+      rect(c, 0, 80, W, 40, '#3b4880'); // sky continues down to the hills (was a black gap)
       for (let x = 0; x < W; x++) {
         const hh = 30 + Math.sin(x / 40) * 10;
         rect(c, x, 120 - hh, 1, hh, '#2f5a3a');
@@ -365,7 +381,7 @@ const ANIMATE: Record<string, (c: Ctx, t: number, s: Status) => void> = {
     disc(c, 363, 55, 3, s === 'broken' ? signal : '#4a2020');
     disc(c, 363, 62, 3, s === 'fixed' ? signal : '#204a20');
     if (s === 'verifying') disc(c, 363, 58.5, 2, signal);
-    const x = s === 'fixed' ? ((t * 60) % (W + 180)) - 180 : 40;
+    const x = trainX(t, s);
     const cars: [string, boolean][] = [['#2b6cb0', true], ['#b5523b', false], ['#e8a030', false], ['#27ae60', false]];
     cars.forEach(([col, loco], i) => {
       c.save();
@@ -376,8 +392,6 @@ const ANIMATE: Record<string, (c: Ctx, t: number, s: Status) => void> = {
       railCar(c, cx, 84, 32, col, loco);
       c.restore();
     });
-    if (s !== 'fixed' && Math.floor(t * 3) % 2) disc(c, x + 3 * 36 + 6, 72, 3, 'rgba(230,230,230,0.6)');
-    if (s === 'fixed') for (let i = 0; i < 3; i++) disc(c, x + 3 * 36 + 6 - i * 8, 70 - i * 3 - ((t * 20) % 6), 2 + i, `rgba(240,240,240,${0.6 - i * 0.18})`);
   },
   arch(c, t, s) {
     // lamp light and a red stamp on the blueprint when something's wrong
@@ -400,7 +414,28 @@ const ANIMATE: Record<string, (c: Ctx, t: number, s: Status) => void> = {
       rect(c, sx, 76 + oy, 5, 1, '#7fc2f0');
     }
     const x = s === 'fixed' ? ((t * 40) % (W + 120)) - 100 : 90 + Math.sin(t) * 3;
-    boat(c, x, 104 + (s === 'broken' ? 3 : 0) + Math.sin(t * 2), s === 'broken' ? 4 : 6, s === 'broken' ? 0.06 : 0, 1.6);
+    const by = 104 + (s === 'broken' ? 3 : 0) + Math.sin(t * 2);
+    const crates = s === 'broken' ? 4 : 6;
+    const tilt = s === 'broken' ? 0.06 : 0;
+    // reflection: the boat mirrored in the water, squashed and rippling
+    c.save();
+    c.beginPath();
+    c.rect(0, 74, W, 46);
+    c.clip();
+    const axis = by + 13;
+    c.globalAlpha = 0.22;
+    for (let band = 0; band < 6; band++) {
+      c.save();
+      c.beginPath();
+      c.rect(0, axis + band * 3, W, 3);
+      c.clip();
+      c.translate(Math.sin(t * 3 + band) * 1.5, axis * 1.6);
+      c.scale(1, -0.6);
+      boat(c, x, by, crates, tilt, 1.6);
+      c.restore();
+    }
+    c.restore();
+    boat(c, x, by, crates, tilt, 1.6);
   },
   watch(c, t, s) {
     const on = s === 'fixed' || Math.floor(t * 2) % 2 === 0;
@@ -462,11 +497,6 @@ const ANIMATE: Record<string, (c: Ctx, t: number, s: Status) => void> = {
   },
   big(c, t, s) {
     ANIMATE.hall(c, t, s);
-    if (s !== 'fixed') {
-      const on = Math.floor(t * 3) % 2;
-      c.globalAlpha = on ? 0.15 : 0.05;
-      rect(c, 0, 0, W, 130, '#ff3020');
-      c.globalAlpha = 1;
-    }
+    void s;
   },
 };

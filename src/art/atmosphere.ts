@@ -1,4 +1,4 @@
-import { Layer, makeCanvas, rect, RENDER, rng, snap, type Ctx } from './pixels';
+import { disc, Layer, makeCanvas, rect, RENDER, rng, snap, type Ctx } from './pixels';
 
 // ------------------------------------------------------------------ time of day
 
@@ -90,6 +90,8 @@ export interface Particle {
   /** Additive glow (fireworks, sparks). */
   bright?: boolean;
   phase?: number;
+  /** Round puff that swells as it fades (smoke, steam). Value = extra radius at end of life. */
+  grow?: number;
 }
 
 /** A pool of short-lived pixels: dust, petals, sparks, confetti. */
@@ -117,9 +119,12 @@ export class Particles {
 
   draw(c: Ctx): void {
     for (const p of this.list) {
-      const a = Math.min(1, p.life / Math.min(0.5, p.max * 0.5));
+      const a = p.grow !== undefined ? p.life / p.max : Math.min(1, p.life / Math.min(0.5, p.max * 0.5));
       c.globalAlpha = a;
-      if (p.bright) {
+      if (p.grow !== undefined) {
+        const k = 1 - p.life / p.max;
+        disc(c, p.x, p.y, p.size + k * p.grow, p.col);
+      } else if (p.bright) {
         c.globalCompositeOperation = 'lighter';
         rect(c, p.x - p.size, p.y - p.size, p.size * 2 + 1, p.size * 2 + 1, p.col);
         c.globalCompositeOperation = 'source-over';
