@@ -2,7 +2,11 @@ function isTyping(t: EventTarget | null): boolean {
   return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
 }
 
-const GAME_KEYS =new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'w', 'a', 's', 'd', 'e', 'q']);
+function isControl(t: EventTarget | null): boolean {
+  return t instanceof HTMLElement && !!t.closest('button, a[href], [role="button"]');
+}
+
+const GAME_KEYS = new Set(['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'w', 'a', 's', 'd', 'e', 'q']);
 
 /** Keyboard state. `pressed` holds keys that went down since the last frame. */
 export class Input {
@@ -18,7 +22,8 @@ export class Input {
       const k = e.key.toLowerCase();
       if (!this.down.has(k)) this.pressed.add(k);
       this.down.add(k);
-      if (GAME_KEYS.has(k)) e.preventDefault();
+      // Space on a focused button or link must still press it (keyboard-only players).
+      if (GAME_KEYS.has(k) && !(k === ' ' && isControl(e.target))) e.preventDefault();
     });
     target.addEventListener('keyup', (e) => this.down.delete(e.key.toLowerCase()));
     target.addEventListener('blur', () => this.down.clear());

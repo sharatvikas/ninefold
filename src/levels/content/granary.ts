@@ -226,8 +226,12 @@ $ pg_restore -d granary_drill granary.dump && ./verify-row-counts.sh`,
     verify: (x) => {
       const cap = (x.disk === 'ssd' ? 3000 : 300) - (x.report === 'replica' ? 250 : 0);
       return {
-        cases: [c(`replica replays ${cap}/s vs 400/s incoming`, cap >= 400), c('lag stays under 1 second all day', cap >= 600)],
-        hint: x.disk === 'standard' ? 'Even with the report moved, can a 300/s disk keep up with 400/s?' : 'Check the margin during the report.',
+        cases: [
+          c(`replica replays ${cap}/s vs 400/s incoming`, cap >= 400),
+          c('lag stays under 1 second all day', cap >= 600),
+          c('shops\' stock lookups aren\'t slowed by the 2-hour report', x.report === 'analytics'),
+        ],
+        hint: x.disk === 'standard' ? 'Even with the report moved, can a 300/s disk keep up with 400/s?' : x.report === 'replica' ? 'The copy keeps up now, but shops read from it too. Should a heavy report share it with them?' : 'Check the margin during the report.',
       };
     },
     recap: {

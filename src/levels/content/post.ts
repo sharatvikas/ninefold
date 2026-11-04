@@ -6,10 +6,10 @@ export const POST: LevelSpec[] = [
   {
     id: 'post-2',
     type: 'config',
-    alert: 'BAKERY MOVES TOMORROW',
-    board: { broken: ['bakery: No.12 → No.15', 'maps valid: 168 h', 'move: tomorrow 9am'], fixed: ['bakery → No.15', 'maps valid: short', 'visitors: right door'] },
+    alert: 'BAKERY MOVES IN 8 DAYS',
+    board: { broken: ['bakery: No.12 → No.15', 'maps valid: 168 h', 'move: in 8 days'], fixed: ['bakery → No.15', 'maps valid: short', 'visitors: right door'] },
     intro: {
-      symptom: 'The bakery is moving from No. 12 to No. 15 tomorrow morning. Last time a shop moved, customers kept walking to the old address for a whole week.',
+      symptom: 'The bakery is moving from No. 12 to No. 15 in 8 days. Last time a shop moved, customers kept walking to the old address for a whole week.',
       known: [
         'People copy the sorting wall into pocket maps so they don\'t have to ask every time.',
         'Each pocket map says how long it\'s good for. Until then, people trust it without asking.',
@@ -42,7 +42,7 @@ export const POST: LevelSpec[] = [
     configTitle: 'SORTING WALL · BAKERY ENTRY',
     fields: [
       { kind: 'number', key: 'ttl', label: 'maps good for', min: 0, max: 168, unit: 'hours', step: 1 },
-      { kind: 'choice', key: 'when', label: 'change the address', options: [['now', 'right now'], ['move', 'at the move (tomorrow 9am)']] },
+      { kind: 'choice', key: 'when', label: 'change the address', options: [['now', 'right now'], ['move', 'at the move (in 8 days)']] },
       { kind: 'number', key: 'house', label: 'bakery → No.', min: 1, max: 20 },
     ],
     start: { ttl: 168, when: 'move', house: 12 },
@@ -64,15 +64,15 @@ export const POST: LevelSpec[] = [
       headline: 'Lower how long maps are trusted before a move, then change the address.',
       before: { lines: ['bakery  168h  → No.12', '(move day)', 'old maps trusted for 7 days'], outcome: 'Customers at the old shop for a week' },
       after: (x) => ({ lines: [`bakery  ${num(x.ttl)}h  → No.${num(x.house)}`, '(changed at the move)', `old maps expire in ≤ ${num(x.ttl)}h`], outcome: `Right door within ${num(x.ttl)} hour(s)` }),
-      why: 'Changing the wall only helps people who ask it. Everyone else trusts their copy until it expires. Short-lived copies mean changes spread fast, but too short floods the counter. Lower the time-to-live ahead of a planned change, then raise it again afterwards.',
-      real: (x) => `# town.zone, the day before the move
+      why: 'Changing the wall only helps people who ask it. Everyone else trusts their copy until it expires. Short-lived copies mean changes spread fast, but too short floods the counter. Lower the time-to-live ahead of a planned change, at least one OLD time-to-live ahead (here a week), because copies made just before you lower it are still trusted for the old 168 hours. Raise it again afterwards.',
+      real: (x) => `# town.zone, TODAY: at least one old TTL (7 days) before the move
 - bakery  604800  IN  A  10.0.3.12   ; TTL 7 days
 + bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.12
 
 # move day
 - bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.12
 + bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.15`,
-      realCaption: 'Pocket maps = DNS caches, "good for" = TTL. Lower the TTL before a migration, then raise it again afterwards.',
+      realCaption: 'Pocket maps = DNS caches, "good for" = TTL. Lower the TTL at least one old-TTL before a migration, then raise it again afterwards.',
     },
   },
 
@@ -362,8 +362,8 @@ default     via 10.0.6.1`,
           run: (_m, s) => {
             const ok = eastRoute(String(s.vars.active || s.files['routes.conf'])) === '10.0.7.1' && !!s.vars.active;
             return ok
-              ? { out: ' 1  r1 10.0.6.1   1 ms\n 2  r2 10.0.7.2   2 ms\n 3  r3 10.0.7.1   3 ms\n 4  10.0.9.5       4 ms  ✓ reached', verify: true }
-              : { out: ' 1  r1 10.0.6.1   1 ms\n 2  r2 10.0.6.2   2 ms\n 3  * * *  (no reply via 10.0.8.1)\n 4  * * *', evidence: true, verify: true };
+              ? { out: 'traceroute to 10.0.9.5 from r2\n 1  r3 10.0.7.1   1 ms\n 2  10.0.9.5       2 ms  ✓ reached', verify: true }
+              : { out: 'traceroute to 10.0.9.5 from r2\n 1  * * *  (no reply: next hop 10.0.8.1 is on a down link)\n 2  * * *\n 3  * * *', evidence: true, verify: true };
           },
         },
         {

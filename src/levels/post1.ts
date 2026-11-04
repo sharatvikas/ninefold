@@ -415,7 +415,7 @@ export class PostScene extends IncidentScene {
 
 $ dig +short bakery.town
 10.0.3.12          # ✓`,
-      realWorldCaption: 'Sorting wall = DNS, name = domain, house number = IP address, one line = an A record, knocking = curl. In Act 2 you\'ll find fixes take time to spread (TTL).',
+      realWorldCaption: 'Sorting wall = DNS, name = domain, house number = IP address, one line = an A record, knocking = curl. In the next ticket you\'ll find that fixes take time to spread (TTL).',
     };
   }
 

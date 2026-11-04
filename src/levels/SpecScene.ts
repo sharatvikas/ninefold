@@ -200,15 +200,20 @@ export class SpecScene extends IncidentScene {
         const input = h('input', 'num') as HTMLInputElement;
         input.inputMode = 'decimal';
         input.value = String(d[f.key]);
+        const decimals = (String(step).split('.')[1] ?? '').length;
         const set = (n: number) => {
-          d[f.key] = Math.max(f.min, Math.min(f.max, Math.round(n / step) * step));
+          // Snap to the step and round away float noise (0.1 steps gave 99.80000000000001).
+          d[f.key] = Number(Math.max(f.min, Math.min(f.max, Math.round(n / step) * step)).toFixed(decimals));
           input.value = String(d[f.key]);
         };
         const minus = h('button', 'btn sm', '−');
         const plus = h('button', 'btn sm', '+');
         minus.addEventListener('click', () => set(Number(d[f.key]) - step));
         plus.addEventListener('click', () => set(Number(d[f.key]) + step));
-        input.addEventListener('change', () => set(Number(input.value) || Number(d[f.key])));
+        input.addEventListener('change', () => {
+          const typed = input.value.trim() === '' ? NaN : Number(input.value);
+          set(Number.isFinite(typed) ? typed : Number(d[f.key]));
+        });
         s.append(minus, input, plus);
         row.append(s);
         if (f.unit) row.append(h('span', 'unit', f.unit));
@@ -314,12 +319,12 @@ export class SpecScene extends IncidentScene {
     this.say('Change applied. Checking whether it really works…');
     this.refreshTab();
     v.cases.forEach((cs, i) =>
-      setTimeout(() => {
+      this.later(() => {
         this.results.push(cs);
         if (this.activeTab === CHANGE_TAB) this.refreshTab();
       }, 500 + i * 450),
     );
-    setTimeout(() => this.judge(v, spec), 700 + v.cases.length * 450);
+    this.later(() => this.judge(v, spec), 700 + v.cases.length * 450);
     this.openTab(CHANGE_TAB);
   }
 

@@ -7,7 +7,7 @@ export const ARCH: LevelSpec[] = [
     id: 'arch-1',
     type: 'config',
     alert: 'PLAN WANTS TO REMOVE A ROOF',
-    board: { broken: ['plan: 1 add, 1 change', '      1 DESTROY'], fixed: ['plan: 1 add, 1 change', '      0 destroy ✓'] },
+    board: { broken: ['plan: 2 add, 1 change', '      1 DESTROY'], fixed: ['plan: 2 add, 1 change', '      0 destroy ✓'] },
     intro: {
       symptom: 'Ada asked for two new windows on the library. Before building, the plan (a list of what will change) was printed, and something in it looks wrong.',
       known: [
@@ -69,27 +69,28 @@ Plan: 2 to add, 1 to change, 1 to destroy.`,
     },
   },
 
-  // ------------------------------------------------------------------ 2. The Hand-Built Shed (drift)
+  // ------------------------------------------------------------------ 2. The Hand-Built Shed (unmanaged resources)
   {
     id: 'arch-2',
     type: 'config',
-    alert: 'DRIFT: SHED NOT IN BLUEPRINT',
-    board: { broken: ['drift detected:', 'shed (hand-built)'], fixed: ['blueprint = reality', 'no drift ✓'] },
+    alert: 'INVENTORY: SHED NOT IN ANY BLUEPRINT',
+    board: { broken: ['inventory scan:', 'shed (unmanaged)'], fixed: ['blueprint = reality', 'everything managed ✓'] },
     intro: {
-      symptom: 'The nightly check found a shed behind the granary that isn\'t in any blueprint. The next plan wants to remove it.',
+      symptom: 'The nightly inventory walk found a shed behind the granary that isn\'t in any blueprint. The cleanup crew wants to knock it down as clutter.',
       known: [
-        '"Drift" means reality no longer matches the blueprint.',
-        'Someone built the shed by hand last week.',
-        'Applying the plan as-is would knock it down.',
+        'The builders only know about what\'s in the blueprint. Anything built by hand is invisible to them.',
+        'So the blueprint\'s plan says "no changes": it can\'t see the shed at all.',
+        'Only the inventory walk (a list of everything that really exists) spotted it.',
       ],
-      goal: 'Find out what the shed is for, then resolve the drift so blueprint and reality match again.',
+      goal: 'Find out what the shed is for, then decide its fate so the blueprint and the real town agree again.',
     },
     evidence: [
       {
-        kind: 'log', id: 'plan', icon: '📋', label: 'NIGHTLY PLAN', hint: 'Click lines.', diff: true,
+        kind: 'log', id: 'scan', icon: '📋', label: 'INVENTORY SCAN', hint: 'Everything that exists, compared with every blueprint. Click lines.', diff: true,
         lines: [
-          { text: '- granary.shed   (exists, not in blueprint)', note: 'Applying would destroy the shed. But what\'s in it?' },
-          { text: 'No other changes.', note: 'Only the shed differs.' },
+          { text: 'blueprint plan: No changes.', note: 'The blueprint\'s own plan is happy, because it doesn\'t know the shed exists. Unmanaged things are invisible to it.' },
+          { text: '? granary.shed   (exists, in no blueprint)', note: 'The inventory found it. Nobody maintains it, repairs it or will rebuild it if it falls down. But what\'s in it?', evidence: true },
+          { text: 'covered by blueprints: 211 of 212', note: 'Everything else in town is written down.' },
         ],
       },
       {
@@ -97,37 +98,40 @@ Plan: 2 to add, 1 to change, 1 to destroy.`,
         items: [
           { title: 'Gus (granary)', summary: '"I built it Tuesday"', detail: 'Gus: "The festival lanterns were getting damp, so I built a shed in a hurry. Didn\'t have time for a blueprint."', evidence: true },
           { title: 'Mayor Bo', summary: '"Festival is Friday"', detail: 'Bo: "The harvest festival needs every one of those lanterns."' },
-          { title: 'Ada (architect)', summary: '"Unmanaged = invisible"', detail: 'Ada: "If it\'s not in the blueprint, nobody maintains it, and the next apply removes it."' },
+          { title: 'Ada (architect)', summary: '"Unmanaged = invisible"', detail: 'Ada: "If it\'s not in a blueprint, the builders can\'t see it: nobody repairs it, backs it up or rebuilds it after a storm. It just quietly rots."' },
         ],
       },
     ],
-    configTitle: 'RESOLVE THE DRIFT',
+    configTitle: 'DECIDE THE SHED\'S FATE',
     fields: [
-      { kind: 'choice', key: 'action', label: 'what to do', options: [['apply', 'apply the plan (remove the shed)'], ['import', 'add the shed to the blueprint (import it)'], ['ignore', 'tell the checker to ignore the granary area']] },
+      { kind: 'choice', key: 'action', label: 'what to do', options: [['apply', 'knock it down (it\'s not in a blueprint)'], ['import', 'add the shed to the blueprint (import it)'], ['ignore', 'tell the inventory to skip the granary area']] },
     ],
     start: { action: '' },
     solution: { action: 'import' },
-    applyLabel: 'RUN NIGHTLY PLAN AGAIN',
+    applyLabel: 'RUN THE INVENTORY AGAIN',
     verify: (x) => ({
       cases: [
         c('festival lanterns are safe', x.action === 'import' || x.action === 'ignore'),
-        c('blueprint matches reality (no drift)', x.action === 'import' || x.action === 'apply'),
-        c('changes in that area are still checked', x.action !== 'ignore'),
+        c('everything that exists is in a blueprint', x.action === 'import' || x.action === 'apply'),
+        c('the granary area is still checked', x.action !== 'ignore'),
       ],
-      hint: x.action === 'apply' ? 'The shed holds the festival lanterns!' : x.action === 'ignore' ? 'Ignoring the area hides all future drift there too, so nobody notices the next surprise.' : 'Pick a way to make the blueprint and reality agree.',
+      hint: x.action === 'apply' ? 'The shed holds the festival lanterns!' : x.action === 'ignore' ? 'Skipping the area hides every future surprise there too.' : 'Pick a way to make the blueprint and the real town agree.',
     }),
     recap: {
       headline: 'The shed was important. It just wasn\'t written down.',
-      before: { lines: ['reality:   shed (lanterns)', 'blueprint: (no shed)', 'plan:      - shed'], outcome: 'drift: next apply destroys it' },
-      after: () => ({ lines: ['reality:   shed (lanterns)', 'blueprint: shed (imported)', 'plan:      no changes'], outcome: 'no drift, shed is managed ✓' }),
-      why: 'Hand-made changes are invisible to the blueprint, so the next apply "fixes" them away. When drift is something you need, bring it under management (import); when it\'s a mistake, let the apply revert it. Ignoring drift just hides the next surprise.',
-      real: `$ terraform plan
-  - aws_instance.shed  # created outside Terraform
-$ terraform import aws_instance.shed i-0abc123
-# add the matching resource block to granary.tf
-$ terraform plan
-No changes. Your infrastructure matches the configuration.`,
-      realCaption: 'Drift detection is a "plan" on a schedule. Treat its output as a ticket.',
+      before: { lines: ['reality:   shed (lanterns)', 'blueprint: (no shed)', 'plan:      no changes (blind)'], outcome: 'unmanaged: nobody maintains it' },
+      after: () => ({ lines: ['reality:   shed (lanterns)', 'blueprint: shed (imported)', 'plan:      no changes'], outcome: 'shed is managed ✓' }),
+      why: 'Infrastructure as code only manages what it knows about. Resources created by hand don\'t show up in a plan at all, so you need an inventory (cloud asset listings, tag audits) to find them. When something unmanaged is needed, import it; when it\'s junk, delete it on purpose. Excluding an area just hides the next one.',
+      real: `$ terraform state list | grep shed
+  (nothing: Terraform doesn't know it exists)
+# bring it under management (Terraform 1.5+)
+import {
+  to = aws_instance.shed
+  id = "i-0abc123"
+}
+$ terraform plan -generate-config-out=shed.tf
+Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.`,
+      realCaption: 'A plan only shows drift on resources Terraform already manages. Hand-built ones need an inventory.',
     },
   },
 

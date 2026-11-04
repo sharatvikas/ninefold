@@ -78,7 +78,7 @@ export const WATCH: LevelSpec[] = [
 latency:    histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))
 traffic:    sum(rate(http_requests_total[5m]))
 errors:     sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
-saturation: avg(queue_depth) / queue_capacity`,
+saturation: avg(queue_depth) / avg(queue_capacity)`,
       realCaption: 'From the Google SRE book, chapter "Monitoring Distributed Systems".',
     },
   },

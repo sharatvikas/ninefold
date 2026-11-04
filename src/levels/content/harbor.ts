@@ -198,6 +198,7 @@ resources:
       known: [
         'Several apps share node-2.',
         'A container with no limit can use every spare CPU on its node.',
+        'bakery-app was deployed with a tiny CPU request (50m), so it\'s only guaranteed a sliver when the node is busy.',
         'You have kubectl access to the cluster.',
       ],
       goal: 'Find the noisy neighbour, cap it with a limit, apply, and check node-2 recovers.',
@@ -262,7 +263,7 @@ spec:
       headline: 'A runaway batch job with no limit ate the whole node.',
       before: { lines: ['batch-report: requests 200m, limits <none>', 'using 1920m on node-2'], outcome: 'bakery-app starved & slow' },
       after: (s) => ({ lines: [`batch-report: limits cpu ${limitOf(String(s.vars.applied))}m`, 'node-2: 55%'], outcome: 'bakery-app fast again ✓' }),
-      why: 'Requests decide where pods go; limits cap what they can take. Without a limit one pod can starve everything beside it. Cap it, don\'t delete it: the report is still needed, and the loop bug goes into the backlog.',
+      why: 'Requests decide where pods go and guarantee each pod its share when the node is busy; limits cap how far a pod can burst above that. With no limit, batch-report soaked up all the spare CPU, and bakery-app had requested too little to be protected. Cap the burster, and give important apps honest requests. Cap it, don\'t delete it: the report is still needed, and the loop bug goes into the backlog.',
       real: `resources:
   requests:
     cpu: 200m
@@ -312,7 +313,7 @@ spec:
       },
       vars: { applied: '', undone: false },
       commands: [
-        { match: /^kubectl rollout status deploy\/bakery-app$/, usage: 'kubectl rollout status deploy/bakery-app', help: 'progress', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'deployment "bakery-app" successfully rolled out (3/3 v3)' : s.vars.undone ? 'rolled back: 3/3 v2' : 'Waiting for rollout: 1 of 3 updated replicas are available… (stuck)', verify: true }) },
+        { match: /^kubectl rollout status deploy\/bakery-app$/, usage: 'kubectl rollout status deploy/bakery-app', help: 'progress', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'deployment "bakery-app" successfully rolled out (3/3 v3)' : s.vars.undone ? 'rolled back: 3/3 v2' : 'Waiting for deployment "bakery-app" rollout to finish: 1 out of 3 new replicas have been updated...\n(stuck: the new replica never becomes ready)', verify: true }) },
         { match: /^kubectl get pods$/, usage: 'kubectl get pods', help: 'list pods', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'bakery-app-v3-0  1/1 Running\nbakery-app-v3-1  1/1 Running\nbakery-app-v3-2  1/1 Running' : 'bakery-app-v2-a  1/1 Running\nbakery-app-v2-b  1/1 Running\nbakery-app-v3-0  0/1 CrashLoopBackOff (restarts 9)' }) },
         { match: /^kubectl logs bakery-app-v3-0$/, usage: 'kubectl logs bakery-app-v3-0', help: 'new pod\'s logs', run: () => ({ out: 'starting bakery-app v3.0.0\nFATAL: environment variable DB_HOST is not set\nexit 1', evidence: true }) },
         { match: /^kubectl apply -f deploy\.yaml$/, usage: 'kubectl apply -f deploy.yaml', help: 'apply changes', run: (_m, s) => { s.vars.applied = s.files['deploy.yaml']; return { out: `deployment.apps/bakery-app configured${dbHostSet(s.files['deploy.yaml']) ? '' : '\n(new pods still failing)'}`, changed: true }; } },

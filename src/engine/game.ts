@@ -43,6 +43,7 @@ export class Game {
   setScene(s: Scene): void {
     this.scene?.leave?.();
     this.ui.clearScene();
+    this.ui.dialog.dismiss();
     this.scene = s;
     s.enter?.();
   }

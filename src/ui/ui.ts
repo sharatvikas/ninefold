@@ -52,6 +52,13 @@ class Dialog {
     else if (input.wasPressed(...ADVANCE_KEYS)) this.advance();
   }
 
+  /** Close without running the finish callback (e.g. the scene changed underneath it). */
+  dismiss(): void {
+    this.open = false;
+    this.onDone = undefined;
+    this.el.classList.add('hidden');
+  }
+
   advance(): void {
     if (!this.open) return;
     const line = this.lines[this.idx] ?? '';
@@ -150,10 +157,12 @@ class QuestLog {
       col.append(h('div', 'ql-name', d.name), h('div', 'ql-topic', d.topic));
       for (const l of levelsIn(d.id)) {
         const st = levelStatus(p, l);
-        const row = h('div', `ql-level ${st}`);
+        const playable = !!onPlay && l.built && (st === 'available' || st === 'done');
+        // Playable rows are real buttons so keyboard players can Tab to them and press Enter/Space.
+        const row = h(playable ? 'button' : 'div', `ql-level ${st}`);
         row.title = `${l.concept} · Act ${l.act} · ${STATUS_TEXT[st]}`;
         row.append(h('span', 'ic', STATUS_ICON[st]), h('span', '', `${l.num}. ${l.title}`));
-        if (onPlay && l.built && (st === 'available' || st === 'done')) {
+        if (playable && onPlay) {
           row.classList.add('playable');
           row.title += ' · click to play';
           row.addEventListener('click', () => {
@@ -314,6 +323,8 @@ export class UI {
   }
 
   openQuestLog(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void, onImport?: (p: Progress) => void): void {
+    if (this.questLog.open || this.avatar.open) return;
+    this.dialog.dismiss();
     this.input.enabled = false;
     this.questLog.show(p, onPlay, onReset, onImport);
   }

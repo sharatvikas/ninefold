@@ -121,8 +121,10 @@ $ kubectl rollout undo deploy/menu-svc --to-revision=41
 retry:
   attempts: 2
   backoff: exponential(base=100ms, max=2s) + full jitter
-# ingress rate limit
-nginx.ingress.kubernetes.io/limit-rps: "3000"`,
+# per-client limit, so one noisy client can't hog it
+nginx.ingress.kubernetes.io/limit-rps: "20"     # per client IP
+# global shedding: cap total traffic at capacity (≤ 2800 req/s)
+# in the gateway / load balancer, and return 503 fast above it`,
       realCaption: 'Cascading failures are the classic Big Incident. Look for multipliers: autoscaling × pools, retries × clients.',
     },
   },

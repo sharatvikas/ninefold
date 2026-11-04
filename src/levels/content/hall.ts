@@ -62,8 +62,9 @@ export const HALL: LevelSpec[] = [
       after: (x) => ({ lines: ['SLI: orders OK in < 2s', `SLO: ${num(x.target)}% / 30 days`], outcome: `error budget: ${(100 - num(x.target)).toFixed(1)}% to spend ✓` }),
       why: 'An SLI must reflect user experience: success AND speed. The SLO is a deliberate trade-off: the gap to 100% is the error budget you can "spend" on releases and experiments. It ends the arguments, because the number decides.',
       real: `# SLI (PromQL)
-sum(rate(orders_total{status="ok", le="2"}[30d]))
-  / sum(rate(orders_total[30d]))
+# good = orders that succeeded in under 2s (histogram bucket le="2")
+sum(rate(order_duration_seconds_bucket{status="ok", le="2"}[30d]))
+  / sum(rate(order_duration_seconds_count[30d]))
 # SLO: 99.5% over 30 days → error budget 0.5% ≈ 216 minutes`,
       realCaption: 'Tools like Sloth or Pyrra generate SLO alert rules from a spec like this.',
     },
@@ -341,8 +342,8 @@ maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
     check: (s) => {
       const c2 = cacheConf(String(s.vars.running || ''));
       return {
-        cases: [c('cache has a memory limit', c2.max !== ''), c('old entries are evicted when full (LRU)', c2.policy.includes('lru')), c('running cache uses the new settings', !!s.vars.running && c2.ok), c('no restart cron hiding the problem', !/cache restart/.test(s.files.crontab))],
-        hint: /cache restart/.test(s.files.crontab) ? 'Automating the restart makes the toil invisible but keeps the bug. Fix why it grows.' : 'Set maxmemory (e.g. 2gb) and an eviction policy like allkeys-lru, then restart.',
+        cases: [c('cache has a memory limit', c2.max !== ''), c('old entries are evicted when full (allkeys-lru/lfu)', /^allkeys-(lru|lfu)$/.test(c2.policy)), c('running cache uses the new settings', !!s.vars.running && c2.ok), c('no restart cron hiding the problem', !/cache restart/.test(s.files.crontab))],
+        hint: /cache restart/.test(s.files.crontab) ? 'Automating the restart makes the toil invisible but keeps the bug. Fix why it grows.' : /^volatile-/.test(cacheConf(s.files['cache.conf']).policy) ? 'volatile-* policies only evict keys that have an expiry, and this cache sets none. Use allkeys-lru.' : 'Set maxmemory (e.g. 2gb) and an eviction policy like allkeys-lru, then restart.',
       };
     },
     solve: (s) => { s.files['cache.conf'] = s.files['cache.conf'].replace('maxmemory 0            # 0 = unlimited', 'maxmemory 2gb').replace('noeviction', 'allkeys-lru'); s.vars.running = s.files['cache.conf']; },
@@ -366,6 +367,7 @@ function cacheConf(conf: string): { max: string; policy: string; ok: boolean } {
   const max = lines.find((l) => l.startsWith('maxmemory '))?.split(/\s+/)[1] ?? '';
   const policy = lines.find((l) => l.startsWith('maxmemory-policy'))?.split(/\s+/)[1] ?? 'noeviction';
   const maxOk = /^\d+(mb|gb|kb)?$/i.test(max) && max !== '0';
-  return { max: maxOk ? max : '', policy, ok: maxOk && /lru|lfu/.test(policy) };
+  // volatile-* only evicts keys with a TTL; this cache sets none, so only allkeys-* actually frees memory.
+  return { max: maxOk ? max : '', policy, ok: maxOk && /^allkeys-(lru|lfu)$/.test(policy) };
 }
 

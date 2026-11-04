@@ -77,6 +77,10 @@ body {
   box-shadow: 0 0.3cqw 0 var(--wood-dark);
 }
 .btn:hover { filter: brightness(1.12); }
+/* Visible keyboard focus everywhere (mouse clicks don't trigger :focus-visible). */
+.btn:focus-visible, button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 0.35cqw solid #f8d030; outline-offset: 0.25cqw;
+}
 .btn:active { transform: translateY(0.2cqw); box-shadow: 0 0.1cqw 0 var(--wood-dark); }
 .btn.primary { background: var(--green); border-color: #0e5a2e; box-shadow: 0 0.3cqw 0 #0e5a2e; }
 
@@ -132,8 +136,9 @@ body {
 .ql-level.available .ic { color: var(--red); }
 .ql-level.done { color: var(--green); }
 .ql-level.playable { cursor: pointer; border-radius: 0.3cqw; }
+button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100%; text-align: left; font-family: system-ui, sans-serif; font-size: 1.15cqw; line-height: 1.6; }
 .ql-level.playable:hover { background: rgba(248, 208, 48, 0.35); }
-.ql-foot { font-size: 0.9cqw; color: #7a6a5a; display: flex; justify-content: space-between; align-items: center; gap: 1cqw; }
+.ql-foot { font-size: max(9px, 1cqw); color: #7a6a5a; display: flex; justify-content: space-between; align-items: center; gap: 1cqw; }
 .ql-btns { display: flex; gap: 0.8cqw; flex-shrink: 0; }
 .ql-btns .btn { font-size: 0.9cqw; }
 .savecode .sc-body { display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; margin-top: 1cqw; }
@@ -176,8 +181,8 @@ body {
 .slot:hover { transform: translateY(-0.4cqw); }
 .slot.sel { outline: 0.45cqw solid #ff4d4d; outline-offset: -0.2cqw; }
 .slot .icon { font-size: 2.6cqw; line-height: 1; }
-.slot small { font-size: 0.7cqw; color: var(--ink); margin-top: 0.5cqw; text-align: center; line-height: 1.3; }
-.slot .key { position: absolute; top: 0.2cqw; left: 0.5cqw; font-size: 0.8cqw; color: var(--wood-dark); }
+.slot small { font-size: max(8px, 0.8cqw); color: var(--ink); margin-top: 0.5cqw; text-align: center; line-height: 1.3; }
+.slot .key { position: absolute; top: 0.2cqw; left: 0.5cqw; font-size: max(8px, 0.8cqw); color: var(--wood-dark); }
 .slot.locked { opacity: 0.45; cursor: not-allowed; }
 
 .notes { flex: 1; padding: 1cqw 1.4cqw; font-size: 1.15cqw; display: flex; flex-direction: column; min-width: 0; }
@@ -196,7 +201,7 @@ body {
 }
 .chart i { flex: 1; background: var(--wood-light); border-radius: 0.2cqw 0.2cqw 0 0; height: 0; transition: height 0.35s; }
 .chart i.hot { background: var(--red); }
-.chart .lim { position: absolute; left: 0; right: 0; border-top: 0.25cqw dashed var(--red); font-size: 0.8cqw; color: var(--red); text-align: right; line-height: 1.4; }
+.chart .lim { position: absolute; left: 0; right: 0; border-top: 0.25cqw dashed var(--red); font-size: max(9px, 0.9cqw); color: var(--red); text-align: right; line-height: 1.4; }
 .caption { font-family: system-ui, sans-serif; font-size: 1.2cqw; color: #7a6a5a; margin-top: 0.5cqw; }
 
 /* ---------- touch controls ---------- */
@@ -216,7 +221,7 @@ body {
 }
 
 /* ---------- hands-on incidents ---------- */
-.steps { display: flex; gap: 0.4cqw; padding: 0.5cqw 0.7cqw; font-size: 0.85cqw; }
+.steps { display: flex; gap: 0.4cqw; padding: 0.5cqw 0.7cqw; font-size: max(8px, 0.9cqw); }
 .step { padding: 0.35cqw 0.6cqw; border-radius: 0.4cqw; background: rgba(139, 90, 43, 0.12); color: #9a8a7a; white-space: nowrap; }
 .step.done { background: var(--green); color: #fff; }
 .step.done::before { content: '✓ '; }
@@ -428,3 +433,15 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 .swatch:hover { transform: scale(1.12); }
 .swatch.on { outline: 0.35cqw solid #f8d030; outline-offset: 0.15cqw; }
 .avatar-actions { display: flex; justify-content: flex-end; gap: 1cqw; margin-top: 0.6cqw; }
+
+/* ---------- phones held upright: the stage is 16:9, so ask for landscape ---------- */
+#rotate { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate {
+    display: flex; position: fixed; inset: 0; z-index: 50; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: var(--bg); color: #f4f0e6; font-family: 'Press Start 2P', monospace; font-size: 14px; line-height: 1.8; text-align: center; padding: 24px;
+  }
+  #rotate .phone { font-size: 48px; animation: tilt 2s ease-in-out infinite; }
+  @keyframes tilt { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+  #rotate small { font-family: system-ui, sans-serif; font-size: 14px; opacity: 0.75; max-width: 30ch; }
+}

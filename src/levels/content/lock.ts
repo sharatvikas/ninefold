@@ -158,11 +158,12 @@ $ aws iam delete-access-key --access-key-id AKIA…OLD`,
       return {
         cases: [
           c('library.town: no warning', x.issuer === 'ca' && (has(n, 'apex'))),
-          c('www.library.town: no warning', x.issuer === 'ca' && (has(n, 'www') || has(n, 'wild'))),
+          // A wildcard covers exactly one label: *.town matches library.town but NOT www.library.town.
+          c('www.library.town: no warning', x.issuer === 'ca' && has(n, 'www')),
           c('still valid in 91 days', !!x.auto),
           c('a leaked library key can\'t impersonate other shops', !has(n, 'wild')),
         ],
-        hint: x.issuer === 'self' ? 'Browsers don\'t trust a seal you made yourself.' : !x.auto ? 'It works today. What happens in 90 days?' : 'Check which names visitors use, and who browsers trust.',
+        hint: x.issuer === 'self' ? 'Browsers don\'t trust a seal you made yourself.' : !has(n, 'www') ? 'A wildcard only stretches one label: *.town covers library.town, not www.library.town.' : !x.auto ? 'It works today. What happens in 90 days?' : 'Check which names visitors use, and who browsers trust.',
       };
     },
     recap: {
@@ -248,26 +249,43 @@ spec:
       ],
       goal: 'Find which key opened the vault, disable exactly that key, and confirm the backup job still works.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'audit search vault: vault events\naudit search key <KEYID>: everything a key did\niam list-keys svc-backup\niam disable-key <KEYID>\nbackup test: run the backup job now' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'audit search vault: vault events\naudit search key <KEYID>: everything a key did\niam list-keys svc-backup\niam disable-key <KEYID>  (undo: iam enable-key)\nbackup test: run the backup job now' }],
     term: {
       host: 'security',
       motd: 'Security console · audit log retention 90 days',
       files: {},
-      vars: { disabled: '' },
+      vars: { offBKP: false, offLEAK: false, deleted: false },
       commands: [
         { match: /^audit search vault$/, usage: 'audit search vault', help: 'vault events', run: () => ({ out: '02:00:04  vault.open  svc-backup  key AKIA7BKP  from 10.0.3.40   (nightly backup)\n03:07:51  vault.open  svc-backup  key AKIA2LEAK from 185.220.101.4  ⚠ outside town\n03:08:30  vault.list  svc-backup  key AKIA2LEAK from 185.220.101.4', evidence: true }) },
         { match: /^audit search key (\w+)$/, usage: 'audit search key AKIA2LEAK', help: 'events for one key', run: (m) => ({ out: m[1] === 'AKIA2LEAK' ? 'key AKIA2LEAK: created 2021 for "old backup script", last rotated: never\n03:07 vault.open from 185.220.101.4\n03:08 vault.list from 185.220.101.4' : m[1] === 'AKIA7BKP' ? 'key AKIA7BKP: created last month, used nightly at 02:00 from 10.0.3.40' : 'no events', evidence: m[1] === 'AKIA2LEAK' }) },
-        { match: /^iam list-keys svc-backup$/, usage: 'iam list-keys svc-backup', help: 'keys for the backup account', run: (_m, s) => ({ out: `AKIA7BKP   ${s.vars.disabled === 'AKIA7BKP' ? 'Inactive' : 'Active'}  created 32 days ago\nAKIA2LEAK  ${s.vars.disabled === 'AKIA2LEAK' ? 'Inactive' : 'Active'}  created 2021 (old script)` }) },
-        { match: /^iam disable-key (\w+)$/, usage: 'iam disable-key <KEYID>', help: 'deactivate a key', run: (m, s) => { s.vars.disabled = m[1]; return { out: `key ${m[1]} → Inactive`, changed: true, bad: m[1] === 'AKIA7BKP' }; } },
-        { match: /^iam delete-user svc-backup$/, usage: 'iam delete-user svc-backup', help: 'delete the whole account', run: (_m, s) => { s.vars.disabled = 'ALL'; return { out: 'user svc-backup deleted\n⚠ tonight\'s backup will fail', changed: true, bad: true }; } },
-        { match: /^backup test$/, usage: 'backup test', help: 'run the backup job now', run: (_m, s) => ({ out: s.vars.disabled === 'AKIA7BKP' || s.vars.disabled === 'ALL' ? 'backup FAILED: access denied' : 'backup OK (key AKIA7BKP)', verify: true }) },
+        { match: /^iam list-keys svc-backup$/, usage: 'iam list-keys svc-backup', help: 'keys for the backup account', run: (_m, s) => s.vars.deleted ? { out: 'error: user svc-backup does not exist' } : ({ out: `AKIA7BKP   ${s.vars.offBKP ? 'Inactive' : 'Active'}  created 32 days ago\nAKIA2LEAK  ${s.vars.offLEAK ? 'Inactive' : 'Active'}  created 2021 (old script)` }) },
+        { match: /^iam disable-key (\w+)$/, usage: 'iam disable-key <KEYID>', help: 'deactivate a key', run: (m, s) => {
+          if (s.vars.deleted) return { out: 'error: user svc-backup does not exist (iam restore-user svc-backup to undo)' };
+          if (m[1] === 'AKIA7BKP') s.vars.offBKP = true;
+          else if (m[1] === 'AKIA2LEAK') s.vars.offLEAK = true;
+          else return { out: `error: no key ${m[1]}` };
+          return { out: `key ${m[1]} → Inactive`, changed: true, bad: m[1] === 'AKIA7BKP' };
+        } },
+        { match: /^iam enable-key (\w+)$/, usage: 'iam enable-key <KEYID>', help: 'reactivate a key (undo)', run: (m, s) => {
+          if (s.vars.deleted) return { out: 'error: user svc-backup does not exist' };
+          if (m[1] === 'AKIA7BKP') s.vars.offBKP = false;
+          else if (m[1] === 'AKIA2LEAK') s.vars.offLEAK = false;
+          else return { out: `error: no key ${m[1]}` };
+          return { out: `key ${m[1]} → Active`, changed: true };
+        } },
+        { match: /^iam delete-user svc-backup$/, usage: 'iam delete-user svc-backup', help: 'delete the whole account', run: (_m, s) => { s.vars.deleted = true; return { out: 'user svc-backup deleted\n⚠ tonight\'s backup will fail (iam restore-user svc-backup to undo)', changed: true, bad: true }; } },
+        { match: /^iam restore-user svc-backup$/, usage: 'iam restore-user svc-backup', help: 'undo a deletion', run: (_m, s) => { s.vars.deleted = false; return { out: 'user svc-backup restored with its keys', changed: true }; } },
+        { match: /^backup test$/, usage: 'backup test', help: 'run the backup job now', run: (_m, s) => ({ out: s.vars.deleted || s.vars.offBKP ? 'backup FAILED: access denied' : 'backup OK (key AKIA7BKP)', verify: true }) },
       ],
     },
     check: (s) => ({
-      cases: [c('the 3am key (AKIA2LEAK) is disabled', s.vars.disabled === 'AKIA2LEAK'), c('nightly backup still works', s.vars.disabled !== 'AKIA7BKP' && s.vars.disabled !== 'ALL')],
-      hint: 'Both keys belong to the same account. Which one was used from outside town at 3am?',
+      cases: [
+        c('the 3am key (AKIA2LEAK) is disabled', !!s.vars.offLEAK || !!s.vars.deleted),
+        c('nightly backup still works', !s.vars.offBKP && !s.vars.deleted),
+      ],
+      hint: s.vars.deleted ? 'Deleting the account also killed the backup. Restore it and disable just the one key.' : 'Both keys belong to the same account. Which one was used from outside town at 3am?',
     }),
-    solve: (s) => { s.vars.disabled = 'AKIA2LEAK'; },
+    solve: (s) => { s.vars.offLEAK = true; },
     recap: {
       headline: 'An old, never-rotated key from a retired script was used from outside town.',
       before: { lines: ['svc-backup: AKIA7BKP (current)', '            AKIA2LEAK (2021, never rotated)'], outcome: 'vault opened from 185.220.101.4' },
@@ -307,12 +325,14 @@ $ aws iam update-access-key --user-name svc-backup \\
         { match: /^iam groups kit$/, usage: 'iam groups kit', help: 'Kit\'s groups', run: (_m, s) => ({ out: `staff\nlocksmiths${s.vars.inContractors ? '\ncontractors   (added 2 days ago by onboarding script, "temp")' : ''}`, evidence: !!s.vars.inContractors }) },
         { match: /^iam policy (\S+)$/, usage: 'iam policy deny-contractors-granary', help: 'show a policy', run: (m) => ({ out: m[1] === 'deny-contractors-granary' ? 'Deny  granary:*  for group contractors\n(protects the ledger from outside contractors)' : m[1] === 'kit-granary-read' ? 'Allow granary:read on granary-ledger' : 'no such policy' }) },
         { match: /^iam remove-from-group kit contractors$/, usage: 'iam remove-from-group kit contractors', help: 'take Kit out of contractors', run: (_m, s) => { s.vars.inContractors = false; return { out: 'kit removed from group contractors', changed: true }; } },
-        { match: /^iam delete-policy deny-contractors-granary$/, usage: 'iam delete-policy deny-contractors-granary', help: 'delete the deny policy', run: (_m, s) => { s.vars.denyPolicy = false; return { out: 'policy deleted\n⚠ all 12 contractors can now read and write the granary ledger', changed: true, bad: true }; } },
+        { match: /^iam delete-policy deny-contractors-granary$/, usage: 'iam delete-policy deny-contractors-granary', help: 'delete the deny policy', run: (_m, s) => { s.vars.denyPolicy = false; return { out: 'policy deleted\n⚠ all 12 contractors can now read and write the granary ledger\n(undo: iam restore-policy deny-contractors-granary)', changed: true, bad: true }; } },
+        { match: /^iam restore-policy deny-contractors-granary$/, usage: 'iam restore-policy deny-contractors-granary', help: 'put the deny policy back', run: (_m, s) => { s.vars.denyPolicy = true; return { out: 'policy deny-contractors-granary restored and re-attached to contractors', changed: true }; } },
+        { match: /^iam add-to-group kit contractors$/, usage: 'iam add-to-group kit contractors', help: 'undo removing Kit', run: (_m, s) => { s.vars.inContractors = true; return { out: 'kit added to group contractors', changed: true }; } },
       ],
     },
     check: (s) => ({
       cases: [c('Kit can read the ledger', !s.vars.inContractors || !s.vars.denyPolicy), c('contractors are still blocked from the granary', !!s.vars.denyPolicy)],
-      hint: 'The deny is doing its job for contractors. Is Kit supposed to be one?',
+      hint: !s.vars.denyPolicy ? 'Deleting the guardrail opened the ledger to every contractor. Restore it (iam restore-policy …), then fix Kit.' : 'The deny is doing its job for contractors. Is Kit supposed to be one?',
     }),
     solve: (s) => { s.vars.inContractors = false; },
     recap: {

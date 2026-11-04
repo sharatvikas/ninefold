@@ -275,17 +275,21 @@ Stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Want to change the game? Use `npm run
 |---|---|
 | <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> | Walk |
 | <kbd>E</kbd> / <kbd>Space</kbd> | Talk, advance dialogue |
-| <kbd>Q</kbd> | Ticket list: replay finished tickets, **↺ Reset progress** |
+| <kbd>Q</kbd> | Ticket list: replay finished tickets, **⇄ Save code**, **↺ Reset progress** |
 | <kbd>1</kbd>–<kbd>6</kbd> | Switch tools inside a ticket |
-| <kbd>Esc</kbd> | Leave a ticket |
+| <kbd>Esc</kbd> | Leave a ticket (press twice once you've started) |
+| <kbd>Tab</kbd> + <kbd>Enter</kbd>/<kbd>Space</kbd> | Play entirely by keyboard |
 | **👤 AVATAR** button | Change your look and name |
 
-Touch screens get an on-screen pad.
+Touch screens get an on-screen pad. It's a wide-screen game, so on a phone, turn it sideways. A tablet or computer is best.
+
+Found a ticket confusing or wrong? Every recap has a **💬 Tell me** link that opens a pre-filled issue for that ticket.
 
 <details>
 <summary><b>Saves, offline play & troubleshooting</b></summary>
 
 - **Saves** live in your browser (localStorage), per web address. No account, nothing sent anywhere. Different browsers, private windows and different ports each have their own save. **Reset progress** (in <kbd>Q</kbd>) clears tickets and Trust but keeps your avatar.
+- **Moving to another device:** <kbd>Q</kbd> → **⇄ Save code** gives you a code starting with `NF1-`. Paste it into Ninefold on the other browser or device to carry on there. The code holds only your closed tickets, Trust and avatar, and it never leaves your clipboard.
 - **Offline:** after `npm install` the game works without internet; only the pixel font comes from Google Fonts (with a fallback).
 - **Don't open `dist/index.html` directly.** Browsers block modules on `file://`; use `npm run play` or any static server (`npx serve dist`).
 

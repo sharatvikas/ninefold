@@ -59,6 +59,9 @@ export abstract class IncidentScene implements Scene {
   private alertEl = h('div', 'alert hidden');
   protected activeTab = '';
   private done = false;
+  private timers: number[] = [];
+  /** When the player last pressed Esc mid-ticket; a second press soon after really leaves. */
+  private escAt = -Infinity;
 
   constructor(
     protected game: Game,
@@ -106,7 +109,14 @@ export abstract class IncidentScene implements Scene {
   }
 
   leave(): void {
+    this.timers.forEach((id) => clearTimeout(id));
+    this.timers = [];
     this.game.ui.hud.el.classList.remove('hidden');
+  }
+
+  /** A timer that is cancelled if the player leaves the level first. */
+  protected later(fn: () => void, ms: number): void {
+    this.timers.push(window.setTimeout(fn, ms));
   }
 
   protected leaveLevel(): void {
@@ -117,7 +127,15 @@ export abstract class IncidentScene implements Scene {
   protected baseUpdate(t: number): void {
     this.now = t;
     const { input } = this.game;
-    if (input.wasPressed('escape') && !this.root.querySelector('.modal')) this.leaveLevel();
+    if (input.wasPressed('escape') && !this.done && !this.root.querySelector('.modal')) {
+      // Leaving throws away work on this ticket, so once something has happened, ask for a second press.
+      const started = this.steps.cause || this.steps.fix;
+      if (!started || t - this.escAt < 2.5) this.leaveLevel();
+      else {
+        this.escAt = t;
+        this.game.ui.toast('PRESS ESC AGAIN TO LEAVE · THIS TICKET RESTARTS', 'info');
+      }
+    }
     this.tabs().forEach((tab, i) => {
       if (input.wasPressed(String(i + 1)) && !this.root.querySelector('.modal')) this.openTab(tab.id);
     });
@@ -193,7 +211,7 @@ export abstract class IncidentScene implements Scene {
     this.done = true;
     this.complete('verify');
     const trust = trustFor(this.attempts);
-    setTimeout(() => this.showRecap(r, trust), 1800);
+    this.later(() => this.showRecap(r, trust), 1800);
   }
 
   private showRecap(r: Recap, trust: number): void {

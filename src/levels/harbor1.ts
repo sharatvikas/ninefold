@@ -430,7 +430,7 @@ $ kubectl describe pod ship-7 | grep Reason
 # deployment.yaml → resources.limits
 -   memory: "${START_CONFIG.hold * MI_PER_CRATE}Mi"
 +   memory: "${this.cfg.hold * MI_PER_CRATE}Mi"`,
-      realWorldCaption: 'Crates = memory, hold size = memory limit, sinking = OOMKilled, relaunching = CrashLoopBackOff. In Act 3 you\'ll do this at the terminal.',
+      realWorldCaption: 'Crates = memory, hold size = memory limit, sinking = OOMKilled, relaunching = CrashLoopBackOff. Later Harbor tickets put you at a real terminal with kubectl.',
     };
   }
 

@@ -1,7 +1,9 @@
 import { arr, c, has, num, type LevelSpec } from '../spec';
 
 /** Oven warm-up times (seconds) for 20 simulated test runs: realistic spread. */
-const WARMUPS = [1.2, 2.8, 1.9, 3.4, 2.1, 1.5, 3.9, 2.2, 1.7, 2.6, 3.1, 1.4, 2.0, 3.6, 1.8, 2.4, 2.9, 1.6, 3.2, 2.3];
+const WARMUPS = [1.2, 2.8, 1.9, 2.6, 1.1, 1.5, 1.4, 1.8, 1.7, 1.3, 3.4, 1.4, 1.6, 1.9, 1.8, 3.1, 1.2, 1.6, 2.3, 1.5];
+/** 5 of the 20 runs take longer than the test's 2s sleep: the "one in four" in the story. */
+const WARM_AVG = (WARMUPS.reduce((a, b) => a + b, 0) / WARMUPS.length).toFixed(1);
 
 export const RAIL: LevelSpec[] = [
   // ------------------------------------------------------------------ 1. Derailed (missing dependency)
@@ -134,7 +136,7 @@ $ npm ci && npm run build   # ✓`,
     recap: {
       headline: 'The test guessed how long the oven takes. Now it checks.',
       before: { lines: ['sleep(2)', 'expect(bread).golden()'], outcome: 'fails whenever the oven takes > 2s (~25%)' },
-      after: () => ({ lines: ['waitUntil(oven.ready,', '  { every: 0.2s, timeout: 15s })', 'expect(bread).golden()'], outcome: '20/20 passed, ~2.4s avg ✓' }),
+      after: () => ({ lines: ['waitUntil(oven.ready,', '  { every: 0.2s, timeout: 15s })', 'expect(bread).golden()'], outcome: `20/20 passed, ~${WARM_AVG}s avg ✓` }),
       why: 'Fixed sleeps are the most common cause of flaky tests: the wait is either too short (flaky) or too long (slow). Waiting for the condition itself is both reliable and fast. Retries just hide the flakiness, and real bugs with it.',
       real: `- await sleep(2000);
 + await waitFor(() => oven.isReady(), { interval: 200, timeout: 15000 });
@@ -205,15 +207,20 @@ $ npm ci && npm run build   # ✓`,
       },
       why: 'Fast pipelines come from three moves: don\'t redo work (caching), don\'t wait for unrelated work (parallel jobs), and split the long pole (sharding). Each has a cost, so measure stage times first and attack the biggest.',
       real: `# .github/workflows/ci.yml
-- uses: actions/setup-node@v4
-  with: { cache: npm }        # cache deps
 jobs:
-  lint: ...                   # runs in parallel
-  unit: ...                   # with lint
+  lint:                 # lint, unit and integ jobs run in parallel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }   # cached deps
+      - run: npm ci && npm run lint
   integ:
+    runs-on: ubuntu-latest
     strategy:
       matrix: { shard: [1, 2, 3, 4] }
-    run: npm test -- --shard=\${{ matrix.shard }}/4`,
+    steps:              # same checkout + setup-node, then:
+      - run: npm ci && npm run test:integ -- --shard=\${{ matrix.shard }}/4`,
       realCaption: 'Speeding up CI means more frequent, smaller releases, which are much safer.',
     },
   },
