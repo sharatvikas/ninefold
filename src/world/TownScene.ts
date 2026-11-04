@@ -1,4 +1,5 @@
 import { CharacterSheet, LOOKS, type Dir, type Look } from '../art/characters';
+import { applySky, Birds, CloudShadows, Fireflies, glow, gust, Particles, prefersReducedMotion, skyAt, type Sky } from '../art/atmosphere';
 import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art/pixels';
 import { barn, boat, container, crane, flowers, fountain, house, lampPost, railCar, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
@@ -15,7 +16,15 @@ interface Npc extends NpcSpawn {
   dir: Dir;
   box: Box;
   lookTimer: number;
+  /** Seconds offset so NPCs don't all blink together. */
+  blinkPhase: number;
 }
+
+/** Where lamp posts stand (tile coords). Their heads glow after dark. */
+const LAMPS: [number, number][] = [[18, 13], [21, 13], [11, 14], [26, 14], [16, 25], [23, 25]];
+/** Walk cycle: step, stand, other step, stand. */
+const WALK = [1, 0, 2, 0];
+const FIREWORK_COLS = ['#ff6a8a', '#ffd23f', '#5ee08a', '#5ab4ff', '#c08aff'];
 
 export interface LevelResult {
   levelId: string;
@@ -34,6 +43,19 @@ export class TownScene implements Scene {
   private smoke = new Smoke();
   private nearby: Npc | undefined;
   private greeted = false;
+  /** Short-lived pixels in the world: dust, petals, confetti. */
+  private fx = new Particles();
+  /** Additive sparks drawn after the night tint so they glow. */
+  private sparks = new Particles();
+  private clouds = new CloudShadows(MAP_W * TILE, MAP_H * TILE);
+  private birds = new Birds();
+  private flies: Fireflies;
+  private camReady = false;
+  private walkStep = -1;
+  private reduced = prefersReducedMotion();
+  private sky: Sky = skyAt(9 * 60);
+  /** A celebration in progress over a district whose ticket was just closed. */
+  private party: { x: number; y: number; left: number; next: number } | undefined;
 
   constructor(
     private game: Game,
@@ -51,7 +73,11 @@ export class TownScene implements Scene {
       dir: 'down' as Dir,
       box: { x: n.x * TILE + 2, y: n.y * TILE + 6, w: 12, h: 10 },
       lookTimer: 2 + Math.random() * 4,
+      blinkPhase: Math.random() * 4,
     }));
+    const spots: [number, number][] = [];
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if ((GRID[y][x] === 'F' || GRID[y][x] === 'T') && (x * 7 + y * 13) % 3 === 0) spots.push([x * TILE, y * TILE]);
+    this.flies = new Fireflies(spots);
   }
 
   enter(): void {
@@ -83,6 +109,7 @@ export class TownScene implements Scene {
     this.game.resetProgress();
     this.player.box = { ...this.player.box, x: PLAYER_START.x * TILE + 3, y: PLAYER_START.y * TILE + 10 };
     this.player.dir = 'down';
+    this.camReady = false;
     ui.hud.setTrust(this.game.progress.trust);
     ui.toast('PROGRESS RESET · FRESH START', 'info');
     this.greeted = false;
@@ -121,6 +148,12 @@ export class TownScene implements Scene {
     const lvl = getLevel(r.levelId);
     const npc = this.npcs.find((n) => n.district === lvl.district);
     ui.toast(r.trust > 0 ? `TICKET CLOSED · TRUST +${r.trust}` : 'TICKET CLOSED', 'good');
+    if (!this.reduced) {
+      // Celebrate where the player can see it: fireworks over them, confetti at their feet.
+      const pb = this.player.box;
+      this.party = { x: pb.x + pb.w / 2, y: pb.y - 10, left: 3, next: 0.15 };
+      this.fx.confetti(pb.x + pb.w / 2, pb.y - 12);
+    }
     if (npc) ui.dialog.show(npc.name, [THANKS[lvl.district] ?? 'Thank you so much!']);
   }
 
@@ -151,7 +184,10 @@ export class TownScene implements Scene {
         p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
         p.moving = true;
         p.walk += dt;
-      }
+        const step = Math.floor(p.walk * 9) % 4;
+        if (step !== this.walkStep && WALK[step] !== 0 && !this.reduced) this.fx.dust(p.box.x + p.box.w / 2, p.box.y + p.box.h);
+        this.walkStep = step;
+      } else this.walkStep = -1;
 
       this.nearby = this.findNearby();
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
@@ -161,11 +197,56 @@ export class TownScene implements Scene {
     this.smoke.step(dt);
     if (!this.game.progress.completed['harbor-1']) this.smoke.spawn(33 * TILE, 18 * TILE, 0.3);
 
-    const cx = p.box.x + p.box.w / 2 - VIEW_W / 2;
-    const cy = p.box.y - VIEW_H / 2;
-    this.cam.x = snap(Math.max(0, Math.min(MAP_W * TILE - VIEW_W, cx)));
-    this.cam.y = snap(Math.max(0, Math.min(MAP_H * TILE - VIEW_H, cy)));
-    void t;
+    // Camera glides after the player and looks a little ahead of where they're walking.
+    const ahead = p.moving ? 14 : 0;
+    const lx = p.dir === 'left' ? -ahead : p.dir === 'right' ? ahead : 0;
+    const ly = p.dir === 'up' ? -ahead * 0.6 : p.dir === 'down' ? ahead * 0.6 : 0;
+    const tx = Math.max(0, Math.min(MAP_W * TILE - VIEW_W, p.box.x + p.box.w / 2 - VIEW_W / 2 + lx));
+    const ty = Math.max(0, Math.min(MAP_H * TILE - VIEW_H, p.box.y - VIEW_H / 2 + ly));
+    if (!this.camReady || this.reduced) {
+      this.cam.x = tx;
+      this.cam.y = ty;
+      this.camReady = true;
+    } else {
+      const k = 1 - Math.exp(-dt * 6);
+      this.cam.x += (tx - this.cam.x) * k;
+      this.cam.y += (ty - this.cam.y) * k;
+    }
+
+    this.game.focus = { x: (p.box.x + p.box.w / 2 - this.cam.x) / VIEW_W, y: (p.box.y - 4 - this.cam.y) / VIEW_H };
+
+    // Weather, light and celebrations.
+    this.sky = skyAt(ui.hud.timeOfDay);
+    const wind = gust(t);
+    this.clouds.step(dt, wind);
+    this.birds.step(dt, { x: this.cam.x, y: this.cam.y, w: VIEW_W, h: VIEW_H }, this.sky.night);
+    if (!this.reduced && wind > 0.4 && Math.random() < dt * wind * 7) {
+      const leaf = Math.random() < 0.35;
+      this.fx.add({
+        x: this.cam.x - 4 + Math.random() * VIEW_W * 0.6,
+        y: this.cam.y + Math.random() * VIEW_H,
+        vx: 18 + wind * 26,
+        vy: 3 + Math.random() * 6,
+        life: 4 + Math.random() * 2,
+        max: 6,
+        size: 1,
+        col: leaf ? '#4f9a3c' : Math.random() < 0.5 ? '#ffc0d8' : '#fff4f8',
+        flutter: 14,
+        phase: Math.random() * 6,
+      });
+    }
+    this.fx.step(dt, wind);
+    this.sparks.step(dt);
+    if (this.party) {
+      const pt = this.party;
+      pt.left -= dt;
+      pt.next -= dt;
+      if (pt.next <= 0 && pt.left > 0.6) {
+        pt.next = 0.38;
+        this.sparks.firework(pt.x + (Math.random() - 0.5) * 70, pt.y - 30 - Math.random() * 40, FIREWORK_COLS[Math.floor(Math.random() * FIREWORK_COLS.length)]);
+      }
+      if (pt.left <= 0) this.party = undefined;
+    }
   }
 
   private solidAt = (px: number, py: number): boolean => {
@@ -229,7 +310,7 @@ export class TownScene implements Scene {
   // ---------------------------------------------------------------- render
   render(c: Ctx, t: number): void {
     c.save();
-    c.translate(-this.cam.x, -this.cam.y);
+    c.translate(-snap(this.cam.x), -snap(this.cam.y));
     blit(c, this.ground.get(), 0, 0, MAP_W * TILE, MAP_H * TILE);
     this.drawWater(c, t);
     this.drawHarborBoat(c, t);
@@ -242,27 +323,83 @@ export class TownScene implements Scene {
       const x = tx * TILE;
       const y = ty * TILE;
       if (!vis(x, y)) return;
-      const sway = Math.sin(t * 1.3 + i * 0.7) > 0.75 ? 1 : 0;
+      // Gusts roll across town as a wave, so neighbouring trees bend one after another.
+      const wind = gust(t - x / 160);
+      const sway = this.reduced ? 0 : wind > 0.3 && Math.sin(t * (4 + wind * 4) + i * 0.9) > 0.1 ? 1 : Math.sin(t * 1.3 + i * 0.7) > 0.85 ? 1 : 0;
       ds.push({ y: y + 15, draw: () => tree(c, x, y, sway) });
     });
+    const blinking = (phase: number) => (t + phase) % 3.6 < 0.13;
     for (const n of this.npcs) {
       const bob = Math.sin(t * 2 + n.x) > 0.6 ? 1 : 0;
-      ds.push({ y: n.box.y + n.box.h, draw: () => n.sheet.draw(c, n.dir, 0, n.box.x - 2, n.box.y - 6 - bob) });
+      const f = blinking(n.blinkPhase) ? 3 : 0;
+      ds.push({ y: n.box.y + n.box.h, draw: () => n.sheet.draw(c, n.dir, f, n.box.x - 2, n.box.y - 6 - bob) });
     }
     const p = this.player;
-    const frame = p.moving ? 1 + (Math.floor(p.walk * 8) % 2) : 0;
-    ds.push({ y: p.box.y + p.box.h, draw: () => this.playerSheet.draw(c, p.dir, frame, p.box.x - 3, p.box.y - 10 - (frame ? 1 : 0)) });
+    const frame = p.moving ? WALK[Math.floor(p.walk * 9) % 4] : blinking(1.7) ? 3 : 0;
+    const lift = frame === 1 || frame === 2 ? 1 : 0;
+    ds.push({ y: p.box.y + p.box.h, draw: () => this.playerSheet.draw(c, p.dir, frame, p.box.x - 3, p.box.y - 10 - lift) });
     ds.sort((a, b) => a.y - b.y).forEach((d) => d.draw());
 
     this.smoke.draw(c);
     this.drawTrain(c, t);
-    this.drawLamp(c, t);
     this.drawFountainSparkle(c, t);
-    this.drawButterflies(c, t);
+    if (this.sky.night < 0.5) this.drawButterflies(c, t);
+    this.fx.draw(c);
+    this.clouds.draw(c, 0.13 * (1 - this.sky.night));
+    this.birds.draw(c, t);
 
-    for (const n of this.npcs) if (this.hasTicket(n)) this.bubble(c, n.box.x + 6, n.box.y - 22 - Math.abs(Math.sin(t * 5)) * 3, '!', '#d04040');
+    // Evening and night: tint the world, then light it back up.
+    applySky(c, this.sky, this.cam.x - 1, this.cam.y - 1, VIEW_W + 2, VIEW_H + 2);
+    this.drawLights(c, t);
+    this.drawLamp(c, t);
+    this.flies.draw(c, t, this.sky.night, { x: this.cam.x, y: this.cam.y, w: VIEW_W, h: VIEW_H });
+    this.sparks.draw(c);
+
+    for (const n of this.npcs) if (this.hasTicket(n)) this.bubble(c, n.box.x + 6, n.box.y - 22 - this.hop(t, n.x), '!', '#d04040');
     if (this.nearby && !this.game.ui.busy) this.bubble(c, this.nearby.box.x + 6, this.nearby.box.y - (this.hasTicket(this.nearby) ? 36 : 22), 'E', '#2b6cb0');
     c.restore();
+  }
+
+  /** A bouncy hop: quick rise, a beat in the air, a landing. */
+  private hop(t: number, seed: number): number {
+    const ph = (t * 1.4 + seed * 0.37) % 1;
+    return ph < 0.4 ? Math.sin((ph / 0.4) * Math.PI) * 4 : 0;
+  }
+
+  /** Lit windows, door light and lamp-post pools after dark. */
+  private drawLights(c: Ctx, t: number): void {
+    const n = this.sky.night;
+    if (n < 0.05) return;
+    const flicker = (seed: number) => 0.92 + Math.sin(t * 7 + seed) * 0.04 + Math.sin(t * 13 + seed * 2) * 0.04;
+    for (const b of BUILDINGS) {
+      const x = b.x * TILE;
+      const y = b.y * TILE;
+      const w = b.w * TILE;
+      const h = b.h * TILE;
+      if (x > this.cam.x + VIEW_W + 40 || x + w < this.cam.x - 40 || y > this.cam.y + VIEW_H + 40 || y + h < this.cam.y - 40) continue;
+      if (b.kind === 'house') {
+        for (const wx of [x + 5, x + w - 16]) {
+          const wy = y + h - 15;
+          c.globalAlpha = Math.min(1, n * 1.2);
+          rect(c, wx + 1, wy + 1, 9, 7, '#ffd877');
+          rect(c, wx + 1, wy + 1, 9, 2, '#fff0b0');
+          rect(c, wx + 5.25, wy + 1, 0.5, 7, '#c89a48');
+          c.globalAlpha = 1;
+          glow(c, wx + 5.5, wy + 8, 16, '255,200,110', 0.32 * n * flicker(wx));
+        }
+      }
+      glow(c, x + w / 2, y + h + 2, 14, '255,190,100', 0.22 * n * flicker(x));
+    }
+    for (const [lx, ly] of LAMPS) {
+      const hx = lx * TILE + 7.5;
+      const hy = ly * TILE - 4;
+      rect(c, hx - 2.5, hy - 2, 5, 4, '#fff2b0');
+      glow(c, hx, hy + 1, 26, '255,214,128', 0.42 * n * flicker(lx * 3));
+      glow(c, hx, hy + 18, 18, '255,214,128', 0.16 * n);
+    }
+    // a soft circle of light around the player so you never lose them in the dark
+    const p = this.player.box;
+    glow(c, p.x + p.w / 2, p.y - 2, 30, '255,236,200', 0.14 * n);
   }
 
   private bubble(c: Ctx, x: number, y: number, ch: string, col: string): void {
@@ -336,7 +473,10 @@ export class TownScene implements Scene {
     const y = b.y * TILE + 3;
     const on = Math.floor(t * 1.5) % 2 === 0;
     rect(c, x, y, 6, 5, on ? '#ffe680' : '#b89838');
-    if (on) disc(c, x + 3, y + 2, 7, 'rgba(255,230,128,0.18)');
+    if (on) {
+      disc(c, x + 3, y + 2, 7, 'rgba(255,230,128,0.18)');
+      glow(c, x + 3, y + 2, 34, '255,220,120', 0.3 * this.sky.night);
+    }
   }
 
   private drawFountainSparkle(c: Ctx, t: number): void {

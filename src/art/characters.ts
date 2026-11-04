@@ -25,6 +25,9 @@ const EYE = '#241a18';
  * grid cell in logical pixels (0.5 = a 16×16 logical sprite with double detail).
  */
 export function drawCharacter(c: Ctx, L: Look, dir: Dir, frame: number, x: number, y: number, u = 0.5): void {
+  // Frame 3 is the standing pose with eyes closed (a blink).
+  const blink = frame === 3;
+  if (blink) frame = 0;
   const flip = dir === 'right';
   const R = (px: number, py: number, w: number, h: number, col: string) => {
     const fx = flip ? 32 - px - w : px;
@@ -71,6 +74,12 @@ export function drawCharacter(c: Ctx, L: Look, dir: Dir, frame: number, x: numbe
       R(10, 11 - b, 2, 1, '#f0a0a0');
       R(20, 11 - b, 2, 1, '#f0a0a0');
       R(15, 12 - b, 2, 1, shade(L.skin, -70));
+      if (blink) {
+        R(12, 8 - b, 2, 3, L.skin);
+        R(18, 8 - b, 2, 3, L.skin);
+        R(12, 10 - b, 2, 1, EYE);
+        R(18, 10 - b, 2, 1, EYE);
+      }
     }
     hairFrontBack(R, O, L, dir === 'up', b);
     hatFrontBack(R, O, L, dir === 'up', b);
@@ -90,6 +99,10 @@ export function drawCharacter(c: Ctx, L: Look, dir: Dir, frame: number, x: numbe
     R(8, 9 - b, 2, 2, L.skin);
     R(12, 8 - b, 2, 3, EYE);
     R(12, 8 - b, 1, 1, '#ffffff');
+    if (blink) {
+      R(12, 8 - b, 2, 3, L.skin);
+      R(12, 10 - b, 2, 1, EYE);
+    }
     R(12, 11 - b, 2, 1, '#f0a0a0');
     R(19, 8 - b, 2, 3, skinDark);
     hairSide(R, O, L, b);
@@ -252,7 +265,7 @@ function hatSide(R: Fill, O: Fill, L: Look, b: number): void {
 
 const DIRS: Dir[] = ['down', 'up', 'left', 'right'];
 
-/** A cached 4-direction × 3-frame sheet of 16×16 (logical) sprites with 32-grid detail. */
+/** A cached 4-direction × 4-frame sheet (stand, step, step, blink) of 16×16 (logical) sprites with 32-grid detail. */
 export class CharacterSheet {
   private layer: Layer;
 
@@ -267,9 +280,9 @@ export class CharacterSheet {
 
   private static build(look: Look): HTMLCanvasElement {
     // 3 logical px of headroom above each frame for hats and buns
-    const [cv, c] = makeCanvas(16 * 3, 19 * 4);
+    const [cv, c] = makeCanvas(16 * 4, 19 * 4);
     DIRS.forEach((dir, row) => {
-      for (let f = 0; f < 3; f++) drawCharacter(c, look, dir, f, f * 16, row * 19 + 3, 0.5);
+      for (let f = 0; f < 4; f++) drawCharacter(c, look, dir, f, f * 16, row * 19 + 3, 0.5);
     });
     return cv;
   }

@@ -40,6 +40,9 @@ export class Game {
     return this.scene;
   }
 
+  /** Where on screen the player is (fractions of the stage), so transitions can close on them. */
+  focus = { x: 0.5, y: 0.5 };
+
   setScene(s: Scene): void {
     this.scene?.leave?.();
     this.ui.clearScene();

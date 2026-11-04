@@ -94,6 +94,17 @@ class Hud {
   readonly ticketsBtn = h('button', 'btn tickets', 'Q · TICKETS');
   readonly avatarBtn = h('button', 'btn avatar-btn', '👤 AVATAR');
   private minutes = 9 * 60;
+  /** Jump the clock (used by dev tools). */
+  setTime(minute: number): void {
+    this.minutes = Math.floor(minute / 10) * 10;
+    this.acc = 0;
+    this.renderClock();
+  }
+
+  /** In-game minute of the day, smoothly interpolated (drives the town's lighting). */
+  get timeOfDay(): number {
+    return this.minutes + (this.acc / 7) * 10;
+  }
   private acc = 0;
 
   constructor() {
@@ -314,6 +325,63 @@ export class UI {
     this.questLog = new QuestLog(() => (this.input.enabled = true));
     this.touch = this.touchControls();
     root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.avatar.el, this.touch);
+  }
+
+  private irisOn = false;
+
+  /**
+   * Close a circle down onto (fx, fy) (fractions of the stage), run `swap` while the screen is dark,
+   * then open again. Skipped for players who asked their system for reduced motion.
+   */
+  iris(swap: () => void, fx = 0.5, fy = 0.5): void {
+    if (this.irisOn) return;
+    let reduced = false;
+    try {
+      reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      /* ignore */
+    }
+    if (reduced) {
+      swap();
+      return;
+    }
+    this.irisOn = true;
+    const wrap = h('div', 'iris');
+    const hole = h('i');
+    wrap.append(hole);
+    this.root.append(wrap);
+    const place = (r: number, x: number, y: number) => {
+      // Chunky steps keep the wipe in the pixel-art style.
+      const q = Math.max(0, Math.round(r / 2.5) * 2.5);
+      Object.assign(hole.style, { width: `${q * 2}cqw`, height: `${q * 2}cqw`, left: `${x * 100}cqw`, top: `${y * 100}cqh` });
+    };
+    const R = 125;
+    const anim = (from: number, to: number, ms: number, x: number, y: number, done: () => void) => {
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const k = Math.min(1, (now - t0) / ms);
+        const e = to < from ? k * k : 1 - (1 - k) * (1 - k);
+        place(from + (to - from) * e, x, y);
+        if (k < 1) requestAnimationFrame(tick);
+        else done();
+      };
+      requestAnimationFrame(tick);
+    };
+    place(R, fx, fy);
+    anim(R, 0, 420, fx, fy, () => {
+      try {
+        swap();
+      } finally {
+        setTimeout(
+          () =>
+            anim(0, R, 480, 0.5, 0.5, () => {
+              wrap.remove();
+              this.irisOn = false;
+            }),
+          110,
+        );
+      }
+    });
   }
 
   /** True while something modal is on screen and the world should not move. */

@@ -56,14 +56,20 @@ async function boot(): Promise<void> {
   const game = new Game(ctx, document.getElementById('ui')!);
 
   const backToTown = (r: LevelResult) => {
+    // Save first, so closing the tab mid-transition can't lose a solved ticket.
     const gained = r.completed ? game.finishLevel(r.levelId, r.trust) : 0;
-    game.setScene(town);
-    town.returnFrom({ ...r, trust: gained });
+    game.ui.iris(() => {
+      game.setScene(town);
+      town.returnFrom({ ...r, trust: gained });
+    });
   };
 
-  const startLevel = (id: string) => {
+  const startLevel = (id: string, instant = false) => {
     const make = PLAYABLE[id];
-    if (make) game.setScene(make(game, backToTown));
+    if (!make) return;
+    const go = () => game.setScene(make(game, backToTown));
+    if (instant) go();
+    else game.ui.iris(go, game.focus.x, game.focus.y);
   };
 
   const town = new TownScene(game, startLevel);
@@ -80,9 +86,10 @@ async function boot(): Promise<void> {
     // Dev-only hooks for automated play-checks. Not included in production builds.
     (window as unknown as Record<string, unknown>).__ninefold = {
       ids: Object.keys(PLAYABLE),
-      start: (id: string) => startLevel(id),
+      start: (id: string) => startLevel(id, true),
       town: () => game.setScene(town),
       scene: () => game.current,
+      time: (minute: number) => game.ui.hud.setTime(minute),
     };
   }
 }
