@@ -25,6 +25,11 @@ export class SpecScene extends IncidentScene {
   private results: { label: string; pass: boolean }[] = [];
   private busy = false;
   private changedSinceStart = false;
+  /** The info cards over the scene tuck away after a while so the scene shows; the player can pin them open. */
+  private cardsPinned = false;
+  private playAt: number | undefined;
+  private shownStatus: Status = 'broken';
+  private statusAt = 0;
 
   constructor(
     game: Game,
@@ -46,6 +51,25 @@ export class SpecScene extends IncidentScene {
   enter(): void {
     super.enter();
     this.root.classList.add(this.spec.type === 'terminal' ? 'tall' : 'mid');
+    const toggle = h('button', 'cards-toggle');
+    toggle.title = 'Show or hide the ticket info over the scene';
+    toggle.setAttribute('aria-label', toggle.title);
+    toggle.addEventListener('click', () => {
+      if (this.cardsOpen) {
+        // Tuck them straight away rather than waiting out the reading time.
+        this.cardsPinned = false;
+        this.playAt = this.statusAt = -Infinity;
+      } else this.cardsPinned = true;
+      toggle.blur();
+    });
+    this.root.prepend(toggle);
+  }
+
+  /** Cards stay open while there is something new to read: the first seconds of play, a status change, or the fix. */
+  private get cardsOpen(): boolean {
+    if (this.cardsPinned || this.phase !== 'play' || this.status === 'fixed') return true;
+    const t = this.now;
+    return t - (this.playAt ?? t) < 9 || t - this.statusAt < 5;
   }
 
   protected intro(): Intro {
@@ -519,7 +543,12 @@ export class SpecScene extends IncidentScene {
   }
 
   render(c: Ctx, t: number): void {
-    this.backdrop.render(c, t, this.status, this.status === 'fixed' ? this.spec.board.fixed : this.spec.board.broken);
+    if (this.phase === 'play' && this.playAt === undefined) this.playAt = t;
+    if (this.status !== this.shownStatus) {
+      this.shownStatus = this.status;
+      this.statusAt = t;
+    }
+    this.backdrop.render(c, t, this.status, this.status === 'fixed' ? this.spec.board.fixed : this.spec.board.broken, this.cardsOpen);
   }
 }
 

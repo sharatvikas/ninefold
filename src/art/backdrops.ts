@@ -2,7 +2,7 @@ import { CharacterSheet, LOOKS, type Look } from './characters';
 import { blit, disc, ellipse, Layer, makeCanvas, rect, rng, shade, type Ctx } from './pixels';
 import { boat, bookshelf, container, crane, house, lampPost, plant, railCar, sack, tree, watchtower } from './scenery';
 import { SceneFx, trainX } from './sceneFx';
-import { VignetteRenderer, type Vignette } from './vignette';
+import { chevron, TUCKED, VignetteRenderer, type Vignette } from './vignette';
 
 export type Status = 'broken' | 'verifying' | 'fixed';
 const W = 384;
@@ -28,6 +28,9 @@ export class Backdrop {
 
   private vignette: VignetteRenderer | undefined;
   private fx: SceneFx;
+  /** How far open the info cards are, 0 (tucked) to 1, eased toward the requested state. */
+  private open = 1;
+  private lastT: number | undefined;
 
   constructor(
     private district: string,
@@ -39,7 +42,12 @@ export class Backdrop {
     this.fx = new SceneFx(district);
   }
 
-  render(c: Ctx, t: number, status: Status, board: string[]): void {
+  /** `cardsOpen` asks for the info cards to be fully shown; otherwise they tuck into slim strips. */
+  render(c: Ctx, t: number, status: Status, board: string[], cardsOpen = true): void {
+    const dt = this.lastT === undefined ? 1 : Math.min(0.1, Math.max(0, t - this.lastT));
+    this.lastT = t;
+    this.open += ((cardsOpen ? 1 : 0) - this.open) * (1 - Math.exp(-dt * 9));
+    if (Math.abs(this.open - (cardsOpen ? 1 : 0)) < 0.01) this.open = cardsOpen ? 1 : 0;
     const shake = this.fx.step(t, status);
     c.save();
     c.translate(shake.dx, shake.dy);
@@ -50,8 +58,8 @@ export class Backdrop {
     this.lastStatus = status;
     ANIMATE[this.district]?.(c, t, status);
     this.fx.drawUnder(c, t, status);
-    drawBoard(c, t, status, board);
-    this.vignette?.render(c, t, status);
+    drawBoard(c, t, status, board, this.open);
+    this.vignette?.render(c, t, status, this.open);
     // district NPC
     const hop = status === 'fixed' ? Math.abs(Math.sin(t * 6)) * 3 : Math.floor(t * 2) % 2;
     const dir = status === 'broken' ? (Math.floor(t / 2) % 2 ? 'left' : 'right') : 'down';
@@ -77,24 +85,32 @@ export class Backdrop {
   }
 }
 
-function drawBoard(c: Ctx, t: number, status: Status, lines: string[]): void {
+function drawBoard(c: Ctx, t: number, status: Status, lines: string[], open: number): void {
   const x = 222;
-  const y = 40;
+  const y = 36;
   const w = 152;
-  const h = 14 + lines.length * 9;
-  rect(c, x + 2, y + 2, w, h, 'rgba(0,0,0,0.25)');
+  const full = 14 + lines.length * 9;
+  const h = Math.round(TUCKED + (full - TUCKED) * open);
+  rect(c, x + 2, y + 2, w, h, 'rgba(0,0,0,0.2)');
   rect(c, x - 1, y - 1, w + 2, h + 2, '#2a1e1a');
-  rect(c, x, y, w, h, '#24313a');
+  rect(c, x, y, w, h, 'rgba(36,49,58,0.84)');
   const lamp = status === 'fixed' ? '#58d080' : status === 'verifying' ? (Math.floor(t * 4) % 2 ? '#f8d030' : '#a08020') : Math.floor(t * 2.5) % 2 ? '#e05a48' : '#7a2a1a';
-  disc(c, x + 7, y + 7, 3, lamp);
+  disc(c, x + 7, y + 6, 3, lamp);
   c.font = '5px "Press Start 2P"';
   c.fillStyle = '#9fb4c0';
   c.fillText(status === 'fixed' ? 'ALL GOOD' : status === 'verifying' ? 'CHECKING…' : 'PROBLEM', x + 14, y + 9);
-  c.fillStyle = status === 'fixed' ? '#b8f0c8' : '#f8ecd0';
-  // While checking, the text flickers like an old terminal refreshing.
-  if (status === 'verifying' && Math.floor(t * 12) % 5 === 0) c.globalAlpha = 0.6;
-  lines.forEach((l, i) => c.fillText(l.slice(0, 28), x + 5, y + 19 + i * 9));
-  c.globalAlpha = 1;
+  chevron(c, x + w - 9, y + 4, open);
+  if (open >= 0.05) {
+    c.save();
+    c.beginPath();
+    c.rect(x, y + TUCKED - 1, w, h - TUCKED + 1);
+    c.clip();
+    c.fillStyle = status === 'fixed' ? '#b8f0c8' : '#f8ecd0';
+    // While checking, the text flickers like an old terminal refreshing.
+    c.globalAlpha = open * (status === 'verifying' && Math.floor(t * 12) % 5 === 0 ? 0.6 : 1);
+    lines.forEach((l, i) => c.fillText(l.slice(0, 28), x + 5, y + 19 + i * 9));
+    c.restore();
+  }
   for (let yy = y + 1; yy < y + h; yy += 2) rect(c, x, yy, w, 0.5, 'rgba(0,0,0,0.12)');
 }
 

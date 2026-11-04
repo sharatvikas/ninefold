@@ -6,7 +6,7 @@ const W = 384;
 /** The part of a ticket scene the player sees above the tool tray. */
 const VIS_H = 136;
 /** Centre of the status board: where the "fixed" shockwave starts. */
-const BOARD = { x: 298, y: 56 };
+const BOARD = { x: 298, y: 52 };
 
 /** A light shaft falling from a window to the floor (polygon corners, top two then bottom two). */
 type Beam = [number, number, number, number, number, number, number, number];
@@ -141,7 +141,7 @@ export class SceneFx {
     // board lamp glow
     const lampCol = s === 'fixed' ? '88,208,128' : s === 'verifying' ? '248,208,48' : '224,90,72';
     const pulse = s === 'broken' ? 0.5 + Math.sin(t * 5) * 0.3 : s === 'verifying' ? 0.6 : 0.45;
-    glow(c, 229, 47, 16, lampCol, 0.5 * pulse);
+    glow(c, 229, 42, 16, lampCol, 0.5 * pulse);
 
     // mood: cold, darker edges while broken; warm light once fixed
     c.save();

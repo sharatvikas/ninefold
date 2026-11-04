@@ -12,6 +12,8 @@ const X = 10;
 const Y = 36;
 const W = 206;
 const H = 44;
+/** Height of a card when tucked away to show more of the scene. */
+export const TUCKED = 12;
 const RED = '#e05a48';
 const GREEN = '#58d080';
 const INK = '#f8ecd0';
@@ -21,17 +23,27 @@ export class VignetteRenderer {
 
   constructor(private v: Vignette) {}
 
-  render(c: Ctx, t: number, status: Status): void {
+  /** `open` runs from 0 (tucked into a slim strip showing only the label) to 1 (the full diagram). */
+  render(c: Ctx, t: number, status: Status, open = 1): void {
     const fixed = status === 'fixed';
-    rect(c, X + 2, Y + 2, W, H, 'rgba(0,0,0,0.25)');
-    rect(c, X - 1, Y - 1, W + 2, H + 2, '#2a1e1a');
-    rect(c, X, Y, W, H, 'rgba(36,49,58,0.92)');
+    const h = Math.round(TUCKED + (H - TUCKED) * open);
+    rect(c, X + 2, Y + 2, W, h, 'rgba(0,0,0,0.2)');
+    rect(c, X - 1, Y - 1, W + 2, h + 2, '#2a1e1a');
+    rect(c, X, Y, W, h, 'rgba(36,49,58,0.84)');
     c.font = '5px "Press Start 2P"';
     c.fillStyle = '#9fb4c0';
     c.fillText(this.v.label.toUpperCase().slice(0, 34), X + 5, Y + 9);
+    chevron(c, X + W - 9, Y + 4, open);
+    if (open < 0.05) return;
+    c.save();
+    c.beginPath();
+    c.rect(X, Y + TUCKED - 1, W, h - TUCKED + 1);
+    c.clip();
+    c.globalAlpha = open;
     if (this.v.kind === 'flow') this.flow(c, t, fixed, this.v);
     else if (this.v.kind === 'meter') this.meter(c, status, this.v);
     else this.tiles(c, t, fixed, this.v);
+    c.restore();
   }
 
   private flow(c: Ctx, t: number, fixed: boolean, v: Extract<Vignette, { kind: 'flow' }>): void {
@@ -144,4 +156,13 @@ function fmt(n: number): string {
   if (Math.abs(n) >= 1000) return Math.round(n).toLocaleString('en');
   if (Math.abs(n) >= 10) return String(Math.round(n));
   return n.toFixed(n < 1 ? 2 : 1).replace(/\.0+$/, '');
+}
+
+/** A small arrow on a card: points down when tucked (there is more to see), up when open. */
+export function chevron(c: Ctx, x: number, y: number, open: number): void {
+  c.fillStyle = '#9fb4c0';
+  for (let i = 0; i < 3; i++) {
+    const row = open > 0.5 ? 2 - i : i;
+    c.fillRect(x + i, y + row, 5 - i * 2, 1);
+  }
 }

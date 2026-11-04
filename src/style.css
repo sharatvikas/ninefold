@@ -159,6 +159,9 @@ button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100
 .level { position: absolute; inset: 0; }
 .level-top { position: absolute; top: 1.5cqh; left: 1.2cqw; right: 1.2cqw; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
 .level-top > * { pointer-events: auto; }
+/* Invisible hit area over the header strips of the two info cards drawn on the canvas (x 9-375, y 35-48 of 384x216). */
+.cards-toggle { position: absolute; left: 2.3cqw; top: 9.1cqw; width: 95.4cqw; height: 3.4cqw; background: none; border: 0; padding: 0; cursor: pointer; }
+.cards-toggle:focus-visible { outline: 2px solid #f8d030; outline-offset: 1px; }
 .level-title { padding: 0.7cqw 1.1cqw; font-size: 1.2cqw; display: flex; gap: 1cqw; align-items: center; }
 .level-title .act { background: var(--wood); color: #fff; padding: 0.2cqw 0.6cqw; border-radius: 0.4cqw; font-size: 0.9cqw; }
 .level-title .concept { font-family: system-ui, sans-serif; font-size: 1.2cqw; color: #7a6a5a; }

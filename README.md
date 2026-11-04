@@ -15,7 +15,7 @@
 ![Hosting cost](https://img.shields.io/badge/hosting-%240-27ae60)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Canvas%202D-3178c6?logo=typescript&logoColor=white)
 
-<a href="https://sharatvikas.github.io/ninefold/"><img src="docs/screenshots/gameplay.gif" alt="Gameplay: walk the town, take the Railyard ticket, find the missing dependency in the build log, fix the parts list, watch the build pass and the train leave, then the before/after recap" width="840"></a>
+<a href="https://sharatvikas.github.io/ninefold/"><img src="docs/screenshots/gameplay.gif" alt="Gameplay: walk the lamp-lit town at dusk, take the Railyard ticket, find the missing dependency in the build log, fix the parts list, watch the build pass and the train leave, then the before/after recap and fireworks back in town" width="840"></a>
 
 <sub>↑ A real ticket, start to finish: walk the town → the build train has derailed → <b>find the cause</b> in the build log → <b>change</b> the parts list → <b>verify</b>: every station passes and the train leaves → before/after recap with the real <code>package.json</code> fix.</sub>
 
@@ -280,6 +280,7 @@ Stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Want to change the game? Use `npm run
 | <kbd>Esc</kbd> | Leave a ticket (press twice once you've started) |
 | <kbd>Tab</kbd> + <kbd>Enter</kbd>/<kbd>Space</kbd> | Play entirely by keyboard |
 | **👤 AVATAR** button | Change your look and name |
+| Click the strips over a ticket's scene | Show or hide the ticket's diagram and status board. They tuck away by themselves once you've had time to read them, and pop back open when your fix is being checked. |
 
 Touch screens get an on-screen pad. It's a wide-screen game, so on a phone, turn it sideways. A tablet or computer is best.
 
