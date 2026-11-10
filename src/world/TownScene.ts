@@ -30,6 +30,8 @@ export interface LevelResult {
   levelId: string;
   trust: number;
   completed: boolean;
+  /** Set when the level already saved the solve itself: the Trust that save actually added. */
+  gained?: number;
 }
 
 export class TownScene implements Scene {

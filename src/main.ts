@@ -65,7 +65,8 @@ async function boot(): Promise<void> {
 
   const backToTown = (r: LevelResult) => {
     // Save first, so closing the tab mid-transition can't lose a solved ticket.
-    const gained = r.completed ? game.finishLevel(r.levelId, r.trust) : 0;
+    // Hands-on levels save the moment they're solved and pass back what that save gained.
+    const gained = !r.completed ? 0 : (r.gained ?? game.finishLevel(r.levelId, r.trust));
     game.ui.iris(() => {
       game.setScene(town);
       town.returnFrom({ ...r, trust: gained });

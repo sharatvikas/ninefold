@@ -74,6 +74,8 @@ export abstract class IncidentScene implements Scene {
   private replay = false;
   private ended = false;
   private onPageHide = () => this.trackAbandon('closed_tab');
+  /** Trust actually added when the solve was saved (0 on a replay). */
+  private gained = 0;
 
   constructor(
     protected game: Game,
@@ -291,6 +293,8 @@ export abstract class IncidentScene implements Scene {
     this.ended = true;
     const { failedChanges: misses, guessedFirst, wasteful } = this.attempts;
     analytics.track({ name: 'ticket_solved', ...this.trackBase(), secs: this.secs(), misses, trust, guessedFirst, wasteful });
+    // Save the solve now, not when the recap is closed, so closing the tab on the recap can't lose it.
+    this.gained = this.game.finishLevel(this.meta.id, trust);
     this.later(() => this.showRecap(r, trust), 1800);
   }
 
@@ -316,7 +320,7 @@ export abstract class IncidentScene implements Scene {
     if (this.attempts.failedChanges) notes.push(`${this.attempts.failedChanges} change(s) that didn't fix it (−${this.attempts.failedChanges})`);
     if (this.attempts.wasteful) notes.push('fixed it with far more than needed (−1)');
     const btn = h('button', 'btn primary', `CLOSE TICKET · TRUST +${trust}`);
-    btn.addEventListener('click', () => this.exit({ levelId: this.meta.id, trust, completed: true }));
+    btn.addEventListener('click', () => this.exit({ levelId: this.meta.id, trust, completed: true, gained: this.gained }));
     const foot = h('div', 'recap-foot');
     const fb = h('a', 'feedback-link', '💬 Was this ticket confusing or wrong? Tell me') as HTMLAnchorElement;
     fb.href = feedbackUrl(this.meta.id, this.meta.title);
