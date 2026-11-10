@@ -10,7 +10,7 @@
 
 [![Deploy](https://github.com/sharatvikas/ninefold/actions/workflows/deploy.yml/badge.svg)](https://github.com/sharatvikas/ninefold/actions/workflows/deploy.yml)
 ![Tickets](https://img.shields.io/badge/tickets-51-b5523b)
-![Tests](https://img.shields.io/badge/tests-325%20passing-2b6cb0)
+![Tests](https://img.shields.io/badge/tests-373%20passing-2b6cb0)
 ![No install](https://img.shields.io/badge/install-none-8b5a2b)
 ![Hosting cost](https://img.shields.io/badge/hosting-%240-27ae60)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Canvas%202D-3178c6?logo=typescript&logoColor=white)
@@ -80,7 +80,7 @@ flowchart LR
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/town.jpg" alt="The town of Ninefold"><br><b>The town.</b> Walk around and talk to anyone showing a <code>!</code>; smoke means an incident.</td>
+<td width="50%"><img src="docs/screenshots/town.jpg" alt="The town of Ninefold"><br><b>The town.</b> Walk around, step inside any door showing a <code>!</code> and talk across the counter; smoke means an incident.</td>
 <td width="50%"><img src="docs/screenshots/avatar.jpg" alt="Avatar creator"><br><b>Make your on-call engineer.</b> 6 presets plus skin, hair, hats, outfit and name.</td>
 </tr>
 <tr>
@@ -274,7 +274,7 @@ Stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Want to change the game? Use `npm run
 | Key | Action |
 |---|---|
 | <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> | Walk |
-| <kbd>E</kbd> / <kbd>Space</kbd> | Talk, advance dialogue |
+| <kbd>E</kbd> / <kbd>Space</kbd> | Talk, go through a door, advance dialogue |
 | <kbd>Q</kbd> | Ticket list: replay finished tickets, **⇄ Save code**, **↺ Reset progress** |
 | <kbd>1</kbd>–<kbd>6</kbd> | Switch tools inside a ticket |
 | <kbd>Esc</kbd> | Leave a ticket (press twice once you've started) |
@@ -344,7 +344,7 @@ flowchart TB
 - **Stack:** TypeScript + Vite + plain Canvas 2D (no game engine) + Vitest. No runtime dependencies.
 - **Art:** every sprite, building and scene is drawn in code at your screen's real resolution, so it's sharp on any display.
 - **Tickets are data.** Each one is a `LevelSpec`: evidence, the editable settings (or terminal files and commands), pure `verify`/`check` rules, a `solution`, and a recap.
-- **339 tests.** Among other things, they prove that **every ticket starts broken and is solved by its intended fix**, that the town map is fully reachable, and that saves survive corrupted data.
+- **373 tests.** Among other things, they prove that **every ticket starts broken and is solved by its intended fix**, that the town map and every room are fully reachable, and that saves survive corrupted data.
 
 <details>
 <summary><b>Project layout & adding a ticket</b></summary>
