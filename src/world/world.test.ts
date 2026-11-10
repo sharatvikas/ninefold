@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { moveBox } from './collision';
-import { BUILDINGS, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, doorOf, isSolidTile, tileAt } from './townMap';
+import { BUILDINGS, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, buildingAtDoor, doorOf, isSolidTile, residentOf, tileAt } from './townMap';
 
 describe('moveBox', () => {
   const wallAtX10: (x: number, y: number) => boolean = (x) => x >= 10;
@@ -35,8 +35,8 @@ describe('town map', () => {
     for (const n of NPCS) expect(isSolidTile(n.x, n.y), n.id).toBe(false);
   });
 
-  it('gives every building with a door a path in front of it', () => {
-    for (const b of BUILDINGS.filter((b) => b.kind !== 'tower')) {
+  it('gives every building a path in front of its door', () => {
+    for (const b of BUILDINGS) {
       const d = doorOf(b);
       expect(tileAt(d.x, d.y), b.id).toBe('p');
     }
@@ -52,6 +52,26 @@ describe('town map', () => {
       seen.add(k);
       q.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
     }
-    for (const n of NPCS) expect(seen.has(`${n.x},${n.y}`), n.id).toBe(true);
+    // Outdoor people are reached where they stand; indoor people through their building's door.
+    for (const n of NPCS) {
+      const b = n.home ? BUILDINGS.find((x) => x.id === n.home) : undefined;
+      const at = b ? doorOf(b) : n;
+      expect(seen.has(`${at.x},${at.y}`), n.id).toBe(true);
+    }
+  });
+
+  it('finds buildings by their door and people by their building', () => {
+    for (const b of BUILDINGS) {
+      const d = doorOf(b);
+      expect(buildingAtDoor(d.x, d.y)?.id).toBe(b.id);
+    }
+    expect(buildingAtDoor(PLAYER_START.x, PLAYER_START.y)).toBeUndefined();
+    expect(residentOf('post')?.id).toBe('rosa');
+    expect(residentOf('watch')?.id).toBe('lin');
+  });
+
+  it('keeps Finn and Chief Juno outdoors and everyone else at work inside', () => {
+    expect(NPCS.filter((n) => !n.home).map((n) => n.id).sort()).toEqual(['finn', 'juno']);
+    for (const n of NPCS) if (n.home) expect(BUILDINGS.some((b) => b.id === n.home), n.id).toBe(true);
   });
 });
