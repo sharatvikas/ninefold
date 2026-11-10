@@ -168,12 +168,13 @@ const DECOR: Record<Room['decor'], (c: Ctx, room: Room) => void> = {
     rect(c, bx - 2, 17, bw + 4, 33, '#5a3418');
     rect(c, bx, 19, bw, 29, '#1d2630');
     pixelText(c, 'DEPARTURES', bx + 4, 26, '#f8d030', 5);
-    const rows: [string, string, string][] = [['09:00', 'PROD', 'ON TIME'], ['09:30', 'STAGING', 'DELAYED']];
+    // Staging always leaves first; prod waits until staging has arrived safely.
+    const rows: [string, string, string][] = [['09:00', 'STAGING', 'ON TIME'], ['09:30', 'PROD', 'WAITING']];
     rows.forEach(([tm, to, st], i) => {
       const y = 35 + i * 8;
       pixelText(c, tm, bx + 4, y, '#f8ecd0', 4);
       pixelText(c, to, bx + 32, y, '#f8ecd0', 4);
-      pixelText(c, st, bx + 88, y, st === 'ON TIME' ? '#b8f0c8' : '#ff9a8a', 4);
+      pixelText(c, st, bx + 88, y, st === 'ON TIME' ? '#b8f0c8' : '#ffd23f', 4);
     });
     clock(c, 92, 28);
     windowPane(c, W - 80, 14, 34, 24);
@@ -279,21 +280,59 @@ const DECOR: Record<Room['decor'], (c: Ctx, room: Room) => void> = {
       rect(c, x, 4, 0.5, WALL_H - 10, '#8a2f1e');
       rect(c, x + 0.5, 4, 0.5, WALL_H - 10, '#c8553a');
     }
-    // hay loft window with hay
-    rect(c, CX - 22.5, 9.5, 45, 30, '#f0e0c0');
-    rect(c, CX - 20, 12, 40, 25, '#3a2210');
-    rect(c, CX - 20, 28, 40, 9, '#e8c860');
-    for (let i = 0; i < 18; i++) rect(c, CX - 19 + i * 2.2, 26 + (i % 3), 0.5, 3, '#c8a040');
-    sign(c, 124, 12, room.label);
-    // hanging tools
-    for (const [x, kind] of [[60, 'rake'], [80, 'fork'], [300, 'scythe']] as const) {
-      rect(c, x - 0.5, 10, 1, 1, '#3a2a1a');
-      rect(c, x, 11, 1, 30, '#a07848');
-      if (kind === 'rake') rect(c, x - 5, 40, 11, 1.5, '#7a7a8a');
-      else if (kind === 'fork') for (let k = -3; k <= 3; k += 3) rect(c, x + k, 39, 0.75, 6, '#7a7a8a');
-      else for (let k = 0; k < 10; k++) rect(c, x + k, 11 + k * 0.4, 1, 1.5, '#9a9aaa');
+    // knots in the planks
+    const R = rng(11);
+    for (let i = 0; i < 26; i++) ellipse(c, R() * W, 14 + R() * 38, 1.2, 0.8, '#8a2f1e');
+    // posts, a roof beam and corner braces
+    for (const x of [24, W - 28]) {
+      rect(c, x - 0.5, 4, 5, WALL_H - 9, OUT);
+      rect(c, x, 4, 4, WALL_H - 10, '#7a4a24');
+      rect(c, x, 4, 1, WALL_H - 10, '#9a6634');
     }
-    windowPane(c, 240, 16, 24, 18);
+    rect(c, 0, 4, W, 6, OUT);
+    rect(c, 0, 4.5, W, 5, '#7a4a24');
+    rect(c, 0, 4.5, W, 1, '#9a6634');
+    for (const [x, d] of [[28, 1], [W - 28, -1]] as const)
+      for (let i = 0; i < 14; i++) rect(c, x + d * i - (d < 0 ? 2 : 0), 10 + i, 2, 1.5, '#7a4a24');
+    // hay loft window with hay, and a hoist rope with its hook
+    rect(c, CX - 22.5, 11.5, 45, 30, '#f0e0c0');
+    rect(c, CX - 20, 14, 40, 25, '#3a2210');
+    rect(c, CX - 20, 30, 40, 9, '#e8c860');
+    for (let i = 0; i < 18; i++) rect(c, CX - 19 + i * 2.2, 28 + (i % 3), 0.5, 3, '#c8a040');
+    disc(c, CX + 30, 12, 2.5, '#5a5a6a');
+    rect(c, CX + 30, 12, 0.75, 22, '#c8a868');
+    rect(c, CX + 32, 12, 0.75, 14, '#c8a868');
+    rect(c, CX + 29, 34, 3, 1, '#7a7a8a');
+    rect(c, CX + 31, 35, 1, 2, '#7a7a8a');
+    sack(c, CX + 27.5, 36);
+    sign(c, 124, 13, room.label);
+    // hanging tools
+    for (const [x, kind] of [[52, 'rake'], [70, 'fork'], [352, 'scythe']] as const) {
+      rect(c, x - 0.5, 12, 1, 1, '#3a2a1a');
+      rect(c, x, 13, 1, 30, '#a07848');
+      if (kind === 'rake') rect(c, x - 5, 42, 11, 1.5, '#7a7a8a');
+      else if (kind === 'fork') for (let k = -3; k <= 3; k += 3) rect(c, x + k, 41, 0.75, 6, '#7a7a8a');
+      else for (let k = 0; k < 10; k++) rect(c, x - k, 13 + k * 0.4, 1, 1.5, '#9a9aaa');
+    }
+    // a lantern on the beam
+    rect(c, 152, 10, 0.75, 6, '#3a2a1a');
+    rect(c, 149.5, 15.5, 6, 8, OUT);
+    rect(c, 150, 16, 5, 7, '#ffe680');
+    rect(c, 150, 16, 5, 1, '#c89a30');
+    // the stock board: today's count and its two backup copies, all ticked
+    frame(c, 268, 16, 52, 30, '#2a3a2e');
+    pixelText(c, 'STOCK', 272, 23, '#f4f0e6', 4);
+    for (let i = 0; i < 3; i++) {
+      const y = 28 + i * 6;
+      pixelText(c, ['BARN', 'COPY', 'COPY'][i], 272, y + 3.5, '#cfd8c8', 3);
+      for (let k = 0; k < 4; k++) rect(c, 290 + k * 2, y, 0.75, 4, '#f4f0e6');
+      rect(c, 289, y + 2, 8, 0.75, '#f4f0e6');
+      rect(c, 306, y + 2, 1, 1, '#5ee08a');
+      rect(c, 307, y + 3, 1, 1, '#5ee08a');
+      for (let k = 0; k < 4; k++) rect(c, 308 + k, y + 2 - k, 1, 1, '#5ee08a');
+    }
+    rect(c, 272, 45, 8, 1.5, '#f4f0e6');
+    windowPane(c, 236, 18, 22, 18);
   },
 };
 
@@ -531,5 +570,62 @@ const PROPS: Record<Prop['kind'], (c: Ctx, x: number, y: number, w: number, h: n
     const R = rng(x + y);
     for (let i = 0; i < 40; i++) rect(c, x + 2 + R() * (w - 6), y - 3 + R() * 14, 2 + R() * 2, 0.5, R() < 0.5 ? '#e8c860' : '#b8902c');
     rect(c, x + 1, y + 3, w - 2, 1, '#8a6a30');
+    rect(c, x + 1, y + 8, w - 2, 1, '#8a6a30');
+    // a ginger cat asleep on top
+    const cx = x + w - 16;
+    ellipse(c, cx + 5, y - 5, 6, 3.5, OUT);
+    ellipse(c, cx + 5, y - 5, 5, 2.8, '#e08838');
+    rect(c, cx + 2, y - 6, 1, 2, '#b86020');
+    rect(c, cx + 5, y - 7, 1, 2, '#b86020');
+    disc(c, cx + 10, y - 6, 2.6, OUT);
+    disc(c, cx + 10, y - 6, 2, '#e08838');
+    rect(c, cx + 8.5, y - 9, 1, 1.5, '#e08838');
+    rect(c, cx + 11, y - 9, 1, 1.5, '#e08838');
+    rect(c, cx + 9, y - 6, 1, 0.5, '#3a2a1a');
+    rect(c, cx + 11, y - 6, 1, 0.5, '#3a2a1a');
+    rect(c, cx - 2, y - 4, 4, 1, '#e08838');
+  },
+  bin(c, x, y, w, h) {
+    // an open grain bin, heaped, with a scoop stuck in it
+    box(c, x + 2, y - 6, w - 4, h + 4, 4, '#8a5a30');
+    for (let i = 0; i < 3; i++) rect(c, x + 2, y + 2 + i * 7, w - 4, 1, '#6a4024');
+    ellipse(c, x + w / 2, y - 6, w / 2 - 4, 4, '#e8c860');
+    ellipse(c, x + w / 2, y - 7, w / 2 - 8, 2.5, '#f4d878');
+    rect(c, x + w - 12, y - 16, 1.5, 10, '#a07848');
+    rect(c, x + w - 14, y - 8, 5, 3, '#9a9aaa');
+  },
+  scale(c, x, y) {
+    // a sack scale: a stand, a dial and a weighing pan
+    rect(c, x + 7, y - 10, 2, 22, '#4a4a5a');
+    disc(c, x + 8, y - 10, 4.5, OUT);
+    disc(c, x + 8, y - 10, 3.8, '#f4f0e6');
+    rect(c, x + 8, y - 12, 0.75, 2.5, '#c0392b');
+    rect(c, x + 2, y + 6, 12, 2, '#7a7a8a');
+    rect(c, x + 3, y + 8, 10, 1, '#5a5a6a');
+    sack(c, x + 4, y - 3);
+  },
+  wheelbarrow(c, x, y, w) {
+    // handles, the tray full of grain, one wheel
+    rect(c, x + 2, y + 4, 9, 1.5, '#7a4a24');
+    rect(c, x + 2, y + 8, 9, 1.5, '#7a4a24');
+    for (let i = 0; i < 6; i++) rect(c, x + 8 + i * 3.4, y - 1 + i * 0.3, 4, 12 - i * 0.6, OUT);
+    rect(c, x + 9, y, w - 12, 10, '#3b7a5a');
+    rect(c, x + 9, y, w - 12, 2, '#4f9a72');
+    ellipse(c, x + 9 + (w - 12) / 2, y, (w - 12) / 2 - 1, 2.5, '#e8c860');
+    disc(c, x + w - 4, y + 11, 3.5, OUT);
+    disc(c, x + w - 4, y + 11, 2.5, '#5a5a6a');
+    rect(c, x + 12, y + 10, 1.5, 4, '#3a3a4a');
+  },
+  apples(c, x, y, w) {
+    box(c, x + 2, y - 2, w - 4, 14, 3, '#b8864c');
+    rect(c, x + 2, y + 5, w - 4, 1, '#8a5a30');
+    const R = rng(x * 3 + y);
+    for (let i = 0; i < 9; i++) {
+      const ax = x + 5 + (i % 5) * 5 + (Math.floor(i / 5) % 2) * 2.5;
+      const ay = y - 3 - Math.floor(i / 5) * 2.5;
+      disc(c, ax, ay, 2.2, OUT);
+      disc(c, ax, ay, 1.7, R() < 0.7 ? '#c0392b' : '#8ab83a');
+      rect(c, ax - 0.5, ay - 1, 0.75, 0.75, '#f8c0b0');
+    }
   },
 };

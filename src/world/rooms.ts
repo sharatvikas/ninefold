@@ -43,7 +43,11 @@ export type PropKind =
   | 'workbench'
   | 'sacks'
   | 'barrels'
-  | 'hay';
+  | 'hay'
+  | 'bin'
+  | 'scale'
+  | 'wheelbarrow'
+  | 'apples';
 
 /** A solid piece of furniture. x, y, w, h are its footprint in tiles; art may rise above it. */
 export interface Prop {
@@ -96,7 +100,10 @@ export const ROOMS: Record<string, Room> = {
   },
   granary: {
     id: 'granary', label: 'GRANARY', wall: '#b5432b', stripe: '#a33a24', floor: 'straw', decor: 'granary',
-    props: [p('sacks', 1, 4, 3, 2), p('barrels', 19, 4, 3, 2), p('hay', 2, 9, 3, 1), p('sacks', 19, 9, 2, 1)],
+    props: [
+      p('sacks', 1, 4, 3, 2), p('bin', 5, 4, 2, 2), p('barrels', 19, 4, 3, 2), p('apples', 20, 7, 2, 1),
+      p('hay', 2, 9, 3, 1), p('scale', 6, 8), p('wheelbarrow', 15, 10, 2, 1), p('sacks', 19, 9, 2, 1),
+    ],
   },
 };
 
