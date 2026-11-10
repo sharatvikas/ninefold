@@ -363,7 +363,7 @@ export class SpecScene extends IncidentScene {
       return;
     }
     this.status = 'broken';
-    this.attempts.failedChanges++;
+    this.miss();
     this.game.ui.toast('NOT FIXED YET · TRUST −1', 'bad');
     this.say(v.hint ?? 'Not fixed yet. Look at which checks failed.', 'bad');
     this.refreshTab();
@@ -425,7 +425,7 @@ export class SpecScene extends IncidentScene {
       if (r.out) this.print(r.out, r.bad ? 'err' : '');
       if (r.evidence) this.found();
       if (r.bad) {
-        this.attempts.failedChanges++;
+        this.miss();
         this.game.ui.toast('THAT MADE THINGS WORSE · TRUST −1', 'bad');
       }
       if (r.changed) this.markChanged();

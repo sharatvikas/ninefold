@@ -355,7 +355,7 @@ export class PostScene extends IncidentScene {
     const brokeGood = changed.filter((n) => wrongEntries(this.wall).indexOf(n) === -1 && cleaned[n] !== this.wall[n]);
     this.wall = cleaned;
     this.draft = { ...cleaned };
-    if (wrongEntries(this.wall).length) this.attempts.failedChanges++;
+    if (wrongEntries(this.wall).length) this.miss();
     this.refreshTab();
     this.say(
       brokeGood.length
