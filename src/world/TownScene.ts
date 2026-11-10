@@ -6,7 +6,9 @@ import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
 import { bigIncidentBlockers, levelStatus, nextLevelIn, type Progress } from '../state/progress';
 import { moveBox, type Box } from './collision';
-import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, isSolidTile, tileAt, type NpcSpawn } from './townMap';
+import { Interior } from './Interior';
+import { ROOMS } from './rooms';
+import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, buildingAtDoor, doorOf, isSolidTile, tileAt, type Building, type NpcSpawn } from './townMap';
 
 const SPEED = 72; // px per second
 const TALK_RANGE = 22;
@@ -56,6 +58,10 @@ export class TownScene implements Scene {
   private sky: Sky = skyAt(9 * 60);
   /** A celebration in progress over a district whose ticket was just closed. */
   private party: { x: number; y: number; left: number; next: number } | undefined;
+  /** The building the player is inside, if any. */
+  private inside: Interior | undefined;
+  /** The building whose door the player is standing at, if any. */
+  private atDoor: Building | undefined;
 
   constructor(
     private game: Game,
@@ -94,8 +100,8 @@ export class TownScene implements Scene {
         first
           ? [
               `Welcome to Ninefold, ${this.game.progress.avatar?.name ?? 'our new on-call engineer'}! You're our new on-call engineer.`,
-              'Walk with the arrow keys or WASD. Talk to people with E.',
-              'A "!" means someone has a ticket for you. Press Q any time to see every ticket in town.',
+              'Walk with the arrow keys or WASD. Walk up to a door to go inside, and talk to people with E.',
+              'A "!" over a person or a door means someone has a ticket for you. Press Q any time to see every ticket in town.',
               'Every district has six tickets, from friendly puzzles to real terminals. Start with anyone showing a "!"…',
             ]
           : [`Welcome back, ${this.game.progress.avatar?.name ?? 'on-call'}. Press Q to see your tickets.`],
@@ -107,6 +113,7 @@ export class TownScene implements Scene {
   private reset = (): void => {
     const ui = this.game.ui;
     this.game.resetProgress();
+    this.inside = undefined;
     this.player.box = { ...this.player.box, x: PLAYER_START.x * TILE + 3, y: PLAYER_START.y * TILE + 10 };
     this.player.dir = 'down';
     this.camReady = false;
@@ -148,7 +155,9 @@ export class TownScene implements Scene {
     const lvl = getLevel(r.levelId);
     const npc = this.npcs.find((n) => n.district === lvl.district);
     ui.toast(r.trust > 0 ? `TICKET CLOSED · TRUST +${r.trust}` : 'TICKET CLOSED', 'good');
-    if (!this.reduced) {
+    if (this.inside) {
+      if (!this.reduced) this.inside.celebrate();
+    } else if (!this.reduced) {
       // Celebrate where the player can see it: fireworks over them, confetti at their feet.
       const pb = this.player.box;
       this.party = { x: pb.x + pb.w / 2, y: pb.y - 10, left: 3, next: 0.15 };
@@ -159,10 +168,15 @@ export class TownScene implements Scene {
 
   // ---------------------------------------------------------------- update
   update(dt: number, t: number): void {
+    if (this.inside) {
+      this.updateInside(dt, this.inside);
+      return;
+    }
     const { input, ui } = this.game;
     const p = this.player;
 
     for (const n of this.npcs) {
+      if (n.home) continue;
       n.lookTimer -= dt;
       if (n.lookTimer <= 0 && !ui.dialog.open) {
         n.lookTimer = 2 + Math.random() * 5;
@@ -181,18 +195,15 @@ export class TownScene implements Scene {
       if (dx || dy) {
         const len = Math.hypot(dx, dy);
         p.box = moveBox(p.box, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, this.solidAt);
-        p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-        p.moving = true;
-        p.walk += dt;
-        const step = Math.floor(p.walk * 9) % 4;
-        if (step !== this.walkStep && WALK[step] !== 0 && !this.reduced) this.fx.dust(p.box.x + p.box.w / 2, p.box.y + p.box.h);
-        this.walkStep = step;
+        this.stepPlayer(dx, dy, dt, (x, y) => this.fx.dust(x, y));
       } else this.walkStep = -1;
 
       this.nearby = this.findNearby();
+      this.atDoor = this.nearby ? undefined : this.doorUnderPlayer();
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
+      else if (this.atDoor && (input.wasPressed('e', ' ', 'enter') || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
       else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
-    }
+    } else this.atDoor = undefined;
 
     this.smoke.step(dt);
     if (!this.game.progress.completed['harbor-1']) this.smoke.spawn(33 * TILE, 18 * TILE, 0.3);
@@ -249,9 +260,94 @@ export class TownScene implements Scene {
     }
   }
 
+  /** Facing, walk cycle and footstep dust, shared by the town and the rooms. */
+  private stepPlayer(dx: number, dy: number, dt: number, dust: (x: number, y: number) => void): void {
+    const p = this.player;
+    p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    p.moving = true;
+    p.walk += dt;
+    const step = Math.floor(p.walk * 9) % 4;
+    const box = this.inside ? this.inside.box : p.box;
+    if (step !== this.walkStep && WALK[step] !== 0 && !this.reduced) dust(box.x + box.w / 2, box.y + box.h);
+    this.walkStep = step;
+  }
+
+  // ---------------------------------------------------------------- doors and rooms
+  /** The building whose door the player is standing on, if it has a room to go into. */
+  private doorUnderPlayer(): Building | undefined {
+    const b = this.player.box;
+    const d = buildingAtDoor(Math.floor((b.x + b.w / 2) / TILE), Math.floor((b.y + b.h / 2) / TILE));
+    return d && ROOMS[d.id] ? d : undefined;
+  }
+
+  private goIn(b: Building): void {
+    this.game.ui.iris(
+      () => {
+        if (this.inside) return;
+        this.inside = new Interior(ROOMS[b.id], this.npcs.find((n) => n.home === b.id));
+        this.player.dir = 'up';
+        this.player.moving = false;
+        this.atDoor = undefined;
+        this.nearby = undefined;
+        this.game.focus = this.inside.focus();
+      },
+      this.game.focus.x,
+      this.game.focus.y,
+    );
+  }
+
+  private goOut(room: Interior): void {
+    this.game.ui.iris(
+      () => {
+        if (this.inside !== room) return;
+        this.inside = undefined;
+        const b = BUILDINGS.find((x) => x.id === room.room.id)!;
+        const d = doorOf(b);
+        this.player.box = { ...this.player.box, x: d.x * TILE + 3, y: d.y * TILE + 5 };
+        this.player.dir = 'down';
+        this.player.moving = false;
+        this.camReady = false;
+      },
+      this.game.focus.x,
+      this.game.focus.y,
+    );
+  }
+
+  private updateInside(dt: number, room: Interior): void {
+    const { input, ui } = this.game;
+    const p = this.player;
+    room.update(dt, ui.busy);
+    p.moving = false;
+    // Once through the doorway, stop and wait for the wipe back outside.
+    if (room.left) {
+      this.goOut(room);
+      return;
+    }
+    if (!ui.busy && input.enabled) {
+      let dx = 0;
+      let dy = 0;
+      if (input.isDown('arrowleft', 'a')) dx -= 1;
+      if (input.isDown('arrowright', 'd')) dx += 1;
+      if (input.isDown('arrowup', 'w')) dy -= 1;
+      if (input.isDown('arrowdown', 's')) dy += 1;
+      if (dx || dy) {
+        const len = Math.hypot(dx, dy);
+        room.move((dx / len) * SPEED * dt, (dy / len) * SPEED * dt);
+        this.stepPlayer(dx, dy, dt, (x, y) => room.fx.dust(x, y));
+      } else this.walkStep = -1;
+      const r = room.resident as Npc | undefined;
+      if (r && room.canTalk() && input.wasPressed('e', ' ', 'enter')) {
+        r.dir = 'down';
+        this.talk(r);
+      } else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
+    }
+    this.game.focus = room.focus();
+  }
+
   private solidAt = (px: number, py: number): boolean => {
     if (isSolidTile(Math.floor(px / TILE), Math.floor(py / TILE))) return true;
     for (const n of this.npcs) {
+      if (n.home) continue;
       const b = n.box;
       if (px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h) return true;
     }
@@ -265,6 +361,7 @@ export class TownScene implements Scene {
     let best: Npc | undefined;
     let bestD = TALK_RANGE;
     for (const n of this.npcs) {
+      if (n.home) continue;
       const d = Math.hypot(n.box.x + n.box.w / 2 - px, n.box.y + n.box.h / 2 - py);
       if (d < bestD) {
         best = n;
@@ -275,10 +372,12 @@ export class TownScene implements Scene {
   }
 
   private talk(n: Npc): void {
-    const p = this.player.box;
-    const dx = p.x + p.w / 2 - (n.box.x + n.box.w / 2);
-    const dy = p.y - n.box.y;
-    n.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    if (!this.inside) {
+      const p = this.player.box;
+      const dx = p.x + p.w / 2 - (n.box.x + n.box.w / 2);
+      const dy = p.y - n.box.y;
+      n.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    }
 
     const prog = this.game.progress;
     const next = nextLevelIn(prog, n.district as Parameters<typeof nextLevelIn>[1]);
@@ -309,6 +408,10 @@ export class TownScene implements Scene {
 
   // ---------------------------------------------------------------- render
   render(c: Ctx, t: number): void {
+    if (this.inside) {
+      this.renderInside(c, t, this.inside);
+      return;
+    }
     c.save();
     c.translate(-snap(this.cam.x), -snap(this.cam.y));
     blit(c, this.ground.get(), 0, 0, MAP_W * TILE, MAP_H * TILE);
@@ -330,14 +433,13 @@ export class TownScene implements Scene {
     });
     const blinking = (phase: number) => (t + phase) % 3.6 < 0.13;
     for (const n of this.npcs) {
+      if (n.home) continue;
       const bob = Math.sin(t * 2 + n.x) > 0.6 ? 1 : 0;
       const f = blinking(n.blinkPhase) ? 3 : 0;
       ds.push({ y: n.box.y + n.box.h, draw: () => n.sheet.draw(c, n.dir, f, n.box.x - 2, n.box.y - 6 - bob) });
     }
     const p = this.player;
-    const frame = p.moving ? WALK[Math.floor(p.walk * 9) % 4] : blinking(1.7) ? 3 : 0;
-    const lift = frame === 1 || frame === 2 ? 1 : 0;
-    ds.push({ y: p.box.y + p.box.h, draw: () => this.playerSheet.draw(c, p.dir, frame, p.box.x - 3, p.box.y - 10 - lift) });
+    ds.push({ y: p.box.y + p.box.h, draw: () => this.drawPlayer(c, t, p.box) });
     ds.sort((a, b) => a.y - b.y).forEach((d) => d.draw());
 
     this.smoke.draw(c);
@@ -355,9 +457,38 @@ export class TownScene implements Scene {
     this.flies.draw(c, t, this.sky.night, { x: this.cam.x, y: this.cam.y, w: VIEW_W, h: VIEW_H });
     this.sparks.draw(c);
 
-    for (const n of this.npcs) if (this.hasTicket(n)) this.bubble(c, n.box.x + 6, n.box.y - 22 - this.hop(t, n.x), '!', '#d04040');
+    for (const n of this.npcs) {
+      if (!this.hasTicket(n)) continue;
+      if (!n.home) this.bubble(c, n.box.x + 6, n.box.y - 22 - this.hop(t, n.x), '!', '#d04040');
+      else {
+        // People who work indoors show their "!" just beside their door.
+        // Low enough to clear the shop sign; hidden while the player stands at that door.
+        const b = BUILDINGS.find((x) => x.id === n.home);
+        if (b && b !== this.atDoor) this.bubble(c, b.x * TILE + (b.w * TILE) / 2 + 7, (b.y + b.h) * TILE - 19 - this.hop(t, n.x), '!', '#d04040');
+      }
+    }
+    const pb = this.player.box;
     if (this.nearby && !this.game.ui.busy) this.bubble(c, this.nearby.box.x + 6, this.nearby.box.y - (this.hasTicket(this.nearby) ? 36 : 22), 'E', '#2b6cb0');
+    // At a door, the "E" floats over the player.
+    else if (this.atDoor && !this.game.ui.busy) this.bubble(c, pb.x, pb.y - 30, 'E', '#2b6cb0');
     c.restore();
+  }
+
+  private drawPlayer(c: Ctx, t: number, box: Box): void {
+    const p = this.player;
+    const frame = p.moving ? WALK[Math.floor(p.walk * 9) % 4] : (t + 1.7) % 3.6 < 0.13 ? 3 : 0;
+    const lift = frame === 1 || frame === 2 ? 1 : 0;
+    this.playerSheet.draw(c, p.dir, frame, box.x - 3, box.y - 10 - lift);
+  }
+
+  private renderInside(c: Ctx, t: number, room: Interior): void {
+    const r = room.resident as Npc | undefined;
+    room.render(c, t, {
+      drawPlayer: (box) => this.drawPlayer(c, t, box),
+      bubble: (x, y, ch, col) => this.bubble(c, x, y, ch, col),
+      ticket: !!r && this.hasTicket(r),
+      busy: this.game.ui.busy,
+    });
   }
 
   /** A bouncy hop: quick rise, a beat in the air, a landing. */

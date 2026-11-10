@@ -29,6 +29,8 @@ export interface NpcSpawn {
   x: number; // tiles
   y: number;
   district: string;
+  /** The building they work inside. Talk to them by walking through its door. Absent = outdoors. */
+  home?: string;
 }
 
 export const BUILDINGS: Building[] = [
@@ -42,14 +44,14 @@ export const BUILDINGS: Building[] = [
 ];
 
 export const NPCS: NpcSpawn[] = [
-  { id: 'rosa', name: 'Rosa', look: 'rosa', x: 15, y: 14, district: 'post' },
+  { id: 'rosa', name: 'Rosa', look: 'rosa', x: 15, y: 14, district: 'post', home: 'post' },
   { id: 'finn', name: 'Finn', look: 'finn', x: 30, y: 19, district: 'harbor' },
-  { id: 'ines', name: 'Ines', look: 'ines', x: 9, y: 9, district: 'rail' },
-  { id: 'ada', name: 'Ada', look: 'ada', x: 33, y: 9, district: 'arch' },
-  { id: 'bo', name: 'Mayor Bo', look: 'bo', x: 22, y: 10, district: 'hall' },
-  { id: 'lin', name: 'Lin', look: 'lin', x: 33, y: 14, district: 'watch' },
-  { id: 'kit', name: 'Kit', look: 'kit', x: 8, y: 23, district: 'lock' },
-  { id: 'gus', name: 'Gus', look: 'gus', x: 18, y: 23, district: 'granary' },
+  { id: 'ines', name: 'Ines', look: 'ines', x: 9, y: 9, district: 'rail', home: 'rail' },
+  { id: 'ada', name: 'Ada', look: 'ada', x: 33, y: 9, district: 'arch', home: 'arch' },
+  { id: 'bo', name: 'Mayor Bo', look: 'bo', x: 22, y: 10, district: 'hall', home: 'hall' },
+  { id: 'lin', name: 'Lin', look: 'lin', x: 33, y: 14, district: 'watch', home: 'watch' },
+  { id: 'kit', name: 'Kit', look: 'kit', x: 8, y: 23, district: 'lock', home: 'lock' },
+  { id: 'gus', name: 'Gus', look: 'gus', x: 18, y: 23, district: 'granary', home: 'granary' },
   { id: 'juno', name: 'Chief Juno', look: 'juno', x: 24, y: 14, district: 'big' },
 ];
 
@@ -85,6 +87,7 @@ function buildGrid(): string[][] {
   fill(13, 14, 13, 14, 'p'); // post office
   fill(31, 9, 31, 14, 'p'); // architect
   fill(6, 23, 6, 23, 'p'); // locksmith
+  fill(35, 14, 35, 14, 'p'); // watchtower
   fill(15, 23, 15, 23, 'p'); // granary
   fill(27, 17, 28, 18, 'p'); // to the dock
   // Scattered trees
@@ -93,7 +96,7 @@ function buildGrid(): string[][] {
   ]) set(x, y, 'T');
   // Flowers
   for (const [x, y] of [
-    [16, 12], [9, 12], [22, 12], [26, 9], [11, 22], [21, 20], [30, 12], [35, 16 - 2], [5, 13], [24, 23],
+    [16, 12], [9, 12], [22, 12], [26, 9], [11, 22], [21, 20], [30, 12], [5, 13], [24, 23],
   ]) if (g[y][x] === 'g') set(x, y, 'F');
   // Buildings & big objects are solid
   for (const b of BUILDINGS) fill(b.x, b.y, b.x + b.w - 1, b.y + b.h - 1, 'B');
@@ -119,4 +122,17 @@ export function isSolidTile(tx: number, ty: number): boolean {
 /** Door tile (just below the building's bottom-centre). */
 export function doorOf(b: Building): { x: number; y: number } {
   return { x: b.x + Math.floor(b.w / 2), y: b.y + b.h };
+}
+
+/** The building whose door is at this tile, if any. */
+export function buildingAtDoor(tx: number, ty: number): Building | undefined {
+  return BUILDINGS.find((b) => {
+    const d = doorOf(b);
+    return d.x === tx && d.y === ty;
+  });
+}
+
+/** Who works inside a building (undefined for buildings nobody is in). */
+export function residentOf(buildingId: string): NpcSpawn | undefined {
+  return NPCS.find((n) => n.home === buildingId);
 }
