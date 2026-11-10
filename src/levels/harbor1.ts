@@ -405,7 +405,7 @@ export class HarborScene extends IncidentScene {
       this.finish(this.recap());
       return;
     }
-    this.attempts.failedChanges++;
+    this.miss();
     if (v.kind === 'hidden') {
       this.say('No more sinking… because no ships sail at all now. The cargo never arrives. That hides the problem instead of fixing it.', 'bad');
     } else if (this.cfg.hold === before.hold) {

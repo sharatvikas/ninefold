@@ -312,6 +312,15 @@ The build is ~300 KB of static files (≈100 KB compressed), with no server or d
 | **Cloudflare Pages** / **Netlify** | free plan | Build command `npm run build`, output folder `dist` |
 | **itch.io** | free | Upload a ZIP of `dist/` as an HTML5 game |
 
+### 📊 Play tracking (off unless you turn it on)
+
+To learn where players get stuck, the game can count anonymous moments: a ticket opened, started, cause found, change made, a change that didn't work, solved (with a coarse time bucket like `2-5m`), or left unsolved (and at which step). There are no cookies, no player or session ids, and nothing about names, avatars or saves. **Do Not Track** and **Global Privacy Control** turn it off completely, and it never sends from `localhost`.
+
+- **Off by default.** It only sends anywhere when the build has a [GoatCounter](https://www.goatcounter.com) site code. On GitHub Pages, add a repository variable `GOATCOUNTER_CODE` (*Settings → Secrets and variables → Actions → Variables*) holding the code, e.g. `ninefold` for `ninefold.goatcounter.com`, then redeploy. Locally: `VITE_GOATCOUNTER=ninefold npm run build`.
+- **See what it would send:** open the game with `?analytics=debug` for a corner panel of recent events (kept only in your browser's localStorage); `?analytics=off` hides it and clears the log. The dev server shows the panel automatically.
+- **In GoatCounter** each event is a path, so every ticket reads as a funnel: `ticket/harbor-1/open → /start → /cause → /fix → /solved/2-5m`, plus `/miss` and `/quit/at-<step>`. Replays of finished tickets go under `replay/…`.
+- The code is in `src/analytics/`; another service is one small `Sink` away.
+
 ---
 
 ## 🛠️ Under the hood
@@ -335,7 +344,7 @@ flowchart TB
 - **Stack:** TypeScript + Vite + plain Canvas 2D (no game engine) + Vitest. No runtime dependencies.
 - **Art:** every sprite, building and scene is drawn in code at your screen's real resolution, so it's sharp on any display.
 - **Tickets are data.** Each one is a `LevelSpec`: evidence, the editable settings (or terminal files and commands), pure `verify`/`check` rules, a `solution`, and a recap.
-- **325 tests.** Among other things, they prove that **every ticket starts broken and is solved by its intended fix**, that the town map is fully reachable, and that saves survive corrupted data.
+- **339 tests.** Among other things, they prove that **every ticket starts broken and is solved by its intended fix**, that the town map is fully reachable, and that saves survive corrupted data.
 
 <details>
 <summary><b>Project layout & adding a ticket</b></summary>

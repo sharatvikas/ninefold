@@ -1,3 +1,4 @@
+import { analytics, secsSince, type Step } from '../analytics/analytics';
 import type { Ctx } from '../art/pixels';
 import type { Game, Scene } from '../engine/game';
 import { h } from '../ui/ui';
@@ -67,6 +68,12 @@ export abstract class IncidentScene implements Scene {
   private timers: number[] = [];
   /** When the player last pressed Esc mid-ticket; a second press soon after really leaves. */
   private escAt = -Infinity;
+  /** Play tracking: when the ticket was opened / started, whether it was already solved, and whether we've reported how it ended. */
+  private openedAt = 0;
+  private startedAt = 0;
+  private replay = false;
+  private ended = false;
+  private onPageHide = () => this.trackAbandon('closed_tab');
 
   constructor(
     protected game: Game,
@@ -111,10 +118,15 @@ export abstract class IncidentScene implements Scene {
     tray.append(bar, panel);
     this.root.append(top, this.alertEl, tray);
     this.game.ui.scene.append(this.root);
+    this.replay = !!this.game.progress.completed[this.meta.id];
+    this.openedAt = performance.now();
+    analytics.track({ name: 'ticket_open', level: this.meta.id, replay: this.replay });
+    window.addEventListener('pagehide', this.onPageHide);
     this.showIntro();
   }
 
   leave(): void {
+    window.removeEventListener('pagehide', this.onPageHide);
     this.game.ui.touch.classList.remove('hidden');
     this.timers.forEach((id) => clearTimeout(id));
     this.timers = [];
@@ -127,6 +139,7 @@ export abstract class IncidentScene implements Scene {
   }
 
   protected leaveLevel(): void {
+    this.trackAbandon('left');
     this.exit({ levelId: this.meta.id, trust: 0, completed: false });
   }
 
@@ -175,9 +188,33 @@ export abstract class IncidentScene implements Scene {
   protected complete(id: StepId): void {
     if (this.steps[id]) return;
     this.steps[id] = true;
+    if (id === 'cause' || id === 'fix') analytics.track({ name: 'ticket_step', ...this.trackBase(), step: id, secs: this.secs() });
     const el = this.stepEls.get(id);
     el?.classList.add('done');
     el?.animate([{ transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 300 });
+  }
+
+  /** Call when a change didn't fix the problem: costs 1 Trust, and is tracked so we can see where players get stuck. */
+  protected miss(): void {
+    this.attempts.failedChanges++;
+    analytics.track({ name: 'ticket_miss', ...this.trackBase(), misses: this.attempts.failedChanges, secs: this.secs() });
+  }
+
+  private trackBase(): { level: string; replay: boolean } {
+    return { level: this.meta.id, replay: this.replay };
+  }
+
+  /** Seconds since START was pressed (or since the ticket opened, if it never was). */
+  private secs(): number {
+    return secsSince(this.startedAt || this.openedAt, performance.now());
+  }
+
+  /** Report a ticket left unsolved, once. Leaving after it's solved isn't abandoning it. */
+  private trackAbandon(how: 'left' | 'closed_tab'): void {
+    if (this.ended || (this.phase !== 'intro' && this.phase !== 'play')) return;
+    this.ended = true;
+    const reached: Step = this.phase === 'intro' ? 'intro' : this.steps.fix ? 'fix' : this.steps.cause ? 'cause' : 'understand';
+    analytics.track({ name: 'ticket_abandon', ...this.trackBase(), secs: this.secs(), misses: this.attempts.failedChanges, reached, how });
   }
 
   /** Call when the player changes something. Records guessing before evidence. */
@@ -224,6 +261,8 @@ export abstract class IncidentScene implements Scene {
       this.introClose?.();
       this.introClose = undefined;
       this.phase = 'play';
+      this.startedAt = performance.now();
+      analytics.track({ name: 'ticket_start', ...this.trackBase() });
       this.complete('understand');
       this.openTab(this.tabs()[0].id);
     });
@@ -249,6 +288,9 @@ export abstract class IncidentScene implements Scene {
     this.phase = 'resolving';
     this.complete('verify');
     const trust = trustFor(this.attempts);
+    this.ended = true;
+    const { failedChanges: misses, guessedFirst, wasteful } = this.attempts;
+    analytics.track({ name: 'ticket_solved', ...this.trackBase(), secs: this.secs(), misses, trust, guessedFirst, wasteful });
     this.later(() => this.showRecap(r, trust), 1800);
   }
 

@@ -1,4 +1,6 @@
 import './style.css';
+import { analytics } from './analytics/analytics';
+import { setupFromBrowser } from './analytics/setup';
 import { Game, VIEW_H, VIEW_W } from './engine/game';
 import { RENDER } from './art/pixels';
 import type { Scene } from './engine/game';
@@ -54,6 +56,12 @@ async function boot(): Promise<void> {
   }
 
   const game = new Game(ctx, document.getElementById('ui')!);
+  setupFromBrowser();
+  analytics.track({
+    name: 'session_start',
+    returning: !!game.progress.avatar,
+    solved: Object.keys(game.progress.completed).length,
+  });
 
   const backToTown = (r: LevelResult) => {
     // Save first, so closing the tab mid-transition can't lose a solved ticket.
@@ -78,6 +86,7 @@ async function boot(): Promise<void> {
   else
     game.ui.avatar.show(undefined, (a) => {
       game.setAvatar(a);
+      analytics.track({ name: 'avatar_created' });
       town.setPlayerLook(a.look);
       game.setScene(town);
     });
