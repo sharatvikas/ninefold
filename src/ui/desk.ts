@@ -507,6 +507,8 @@ export class Desk {
 
   private print(text: string, cls = ''): void {
     if (!this.termOut) return;
+    // Two-column listings (like help) don't fit a phone: put the description under the command instead.
+    if (window.innerWidth < 600) text = text.replace(/^( {2}\S.*?\S) {3,}(\S.*)$/gm, '$1\n      $2');
     for (const line of text.split('\n')) this.termOut.append(h('div', `tl ${cls}`, line || ' '));
     this.termOut.scrollTop = this.termOut.scrollHeight;
   }

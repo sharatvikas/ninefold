@@ -122,6 +122,7 @@ export class App {
     setTimeout(() => t?.remove(), this.calm ? 0 : 500);
     // A new player is pointed at the gentlest first ticket.
     if (!Object.keys(this.progress.solved).length) this.select('harbor');
+    this.refresh();
   }
 
   // ---------------------------------------------------------------- map + board
