@@ -1,109 +1,98 @@
 <div align="center">
 
-# 🏘️ Ninefold
+# Ninefold: night shift
 
-### Learn SRE, DevOps & cloud engineering by fixing a cozy pixel-art town
+### Learn DevOps, SRE and cloud engineering by keeping a small town's lights on
 
-*Ships sink because they run out of memory. Letters go to the wrong house because a DNS record is wrong.<br>You investigate, change the real setting, verify it, then see the same fix for real.*
+*The town runs like a production system. Ships are containers, letters are packets, and tonight you carry the pager.<br>Find the evidence, make one change, prove it worked, then see the same fix with real tools.*
 
-<a href="https://sharatvikas.github.io/ninefold/"><img src="https://img.shields.io/badge/▶%20PLAY%20NOW-in%20your%20browser-1e8a4a?style=for-the-badge" alt="Play Ninefold now" height="44"></a>
+<a href="https://sharatvikas.github.io/ninefold/"><img src="https://img.shields.io/badge/PLAY%20NOW-in%20your%20browser-1e8a4a?style=for-the-badge" alt="Play Ninefold now" height="44"></a>
 
 [![Deploy](https://github.com/sharatvikas/ninefold/actions/workflows/deploy.yml/badge.svg)](https://github.com/sharatvikas/ninefold/actions/workflows/deploy.yml)
 ![Tickets](https://img.shields.io/badge/tickets-51-b5523b)
-![Tests](https://img.shields.io/badge/tests-373%20passing-2b6cb0)
 ![No install](https://img.shields.io/badge/install-none-8b5a2b)
 ![Hosting cost](https://img.shields.io/badge/hosting-%240-27ae60)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Canvas%202D-3178c6?logo=typescript&logoColor=white)
 
-<a href="https://sharatvikas.github.io/ninefold/"><img src="docs/screenshots/gameplay.gif" alt="Gameplay: walk the lamp-lit town at dusk, take the Railyard ticket, find the missing dependency in the build log, fix the parts list, watch the build pass and the train leave, then the before/after recap and fireworks back in town" width="840"></a>
+<a href="https://sharatvikas.github.io/ninefold/"><img src="docs/screenshots/town.jpg" alt="The town of Ninefold at night: nine districts on a small island, some windows lit, red beacons over the districts that still have an open ticket" width="840"></a>
 
-<sub>↑ A real ticket, start to finish: walk the town → the build train has derailed → <b>find the cause</b> in the build log → <b>change</b> the parts list → <b>verify</b>: every station passes and the train leaves → before/after recap with the real <code>package.json</code> fix.</sub>
+<sub>The town is the status page. Windows light up as tickets close, a red beacon hangs over every district with an open ticket, and the bell tower glows with the town's nines.</sub>
 
-**[▶ Play now](https://sharatvikas.github.io/ninefold/)** · [Why Ninefold?](#-why-ninefold) · [How a ticket works](#-how-a-ticket-works) · [Screenshots](#-screenshots) · [All 51 tickets](#%EF%B8%8F-the-town-8-districts--51-tickets) · [Glossary](#-glossary) · [Run it locally](#-run-it-on-your-own-computer)
+**[Play now](https://sharatvikas.github.io/ninefold/)** · [Why Ninefold?](#why-ninefold) · [How a ticket works](#how-a-ticket-works) · [All 51 tickets](#the-town-9-districts-51-tickets) · [Glossary](#glossary) · [Run it locally](#run-it-on-your-own-computer)
 
 </div>
 
 ---
 
-## 💡 Why Ninefold?
+## Why Ninefold?
 
 Reliability work (DevOps, Site Reliability Engineering, cloud and platform engineering) is mostly learned **on the job, during real outages, on real production systems**. That's stressful, risky, and hard to practise on purpose.
 
-Ninefold is a safe place to practise. The town of Ninefold *is* a running system:
+Ninefold is a safe place to practise. The town *is* a running system:
 
 - every **district** is one area of the job (networking, CI/CD, Kubernetes, security and so on)
-- every **townsperson** owns a service and hands you **tickets**
-- every **problem** shows up as something you can *see*: sinking ships, letters at the wrong door, a derailed build train
+- every **keeper** owns a service and pages you with **tickets**
+- every **problem** is told as something you can picture: sinking ships, letters at the wrong door, a derailed build train
 
-You fix things the way an on-call engineer does: **gather evidence first, make one deliberate change, then prove it worked.** Guessing costs you Trust.
+You fix things the way an on-call engineer does: **gather evidence first, make one deliberate change, then prove it worked.** Guessing costs you a nine.
 
-> **Named after "the nines"**: uptime is measured in nines (99.9% = "three nines"). Ninefold is a town that wants all nine.
+> **Named after "the nines"**: uptime is measured in nines (99.9% is "three nines"). The town starts the night at one nine, 90.0%, and you are working it up to all nine.
 
 **Who it's for:** students and career-switchers getting into DevOps/SRE · developers who want to understand ops · junior on-call engineers · interview prep · teams looking for a fun onboarding exercise.
 
 ---
 
-## 🔁 How a ticket works
+## How a ticket works
 
-Every ticket follows the same four steps, tracked at the top of the screen:
+You pick a district on the map, take its next ticket, and sit down at the desk. The desk has three parts: the **ticket** on paper, the **evidence** on dark glass, and the **change** you will make. A tracker at the top follows the same four steps every time.
 
 ```mermaid
 flowchart LR
-    A["🧾 1. Understand<br/>symptom · what you know · goal"] --> B["🔎 2. Find the cause<br/>logs · charts · traces · lookups"]
-    B --> C["⚙️ 3. Change<br/>edit the real setting<br/>(form or terminal)"]
-    C --> D["✅ 4. Verify<br/>live simulation runs<br/>your change"]
+    A["1. Understand<br/>what people see · what we know · goal"] --> B["2. Find the cause<br/>logs · charts · traces · lookups"]
+    B --> C["3. Change<br/>edit the real setting<br/>(form or terminal)"]
+    C --> D["4. Verify<br/>checks run against<br/>your change"]
     D -- "still broken" --> B
-    D -- "works" --> E["📊 Recap<br/>before → after<br/>+ the real-world fix"]
+    D -- "works" --> E["Postmortem<br/>before and after<br/>+ the real-world fix"]
 ```
 
 | | What you do | Example (Sinking Ships) |
 |---|---|---|
-| **Understand** | Read the ticket: what users see, what's known, the goal | "Ships sink partway out; the harbor relaunches them" |
-| **Find the cause** | Click the evidence that explains it: nothing tells you the answer | The log line `HOLD OVERFLOW · ship sank`; a cargo chart peaking at 9 crates |
-| **Change** | Type your own values into the real setting. Watch out for red herrings | Set `hold_size` in the ship manifest (crew size is a decoy) |
-| **Verify** | Your change runs live. Wrong values visibly fail | Three voyages sail; a hold of 8 still sinks on the 9-crate voyage |
-| **Recap** | Before/after, why it worked, and the same fix with real tools | `resources.limits.memory: 448Mi → 640Mi` |
+| **Understand** | Read the ticket: what people see, what's known, the goal | "Ship-7 sinks partway out, and the harbor relaunches it" |
+| **Find the cause** | Tap the evidence that explains it. Nothing tells you the answer; the line that matters gets pinned as a finding | The log line `HOLD OVERFLOW · ship sank`; a cargo chart that peaks at 9 crates |
+| **Change** | Set your own values. Your change is shown as a diff before you apply it. Watch out for decoys | Raise `hold_size` in the ship's manifest (crew size is a decoy) |
+| **Verify** | Checks run one by one against your change. A wrong value fails where you can see it | Three voyages sail; a hold of 8 still sinks on the 9-crate voyage |
+| **Postmortem** | Before and after, why it worked, the same fix with real tools, and what the term means | `resources.limits.memory: 448Mi → 640Mi` |
 
-**Trust** is your reputation, and Ninefold's version of an *error budget*. A clean fix earns +6. You lose 1 for changing things before finding evidence, 1 for each change that didn't work, and 1 for an oversized fix.
+**Grading is in nines.** A clean fix earns three. You lose one for each change that didn't work, one for changing things before you found evidence, and one for a wasteful fix (a hold three times bigger than needed). You always keep at least one, and replaying a ticket can raise your grade but never lower it. Every nine you earn raises the town's uptime, from 90.0% towards 99.9999999%, and the board tells you what that means in downtime per month.
+
+A solved ticket is saved the moment its checks pass, before any animation or postmortem, so closing the tab can't lose it.
 
 ### Three acts: from metaphor to the real thing
 
 | Act | Tickets | How it feels | Example |
 |---|---|---|---|
-| **1 · Metaphor** | 1–2 in each district | Pure town logic, no jargon | Drag the bakery's sign to the right house |
-| **2 · Bridge** | 3–4 | Same world, real names on everything | `bread.town CNAME bakery-old.town` → NXDOMAIN |
+| **1 · Town logic** | 1–2 in each district | Plain town problems, no jargon | The bakery's letters go to the wrong house |
+| **2 · Real names** | 3–4 | Same world, real names on everything | `bread.town CNAME bakery-old.town` → NXDOMAIN |
 | **3 · Real tools** | 5–6 | A simulated terminal with real commands and files | `kubectl logs`, `dig`, `terraform plan`, PromQL, editing YAML |
 
----
+On the terminal tickets, the Handbook lists the commands that fit the incident. On a phone you can tap a command to load it, then run it. Looking around is always free; only a harmful command costs you a nine.
 
-## 📸 Screenshots
+### Also in the game
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/town.jpg" alt="The town of Ninefold"><br><b>The town.</b> Walk around, step inside any door showing a <code>!</code> and talk across the counter; smoke means an incident.</td>
-<td width="50%"><img src="docs/screenshots/avatar.jpg" alt="Avatar creator"><br><b>Make your on-call engineer.</b> 6 presets plus skin, hair, hats, outfit and name.</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/harbor.jpg" alt="Sinking Ships ticket"><br><b>Find the cause.</b> Read the cargo chart; the live gauge shows crates vs. hold size.</td>
-<td><img src="docs/screenshots/terminal.jpg" alt="Terminal ticket"><br><b>Act 3: real tools.</b> Curl the backends, read <code>lb.conf</code>, edit it, reload.</td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/fixed.jpg" alt="A verified fix"><br><b>Verify.</b> Every check runs against your change; the diagram turns green.</td>
-<td><img src="docs/screenshots/recap.jpg" alt="Before and after recap"><br><b>Learn it.</b> Before → after, why it worked, and the same fix for real.</td>
-</tr>
-<tr>
-<td colspan="2" align="center"><img src="docs/screenshots/tickets.jpg" alt="Ticket list" width="70%"><br><b>51 tickets across 8 districts</b>: press <kbd>Q</kbd> to see them all, replay any, or reset.</td>
-</tr>
-</table>
+- **Runbook.** Every ticket you close adds a page: the concept, what it means, and the real-world fix. It is your own set of notes by the end.
+- **Settings.** Sound on or off, a calm mode that turns off motion (it also follows your system's reduced-motion setting), a save code, and reset.
+- **Phones and desktops.** On a wide screen the desk shows all three parts side by side. On a phone they become three tabs, with a dot on the tab you should look at next. Everything works by touch, mouse or keyboard (<kbd>Tab</kbd>, <kbd>Enter</kbd>, <kbd>Esc</kbd> to leave a ticket).
+
+Found a ticket confusing or wrong? Every postmortem has a **Tell me** link that opens a pre-filled issue for that ticket.
 
 ---
 
-## 🗺️ The town: 8 districts · 51 tickets
+## The town: 9 districts, 51 tickets
 
-Each district's NPC hands out six tickets, easiest first. Click a district to see every ticket and **what the concept means**.
+Each district's keeper has six tickets, easiest first. The Bell Tower holds three big incidents. Open a district to see every ticket and **what the concept means**.
 
 <details>
-<summary><b>📮 Post Office: Networking & DNS</b> (Rosa)</summary>
+<summary><b>Post Office: Networking & DNS</b> (Rosa)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -116,7 +105,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🚂 Railyard: CI/CD</b> (Ines)</summary>
+<summary><b>Railyard: CI/CD</b> (Ines)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -129,7 +118,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>📐 Architect's Office: Infrastructure as code</b> (Ada)</summary>
+<summary><b>Architect's Office: Infrastructure as code</b> (Ada)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -142,7 +131,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>⚓ Harbor: Containers & Kubernetes</b> (Finn)</summary>
+<summary><b>Harbor: Containers & Kubernetes</b> (Finn)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -155,7 +144,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🗼 Watchtower: Observability</b> (Lin)</summary>
+<summary><b>Watchtower: Observability</b> (Lin)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -168,7 +157,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🔑 Locksmith: Identity & security</b> (Kit)</summary>
+<summary><b>Locksmith: Identity & security</b> (Kit)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -181,7 +170,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🌾 Granary: Storage & databases</b> (Gus)</summary>
+<summary><b>Granary: Storage & databases</b> (Gus)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -194,7 +183,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🏛️ Town Hall: SLOs, capacity, cost & practice</b> (Mayor Bo)</summary>
+<summary><b>Town Hall: SLOs, capacity, cost & practice</b> (Mayor Bo)</summary>
 
 | # | Ticket | Concept | What it means |
 |---|---|---|---|
@@ -207,7 +196,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 </details>
 
 <details>
-<summary><b>🚨 Big Incidents: everything at once</b> (Chief Juno, unlocked per act)</summary>
+<summary><b>Bell Tower: big incidents, everything at once</b> (Chief Juno; each one opens when every district has finished that act)</summary>
 
 | # | Incident | Concept | What it means |
 |---|---|---|---|
@@ -218,7 +207,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 
 ---
 
-## 📖 Glossary
+## Glossary
 
 <details>
 <summary><b>Quick definitions of the terms used in the game</b></summary>
@@ -245,7 +234,7 @@ Each district's NPC hands out six tickets, easiest first. Click a district to se
 
 ---
 
-## 💻 Run it on your own computer
+## Run it on your own computer
 
 Ninefold runs entirely in your browser. There's no server, database or account, so playing locally needs nothing beyond **Node.js**.
 
@@ -263,35 +252,19 @@ No Git? Click **Code → Download ZIP** on GitHub, unzip it, and open a terminal
 **3 · Install and play**
 
 ```sh
-npm install      # first time only, ~30 seconds
+npm install      # first time only
 npm run play     # builds the game and opens http://localhost:4173
 ```
 
-Stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Want to change the game? Use `npm run dev` (http://localhost:5173), which reloads instantly as you edit.
-
-### 🎮 Controls
-
-| Key | Action |
-|---|---|
-| <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> / <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> | Walk |
-| <kbd>E</kbd> / <kbd>Space</kbd> | Talk, go through a door, advance dialogue |
-| <kbd>Q</kbd> | Ticket list: replay finished tickets, **⇄ Save code**, **↺ Reset progress** |
-| <kbd>1</kbd>–<kbd>6</kbd> | Switch tools inside a ticket |
-| <kbd>Esc</kbd> | Leave a ticket (press twice once you've started) |
-| <kbd>Tab</kbd> + <kbd>Enter</kbd>/<kbd>Space</kbd> | Play entirely by keyboard |
-| **👤 AVATAR** button | Change your look and name |
-| Click the strips over a ticket's scene | Show or hide the ticket's diagram and status board. They tuck away by themselves once you've had time to read them, and pop back open when your fix is being checked. |
-
-Touch screens get an on-screen pad. It's a wide-screen game, so on a phone, turn it sideways. A tablet or computer is best.
-
-Found a ticket confusing or wrong? Every recap has a **💬 Tell me** link that opens a pre-filled issue for that ticket.
+Stop it with <kbd>Ctrl</kbd>+<kbd>C</kbd>. Want to change the game? Use `npm run dev` (http://localhost:5173), which reloads as you edit.
 
 <details>
 <summary><b>Saves, offline play & troubleshooting</b></summary>
 
-- **Saves** live in your browser (localStorage), per web address. No account, nothing sent anywhere. Different browsers, private windows and different ports each have their own save. **Reset progress** (in <kbd>Q</kbd>) clears tickets and Trust but keeps your avatar.
-- **Moving to another device:** <kbd>Q</kbd> → **⇄ Save code** gives you a code starting with `NF1-`. Paste it into Ninefold on the other browser or device to carry on there. The code holds only your closed tickets, Trust and avatar, and it never leaves your clipboard.
-- **Offline:** after `npm install` the game works without internet; only the pixel font comes from Google Fonts (with a fallback).
+- **Saves** live in your browser (localStorage), per web address. No account, nothing sent anywhere. Different browsers, private windows and different ports each have their own save. **Reset progress** (in Settings) asks twice, then clears your closed tickets.
+- **Saves from the first version carry over.** Tickets you closed in the old pixel-art game show up as closed here, with a grade worked out from the Trust you earned on each. The old save is left in place.
+- **Moving to another device:** Settings → **Save code** gives you a code starting with `NF2-`. Paste it into Ninefold on the other browser or device to carry on there. Old `NF1-` codes are accepted too. The code holds only your closed tickets and settings.
+- **Offline:** the fonts ship with the game, so after `npm install` it works with no internet at all.
 - **Don't open `dist/index.html` directly.** Browsers block modules on `file://`; use `npm run play` or any static server (`npx serve dist`).
 
 | Problem | Fix |
@@ -302,9 +275,9 @@ Found a ticket confusing or wrong? Every recap has a **💬 Tell me** link that 
 | Blank page | Hard-refresh (<kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) and check the browser console |
 </details>
 
-### 🌐 Host your own copy for free
+### Host your own copy for free
 
-The build is ~300 KB of static files (≈100 KB compressed), with no server or database, so hosting can't run up a bill.
+The build is static files only (about 100 KB of code compressed, plus fonts), with no server or database, so hosting can't run up a bill. Paths are relative, so it works at a domain root or under a folder such as `/ninefold/`.
 
 | Option | Cost | How |
 |---|---|---|
@@ -312,9 +285,9 @@ The build is ~300 KB of static files (≈100 KB compressed), with no server or d
 | **Cloudflare Pages** / **Netlify** | free plan | Build command `npm run build`, output folder `dist` |
 | **itch.io** | free | Upload a ZIP of `dist/` as an HTML5 game |
 
-### 📊 Play tracking (off unless you turn it on)
+### Play tracking (off unless you turn it on)
 
-To learn where players get stuck, the game can count anonymous moments: a ticket opened, started, cause found, change made, a change that didn't work, solved (with a coarse time bucket like `2-5m`), or left unsolved (and at which step). There are no cookies, no player or session ids, and nothing about names, avatars or saves. **Do Not Track** and **Global Privacy Control** turn it off completely, and it never sends from `localhost`.
+To learn where players get stuck, the game can count anonymous moments: a ticket opened, started, cause found, change made, a change that didn't work, solved (with a coarse time bucket like `2-5m`), or left unsolved (and at which step). There are no cookies, no player or session ids, and nothing about saves. **Do Not Track** and **Global Privacy Control** turn it off completely, and it never sends from `localhost`.
 
 - **Off by default.** It only sends anywhere when the build has a [GoatCounter](https://www.goatcounter.com) site code. On GitHub Pages, add a repository variable `GOATCOUNTER_CODE` (*Settings → Secrets and variables → Actions → Variables*) holding the code, e.g. `ninefold` for `ninefold.goatcounter.com`, then redeploy. Locally: `VITE_GOATCOUNTER=ninefold npm run build`.
 - **See what it would send:** open the game with `?analytics=debug` for a corner panel of recent events (kept only in your browser's localStorage); `?analytics=off` hides it and clears the log. The dev server shows the panel automatically.
@@ -323,51 +296,48 @@ To learn where players get stuck, the game can count anonymous moments: a ticket
 
 ---
 
-## 🛠️ Under the hood
+## Under the hood
 
 ```mermaid
 flowchart TB
     subgraph Browser["Your browser (everything runs here)"]
-        Loop["Game loop · engine/"] --> Town["TownScene · world/"]
-        Loop --> Level["SpecScene / IncidentScene · levels/"]
-        Level --> Specs["51 ticket specs · levels/content/"]
-        Level --> Term["Simulated terminal · levels/terminal.ts"]
-        Town --> Art["Procedural pixel art<br/>Canvas 2D at screen resolution"]
-        Level --> Art
-        Town --> UI["DOM overlay UI<br/>dialogue · HUD · tickets · avatar"]
-        Level --> UI
-        UI --> Save[("localStorage<br/>save + avatar")]
+        Specs["51 ticket specs · curriculum/content/"] --> Case["Rules of a ticket · game/case.ts"]
+        Term["Simulated terminal · curriculum/terminal.ts"] --> Case
+        Case --> Desk["The desk · ui/desk.ts"]
+        Progress["Grades, unlocks, uptime · game/progress.ts"] --> App["Map and board · ui/app.ts"]
+        Desk --> App
+        Town["Night town · town/ (Canvas 2D)"] --> App
+        App --> Save[("localStorage<br/>closed tickets + settings")]
     end
     GH["GitHub Actions<br/>test → build"] --> Pages["GitHub Pages<br/>static files"] --> Browser
 ```
 
-- **Stack:** TypeScript + Vite + plain Canvas 2D (no game engine) + Vitest. No runtime dependencies.
-- **Art:** every sprite, building and scene is drawn in code at your screen's real resolution, so it's sharp on any display.
+- **Stack:** TypeScript + Vite + plain DOM and Canvas 2D (no framework, no game engine) + Vitest. No runtime dependencies; the three fonts (Fraunces, Figtree, JetBrains Mono) are bundled at build time.
+- **The town is drawn in code** as an isometric scene at your screen's real resolution, so it stays sharp on any display.
 - **Tickets are data.** Each one is a `LevelSpec`: evidence, the editable settings (or terminal files and commands), pure `verify`/`check` rules, a `solution`, and a recap.
-- **373 tests.** Among other things, they prove that **every ticket starts broken and is solved by its intended fix**, that the town map and every room are fully reachable, and that saves survive corrupted data.
+- **Game rules are separate from the screen.** `src/game/` has no DOM in it, so the rules are tested directly.
+- **Tests** prove that **every ticket starts broken and is solved for three nines by its intended fix**, that grading, unlocks, saves and old-save migration behave, and (in a simulated DOM) that a player can click through a form ticket and a terminal ticket and that a solved ticket is saved straight away.
 
 <details>
 <summary><b>Project layout & adding a ticket</b></summary>
 
 ```
 src/
-  engine/     game loop, input, scene switching
-  art/        pixels, characters (32-grid), scenery, backdrops, ticket diagrams
-  world/      town map, collision, TownScene
-  levels/     catalog · IncidentScene · SpecScene · terminal engine
-    content/  every ticket spec, by district (+ vignettes.ts diagrams)
-    sims/     rules for the two hand-built tickets
-  state/      progress, saves, avatar validation
-  ui/         dialogue, HUD, ticket list, avatar creator
-docs/         design spec, screenshots
+  curriculum/   catalog of districts and tickets · LevelSpec types · terminal engine · glossary
+    content/    every ticket spec, by district
+  game/         case.ts (one ticket in play) · score.ts (nines) · progress.ts (saves, unlocks, uptime)
+  town/         iso.ts (isometric drawing kit) · town.ts (the island and its nine districts)
+  ui/           app (map + board) · desk (a ticket) · recap · overlays (runbook, settings) · sound
+  analytics/    privacy-friendly play tracking (off by default)
+docs/           design notes, screenshots
 ```
 
-To add a ticket: write a `LevelSpec` in `src/levels/content/<district>.ts`, add its diagram in `vignettes.ts`, and run `npm test`. The content tests check that it's solvable.
+To add a ticket: add its line to `src/curriculum/catalog.ts`, write a `LevelSpec` in `src/curriculum/content/<district>.ts`, add its plain-words meaning to `glossary.ts`, and run `npm test`. The content tests check that it is solvable.
 
 | Script | What it does |
 |---|---|
 | `npm run play` | Build and open the game at :4173 |
-| `npm run dev` | Dev server with instant reload at :5173 |
+| `npm run dev` | Dev server with reload at :5173 |
 | `npm test` | Run all tests |
 | `npm run build` | Type-check and build to `dist/` |
 </details>
@@ -378,6 +348,6 @@ To add a ticket: write a `LevelSpec` in `src/levels/content/<district>.ts`, add 
 
 Built by **[Sarat](https://github.com/sharatvikas)**, Staff SRE, to make learning reliability engineering hands-on and fun.
 
-**[▶ Play Ninefold](https://sharatvikas.github.io/ninefold/)**
+**[Play Ninefold](https://sharatvikas.github.io/ninefold/)**
 
 </div>
