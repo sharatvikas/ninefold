@@ -1,4 +1,4 @@
-import { rng } from '../../art/pixels';
+import { rng } from '../../game/rng';
 import { arr, c, has, num, type LevelSpec } from '../spec';
 
 /** ~300 lines of realistic noise with a handful of real errors. */

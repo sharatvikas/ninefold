@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../catalog';
+import { MEANS } from '../glossary';
 import { passed, type LevelSpec } from '../spec';
 import { newTermState, run } from '../terminal';
 import { ALL_SPECS } from './index';
-import { VIGNETTES } from './vignettes';
 
 function hasEvidence(spec: LevelSpec): boolean {
   const inEvidence = spec.evidence.some((e) =>
@@ -21,10 +21,6 @@ function hasEvidence(spec: LevelSpec): boolean {
 describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
   it('is in the catalog', () => {
     expect(LEVELS.some((l) => l.id === spec.id)).toBe(true);
-  });
-
-  it('has its own scene diagram', () => {
-    expect(VIGNETTES[spec.id]).toBeDefined();
   });
 
   it('has evidence to find', () => {
@@ -64,9 +60,10 @@ describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
 });
 
 describe('coverage', () => {
-  it('has a spec or bespoke scene for every catalog level', () => {
-    const bespoke = ['harbor-1', 'post-1'];
-    const ids = new Set([...ALL_SPECS.map((s) => s.id), ...bespoke]);
-    expect(LEVELS.filter((l) => !ids.has(l.id)).map((l) => l.id)).toEqual([]);
+  it('has exactly one spec for every catalog ticket', () => {
+    expect(ALL_SPECS.map((s) => s.id).sort()).toEqual(LEVELS.map((l) => l.id).sort());
+  });
+  it('explains every concept in the runbook', () => {
+    expect(LEVELS.filter((l) => !MEANS[l.id]).map((l) => l.id)).toEqual([]);
   });
 });

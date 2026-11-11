@@ -6,6 +6,8 @@ export interface District {
   id: DistrictId;
   name: string;
   topic: string;
+  /** Who hands out the tickets here. */
+  keeper: string;
 }
 
 export interface LevelMeta {
@@ -22,15 +24,15 @@ export interface LevelMeta {
 }
 
 export const DISTRICTS: District[] = [
-  { id: 'post', name: 'Post Office', topic: 'Networking & DNS' },
-  { id: 'rail', name: 'Railyard', topic: 'CI/CD' },
-  { id: 'arch', name: "Architect's Office", topic: 'Infrastructure as code' },
-  { id: 'harbor', name: 'Harbor', topic: 'Containers & Kubernetes' },
-  { id: 'watch', name: 'Watchtower', topic: 'Observability' },
-  { id: 'lock', name: 'Locksmith', topic: 'Identity & security' },
-  { id: 'granary', name: 'Granary', topic: 'Storage & databases' },
-  { id: 'hall', name: 'Town Hall', topic: 'SLOs, capacity & cost' },
-  { id: 'big', name: 'Big Incidents', topic: 'Everything at once' },
+  { id: 'post', name: 'Post Office', topic: 'Networking & DNS', keeper: 'Rosa' },
+  { id: 'rail', name: 'Railyard', topic: 'CI/CD', keeper: 'Ines' },
+  { id: 'arch', name: "Architect's Office", topic: 'Infrastructure as code', keeper: 'Ada' },
+  { id: 'harbor', name: 'Harbor', topic: 'Containers & Kubernetes', keeper: 'Finn' },
+  { id: 'watch', name: 'Watchtower', topic: 'Observability', keeper: 'Lin' },
+  { id: 'lock', name: 'Locksmith', topic: 'Identity & security', keeper: 'Kit' },
+  { id: 'granary', name: 'Granary', topic: 'Storage & databases', keeper: 'Gus' },
+  { id: 'hall', name: 'Town Hall', topic: 'SLOs, capacity & cost', keeper: 'Mayor Bo' },
+  { id: 'big', name: 'Bell Tower', topic: 'Big incidents: everything at once', keeper: 'Chief Juno' },
 ];
 
 type Row = [title: string, concept: string, ticket: string, kit: Kit, built?: boolean];
