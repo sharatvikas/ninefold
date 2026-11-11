@@ -2,24 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ninefold</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏘️</text></svg>" />
-    <meta name="description" content="A cozy pixel-art town where you learn SRE, DevOps and cloud engineering by fixing things." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Ninefold: keep the town's lights on</title>
+    <meta name="description" content="A game that teaches DevOps, SRE and cloud engineering. The town runs like a production system, and tonight you carry the pager." />
+    <meta name="theme-color" content="#0b1020" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%230b1020%22/><circle cx=%2232%22 cy=%2226%22 r=%2213%22 fill=%22none%22 stroke=%22%23ffc96b%22 stroke-width=%227%22/><path d=%22M45 26c0 16-6 24-17 26%22 fill=%22none%22 stroke=%22%23ffc96b%22 stroke-width=%227%22 stroke-linecap=%22round%22/></svg>" />
   </head>
   <body>
-    <div id="rotate" role="alert">
-      <div class="phone">📱</div>
-      <div>Turn your phone sideways</div>
-      <small>Ninefold is a wide-screen game. It plays best on a tablet or computer.</small>
-    </div>
-    <div id="stage">
-      <canvas id="game" width="384" height="216"></canvas>
-      <div id="ui"></div>
-    </div>
+    <div id="app"></div>
+    <noscript>Ninefold is a game and needs JavaScript to run.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
