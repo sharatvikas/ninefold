@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { commentStart } from './incident';
 import { explain, newTermState, run } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
@@ -109,5 +110,18 @@ describe('terminal explanations', () => {
     expect(explain(spec, 'rollout abort')).toBe('send everyone back to v2');
     expect(explain(spec, 'cat notes.txt')).toMatch(/prints a whole file/);
     expect(explain(spec, 'rm -rf /')).toBeUndefined();
+  });
+});
+
+describe('recap code comments', () => {
+  it('dims explanations but never real code', () => {
+    const at = (l: string) => l.slice(commentStart(l));
+    expect(at('# Preview first:')).toBe('# Preview first:');
+    expect(at('-- Ask the database')).toBe('-- Ask the database');
+    expect(at('    --role-arn arn:aws:iam::123:role/x \\')).toBe('');
+    expect(at('  --lookup-attributes AttributeKey=AccessKeyId')).toBe('');
+    expect(at('$ npm run test -- --shard=1/4')).toBe('');
+    expect(at('  cpu: 500m    # the most it may use')).toBe('    # the most it may use');
+    expect(at('url: "https://a.town/#top"')).toBe('');
   });
 });

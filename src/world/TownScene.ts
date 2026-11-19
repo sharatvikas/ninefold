@@ -131,7 +131,8 @@ export class TownScene implements Scene {
     const ui = this.game.ui;
     // A code with no character in it keeps the one this browser already has.
     const avatar = p.avatar ?? this.game.progress.avatar;
-    this.game.replaceProgress({ ...p, ...(avatar ? { avatar } : {}) });
+    const found = p.found ?? this.game.progress.found;
+    this.game.replaceProgress({ ...p, ...(avatar ? { avatar } : {}), ...(found ? { found } : {}) });
     this.playerSheet.setLook(avatar?.look ?? LOOKS.player);
     ui.hud.setTrust(p.trust);
     const n = Object.keys(p.completed).length;
@@ -207,7 +208,7 @@ export class TownScene implements Scene {
       this.atDoor = this.nearby ? undefined : this.doorUnderPlayer();
       const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
       if (curio) this.collect(curio);
-      if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
+      else if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
       else if (this.atDoor && (input.wasPressed('e', ' ', 'enter') || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
       else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
     } else this.atDoor = undefined;

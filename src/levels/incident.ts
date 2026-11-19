@@ -349,15 +349,20 @@ export abstract class IncidentScene implements Scene {
   }
 }
 
-/** Whole-line and trailing comments, in the comment styles the snippets use (#, //, --, ;, <!--). */
-const COMMENT = /^(\s*(?:#|\/\/|--|;|<!--).*)$|(\s{2,}(?:#|\/\/|--|;)\s.*)$/;
+/** Whole-line and trailing comments, in the comment styles the snippets use (#, //, -- , ;, <!--). A line of `--flags` is code. */
+const COMMENT = /^(\s*(?:#|\/\/|--(?=\s|$)|;|<!--).*)$|(\s{2,}(?:#|\/\/|--|;)\s.*)$/;
+
+/** Where the explanation comment starts on a line (the line's length if it has none). */
+export function commentStart(line: string): number {
+  const m = line.match(COMMENT);
+  return m ? (m[1] !== undefined ? 0 : line.length - m[2].length) : line.length;
+}
 
 /** A code snippet with its explanation comments dimmed, so the code and the words read apart. */
 export function codeBlock(text: string): HTMLElement {
   const pre = h('pre', 'code');
   for (const line of text.split('\n')) {
-    const m = line.match(COMMENT);
-    const at = m ? (m[1] !== undefined ? 0 : line.length - m[2].length) : line.length;
+    const at = commentStart(line);
     pre.append(line.slice(0, at));
     if (at < line.length) pre.append(h('span', 'cmt', line.slice(at)));
     pre.append('\n');
