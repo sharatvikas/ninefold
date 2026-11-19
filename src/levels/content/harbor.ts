@@ -207,7 +207,7 @@ resources:
       ],
       goal: 'Find the noisy neighbour, cap it with a limit, apply, and check node-2 recovers.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl top pods: CPU per pod\nkubectl top nodes\nkubectl describe deploy <name>\ncat / edit batch-report.yaml\nkubectl apply -f batch-report.yaml\n\nLimits look like:\n  resources:\n    limits:\n      cpu: 500m' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Copy a command below (select it, then Ctrl/⌘+C), paste it into the ⌨️ TERMINAL tab and press Enter. Typing it works too.\n\n1. See which machine is overloaded:\n   kubectl top nodes\n2. See which app copy (pod) uses the most CPU:\n   kubectl top pods\n3. Read that app\'s settings:\n   kubectl describe deploy batch-report\n4. Open its file to add a CPU limit:\n   edit batch-report.yaml\n5. Apply your saved change:\n   kubectl apply -f batch-report.yaml\n\nA CPU limit looks like this in the file:\n  resources:\n    limits:\n      cpu: 500m' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',
