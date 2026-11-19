@@ -91,3 +91,16 @@ describe('coverage', () => {
     expect(LEVELS.filter((l) => !ids.has(l.id)).map((l) => l.id)).toEqual([]);
   });
 });
+
+describe('harbor-5 one-line limit', () => {
+  it('is solved by kubectl set resources, without editing YAML', async () => {
+    const spec = ALL_SPECS.find((s) => s.id === 'harbor-5');
+    if (spec?.type !== 'terminal') throw new Error('harbor-5 should be a terminal level');
+    const s = newTermState(spec.term);
+    expect(passed(spec.check(s))).toBe(false);
+    run(spec.term, s, 'kubectl set resources deploy batch-report --limits=cpu=500m');
+    expect(passed(spec.check(s))).toBe(true);
+    run(spec.term, s, 'kubectl set resources deploy batch-report --limits=cpu=2');
+    expect(passed(spec.check(s))).toBe(false);
+  });
+});
