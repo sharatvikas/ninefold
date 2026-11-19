@@ -268,7 +268,7 @@ SELECT now() - pg_last_xact_replay_timestamp() AS lag;
       ],
       goal: 'Find the mismatch, fix the pool size, restart the app, and confirm orders succeed.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db show max_connections\ndb connections: who is connected\nkubectl get deploy bakery-app: replicas\ncat / edit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order: place 20 test orders' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db show max_connections\ndb connections: who is connected\nkubectl get deploy bakery-app: replicas\ncat app-config.yaml\nedit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order: place 20 test orders' }],
     term: {
       host: 'granary-db',
       motd: 'Postgres console · granary-db',
@@ -327,7 +327,7 @@ reserved_for_admins = 10`,
       ],
       goal: 'Fail over safely: promote, repoint the app, prevent split brain, and confirm orders work.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db status\ndb promote granary-replica\ndb fence granary-primary (stop it from ever accepting writes)\ncat / edit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db status\ndb promote granary-replica\ndb fence granary-primary (stop it from ever accepting writes)\ncat app-config.yaml\nedit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order' }],
     term: {
       host: 'ops',
       motd: '⚠ PAGE: granary-primary unreachable since 02:14',

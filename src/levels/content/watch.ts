@@ -276,7 +276,7 @@ GET /menu ─────────────────────── 
       ],
       goal: 'Count every order the service handles, expose /metrics, and confirm the Watchtower can read it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'cat app.js · edit app.js\nnpm start: run the service\ncurl localhost:3000/metrics\n\nLibrary usage:\nconst orders = metrics.counter("orders_total");\norders.inc();   // inside the handler\napp.get("/metrics", metrics.handler);' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'cat app.js\nedit app.js\nnpm start: run the service\ncurl localhost:3000/metrics\n\nLibrary usage:\nconst orders = metrics.counter("orders_total");\norders.inc();   // inside the handler\napp.get("/metrics", metrics.handler);' }],
     term: {
       host: 'granary-svc',
       motd: 'Repo: granary-svc · node app',
@@ -354,7 +354,7 @@ app.get('/metrics', async (_req, res) => res.send(await client.register.metrics(
       ],
       goal: 'Write the two queries (availability and p95 latency) into dashboard.yaml and load it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'promql "sum(rate(http_requests_total[5m]))": try a query\ncat / edit dashboard.yaml\ndashboard load\n\nUseful pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'promql "sum(rate(http_requests_total[5m]))": try a query\ncat dashboard.yaml\nedit dashboard.yaml\ndashboard load\n\nUseful pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
     term: {
       host: 'grafana',
       motd: 'Dashboard repo · datasource: town-prometheus',

@@ -207,7 +207,7 @@ resources:
       ],
       goal: 'Find the noisy neighbour, cap it with a limit, apply, and check node-2 recovers.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl top pods: CPU per pod\nkubectl top nodes\nkubectl describe deploy <name>\ncat / edit batch-report.yaml\nkubectl apply -f batch-report.yaml\n\nLimits look like:\n  resources:\n    limits:\n      cpu: 500m' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Each ▶ command can be clicked, or typed into the ⌨️ TERMINAL yourself.\n\n1. See which machine is overloaded:\n   kubectl top nodes\n2. See which app copy (pod) uses the most CPU:\n   kubectl top pods\n3. Read that app\'s settings:\n   kubectl describe deploy batch-report\n4. Open its file to add a CPU limit:\n   edit batch-report.yaml\n5. Apply your saved change:\n   kubectl apply -f batch-report.yaml\n\nA CPU limit looks like this in the file:\n  resources:\n    limits:\n      cpu: 500m' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',
@@ -293,7 +293,7 @@ spec:
       ],
       goal: 'Find out why v3 isn\'t ready, fix the deployment, apply it, and see the rollout finish.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl rollout status deploy/bakery-app\nkubectl get pods\nkubectl logs bakery-app-v3-0\ncat / edit deploy.yaml\nkubectl apply -f deploy.yaml\nkubectl rollout undo deploy/bakery-app (last resort)' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl rollout status deploy/bakery-app\nkubectl get pods\nkubectl logs bakery-app-v3-0\ncat deploy.yaml\nedit deploy.yaml\nkubectl apply -f deploy.yaml\nkubectl rollout undo deploy/bakery-app (last resort)' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',

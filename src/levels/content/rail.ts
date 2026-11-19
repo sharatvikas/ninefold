@@ -303,7 +303,7 @@ $ aws ecr put-image-tag-mutability \\
       ],
       goal: 'Compare v3 against v2, make the right call, and confirm customers are healthy.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'rollout status: current split\nmetrics compare: error rate & latency, v2 vs v3\nlogs v3: recent v3 errors\nrollout promote / rollout abort: decide\ncurl http://bakery.town: sample 20 requests' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'rollout status: current split\nmetrics compare: error rate & latency, v2 vs v3\nlogs v3: recent v3 errors\nrollout promote: send everyone to v3\nrollout abort: send everyone back to v2\ncurl http://bakery.town: sample 20 requests' }],
     term: {
       host: 'release',
       motd: 'Release console · rollout "bakery-app" · canary step 1/3 (10%) · paused for analysis',

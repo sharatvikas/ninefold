@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { commentStart } from './incident';
-import { explain, newTermState, run } from './terminal';
+import { explain, newTermState, run, runnableIn } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
 import { resetProgress, completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
@@ -123,5 +123,17 @@ describe('recap code comments', () => {
     expect(at('$ npm run test -- --shard=1/4')).toBe('');
     expect(at('  cpu: 500m    # the most it may use')).toBe('    # the most it may use');
     expect(at('url: "https://a.town/#top"')).toBe('');
+  });
+});
+
+describe('handbook commands', () => {
+  const spec = { host: 'h', motd: '', files: { 'a.yaml': '' }, commands: [{ match: /^kubectl top pods$/, usage: 'kubectl top pods', help: '', run: () => ({ out: '' }) }] };
+  it('finds the runnable command in a handbook line', () => {
+    expect(runnableIn(spec, 'kubectl top pods: CPU per pod')).toBe('kubectl top pods');
+    expect(runnableIn(spec, '   kubectl top pods')).toBe('kubectl top pods');
+    expect(runnableIn(spec, '2. edit a.yaml')).toBe('edit a.yaml');
+    expect(runnableIn(spec, 'kubectl top pods (last resort)')).toBe('kubectl top pods');
+    expect(runnableIn(spec, 'edit missing.yaml')).toBeUndefined();
+    expect(runnableIn(spec, 'Limits look like:')).toBeUndefined();
   });
 });
