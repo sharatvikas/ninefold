@@ -230,7 +230,7 @@ export class SpecScene extends IncidentScene {
         // A real search needs a few letters, so a one-letter search can't flag the answer.
         const searched = q.length >= 3;
         const hits = q ? e.lines.filter((l) => l.toLowerCase().includes(q)) : e.lines.slice(0, 8);
-        list.append(h('div', 'muted', q ? `${hits.length} of ${e.lines.length} lines match "${this.searchQuery}"` : `${e.lines.length} lines. Showing the first 8. Search to filter.`));
+        list.append(h('div', 'muted', q ? `${hits.length} of ${e.lines.length} lines match "${this.searchQuery}"` : e.lines.length <= 8 ? `${e.lines.length} lines. Search to filter.` : `${e.lines.length} lines. Showing the first 8. Search to filter.`));
         for (const l of hits.slice(0, 40)) list.append(h('div', searched && e.evidence.test(l) ? 'hitline' : '', l));
         if (q && !searched) list.append(h('div', 'muted', 'Type at least 3 letters to search properly.'));
         if (searched && hits.some((l) => e.evidence.test(l))) {

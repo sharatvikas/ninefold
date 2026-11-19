@@ -31,7 +31,7 @@ export const VIGNETTES: Record<string, Vignette> = {
   // Watchtower
   'watch-1': { kind: 'tiles', label: 'lamps lit', items: ['latency', 'traffic', 'errors', 'saturation'], bad: [0, 1, 2, 3] },
   'watch-2': { kind: 'meter', label: 'failed checkouts', broken: 2, fixed: 0, max: 3, unit: '%', limit: 0.5, lowIsGood: true },
-  'watch-3': { kind: 'meter', label: 'menu page p95', broken: 2.4, fixed: 0.18, max: 2.5, unit: 's', limit: 1, lowIsGood: true },
+  'watch-3': { kind: 'meter', label: 'menu page p95', broken: 2.3, fixed: 0.17, max: 2.5, unit: 's', limit: 1, lowIsGood: true },
   'watch-4': { kind: 'meter', label: 'pages last week', broken: 286, fixed: 3, max: 286, limit: 5, lowIsGood: true },
   'watch-5': { kind: 'flow', label: 'metrics pipeline', nodes: ['granary-svc', '/metrics', 'watchtower'], breakAt: 1 },
   'watch-6': { kind: 'tiles', label: 'dashboard panels', items: ['availability: --', 'p95 latency: --'], bad: [0, 1], fixedItems: ['availability 99.7%', 'p95 310ms'] },
@@ -43,7 +43,7 @@ export const VIGNETTES: Record<string, Vignette> = {
   'lock-5': { kind: 'tiles', label: 'svc-backup keys', items: ['AKIA7BKP 02:00', 'AKIA2LEAK 03:07'], bad: [1], fixedItems: ['AKIA7BKP ok', 'LEAK disabled'] },
   'lock-6': { kind: 'flow', label: 'kit → granary ledger', nodes: ['kit', 'DENY contractors', 'ledger'], breakAt: 1, fixedNodes: ['kit', 'allow read', 'ledger'] },
   // Granary
-  'granary-1': { kind: 'meter', label: 'barn space used', broken: 100, fixed: 41, max: 100, unit: '%', limit: 90, lowIsGood: true },
+  'granary-1': { kind: 'meter', label: 'barn space used', broken: 100, fixed: 25, max: 100, unit: '%', limit: 90, lowIsGood: true },
   'granary-2': { kind: 'meter', label: 'time to find a sack', broken: 42, fixed: 0.02, max: 42, unit: 's', limit: 1, lowIsGood: true },
   'granary-3': { kind: 'flow', label: 'restore drill', nodes: ['ledger', 'backup', 'restore'], breakAt: 2 },
   'granary-4': { kind: 'meter', label: 'replica lag', broken: 192, fixed: 0, max: 192, unit: 'm', limit: 1, lowIsGood: true },

@@ -92,7 +92,7 @@ export const GLOSSARY: Word[] = [
   { term: 'golden signals', plain: 'Latency, traffic, errors and saturation: four numbers that show if a service is healthy.', match: /golden signal/i },
   { term: 'latency', plain: 'How long a request takes.', match: /latency/i },
   { term: 'saturation', plain: 'How full something is: CPU, memory, a queue or a disk.', match: /saturation/i },
-  { term: 'p95', plain: '95% of requests are faster than this. It describes the slowest 5%.', match: /\bp95\b|0\.95/i },
+  { term: 'p95', plain: '95% of requests take this long or less. Only 1 in 20 is slower.', match: /\bp95\b|0\.95/i },
   { term: 'alert / page', plain: 'An automatic warning. A page wakes someone up; a ticket waits for the morning.', match: /\balerts?\b|\bpag(ed|ing)\b|severity: page|pages? (someone|you|on-call)|PAGES BY/i },
   { term: 'PromQL', plain: 'The language for asking Prometheus (a metrics database) questions.', match: /promql|prometheus/i },
   { term: 'dashboard', plain: 'A screen of charts showing how things are going.', match: /dashboard/i },
