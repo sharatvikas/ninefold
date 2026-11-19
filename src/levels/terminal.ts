@@ -134,6 +134,9 @@ export function runnableIn(spec: TermSpec, line: string): string | undefined {
   const cmd = line.trim().replace(/^\d+\.\s+/, '').split(/:\s/)[0].replace(/\s+\(.*\)$/, '').trim();
   if (!cmd) return undefined;
   if (spec.commands.some((c) => c.match.test(cmd))) return cmd;
+  // A template like "iam disable-key <KEYID>": the player fills in the <part> they found.
+  const lt = cmd.indexOf('<');
+  if (lt > 0 && /<[^<>]+>/.test(cmd) && spec.commands.some((c) => c.usage.startsWith(cmd.slice(0, lt)))) return cmd;
   const m = cmd.match(/^(?:ls|(?:cat|edit)\s+(\S+))$/);
   return m && (!m[1] || Object.hasOwn(spec.files, m[1])) ? cmd : undefined;
 }

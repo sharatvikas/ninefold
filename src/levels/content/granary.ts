@@ -268,7 +268,7 @@ SELECT now() - pg_last_xact_replay_timestamp() AS lag;
       ],
       goal: 'Find the mismatch, fix the pool size, restart the app, and confirm orders succeed.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db show max_connections\ndb connections: who is connected\nkubectl get deploy bakery-app: replicas\ncat app-config.yaml\nedit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order: place 20 test orders' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See the most connections the database will accept:\n   db show max_connections\n2. Count the connections open right now:\n   db connections\n3. See how many copies of the app are running:\n   kubectl get deploy bakery-app\n4. Read the database\'s and the app\'s settings, then change the app\'s:\n   cat db.conf\n   cat app-config.yaml\n   edit app-config.yaml\n5. Restart the app so it reads your change:\n   kubectl rollout restart deploy/bakery-app\n6. Place test orders to check:\n   curl http://bakery.town/order' }],
     term: {
       host: 'granary-db',
       motd: 'Postgres console · granary-db',
@@ -327,7 +327,7 @@ reserved_for_admins = 10`,
       ],
       goal: 'Fail over safely: promote, repoint the app, prevent split brain, and confirm orders work.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'db status\ndb promote granary-replica\ndb fence granary-primary (stop it from ever accepting writes)\ncat app-config.yaml\nedit app-config.yaml\nkubectl rollout restart deploy/bakery-app\ncurl http://bakery.town/order' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See which database is the main one (primary) and which is the copy (replica):\n   db status\n2. The failover steps. Decide what\'s needed:\n   db promote granary-replica    (make the copy the new main database)\n   db fence granary-primary      (lock the old main so it never takes writes again)\n3. Point the app at the right database:\n   cat app-config.yaml\n   edit app-config.yaml\n4. Restart the app so it reads your change:\n   kubectl rollout restart deploy/bakery-app\n5. Place a test order to check:\n   curl http://bakery.town/order' }],
     term: {
       host: 'ops',
       motd: '⚠ PAGE: granary-primary unreachable since 02:14',

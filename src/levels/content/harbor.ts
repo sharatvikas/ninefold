@@ -293,7 +293,7 @@ spec:
       ],
       goal: 'Find out why v3 isn\'t ready, fix the deployment, apply it, and see the rollout finish.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl rollout status deploy/bakery-app\nkubectl get pods\nkubectl logs bakery-app-v3-0\ncat deploy.yaml\nedit deploy.yaml\nkubectl apply -f deploy.yaml\nkubectl rollout undo deploy/bakery-app (last resort)' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See how the update is going:\n   kubectl rollout status deploy/bakery-app\n2. List the app copies (pods) and their state:\n   kubectl get pods\n3. Read what the new copy printed before it crashed:\n   kubectl logs bakery-app-v3-0\n4. Read the notes and the app\'s settings, then change the settings:\n   cat config-notes.md\n   cat deploy.yaml\n   edit deploy.yaml\n5. Apply your saved change:\n   kubectl apply -f deploy.yaml\n\nLast resort only (it ships nothing new): go back to the old version:\n   kubectl rollout undo deploy/bakery-app' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',

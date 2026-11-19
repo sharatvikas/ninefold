@@ -280,7 +280,7 @@ terraform {
       ],
       goal: 'Replace the three copies in houses.tf with three uses of the module, plan, and check that every house gets an alarm.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'ls\ncat houses.tf\ncat modules/house/main.tf\nterraform plan: what would change\nedit houses.tf\n\nModule usage looks like:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See which files there are:\n   ls\n2. Read the town\'s code and the shared house building block (module):\n   cat houses.tf\n   cat modules/house/main.tf\n3. Change the town\'s code:\n   edit houses.tf\n4. Preview what Terraform would do. Watch out for anything it wants to destroy!\n   terraform plan\n\nUsing a module looks like this:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
     term: {
       host: 'blueprints',
       motd: 'Repo: town-blueprints (main)',
@@ -367,7 +367,7 @@ $ terraform state mv house.school module.school.house.this
       ],
       goal: 'Get the password out of the code, make the code read it from the secret store, and make the leaked password useless.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'grep -ri password . (find it)\ngit log -p main.tf (history)\nedit main.tf\nVariable reference syntax: var.vault_password\nsecrets rotate vault: issue a new password and revoke the old one\nterraform plan: check config' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Search every file for a password:\n   grep -ri password .\n2. See who changed main.tf, and when:\n   git log -p main.tf\n3. Change the code. A variable is written like this: var.vault_password\n   edit main.tf\n4. Make a new password and switch off the old, leaked one:\n   secrets rotate vault\n5. Check the code is valid:\n   terraform plan' }],
     term: {
       host: 'blueprints',
       motd: 'Repo: town-blueprints (main) · secret store: town-secrets',
