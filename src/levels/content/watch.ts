@@ -74,10 +74,14 @@ export const WATCH: LevelSpec[] = [
       before: { lines: ['lamps: (none)'], outcome: '3 outages found by customers first' },
       after: (x) => ({ lines: arr(x.lamps).map((l) => `lamp: ${l}`), outcome: 'all 4 outages would have been caught ✓' }),
       why: 'These four signals describe what users feel (slow, failing) and what\'s coming (load, fullness). Measure them for every user-facing service before anything else. Most other metrics are for debugging, not alerting.',
-      real: `# PromQL, one per golden signal
+      real: `# PromQL: one query per "golden signal" (the four numbers that show a service's health)
+# latency: how slow are the slowest 5% of requests?
 latency:    histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))
+# traffic: requests per second
 traffic:    sum(rate(http_requests_total[5m]))
+# errors: the share of requests that failed (5xx codes)
 errors:     sum(rate(http_requests_total{code=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
+# saturation: how full is the queue?
 saturation: avg(queue_depth) / avg(queue_capacity)`,
       realCaption: 'From the Google SRE book, chapter "Monitoring Distributed Systems".',
     },
@@ -123,11 +127,12 @@ saturation: avg(queue_depth) / avg(queue_capacity)`,
       before: { lines: ['till timeout: 2.0s', 'reader: 2.6–3.8s sometimes'], outcome: '~2% of checkouts time out' },
       after: (x) => ({ lines: [`till timeout: ${num(x.timeout)}s`, 'reader: ≤ 3.8s'], outcome: '0 timeouts ✓' }),
       why: 'In noisy logs, search for the level (ERROR) and the symptom (checkout), not by scrolling. The error line had everything: what timed out, the limit, and the real duration. Timeouts should sit just above real worst-case latency, not at a guess.',
-      real: `$ logcli query '{app="checkout"} |= "ERROR"'
+      real: `# Search the checkout logs for errors:
+$ logcli query '{app="checkout"} |= "ERROR"'
 ERROR till timed out after 2.0s … reader responded in 3.4s
-# config
+# config: the till gave up before the card reader could answer
 - CARD_READER_TIMEOUT=2s
-+ CARD_READER_TIMEOUT=${'5s'}`,
++ CARD_READER_TIMEOUT=${'5s'}    # wait long enough for a slow reader`,
       realCaption: 'Structured logs (JSON with fields like service, level, order_id) make these searches instant.',
     },
   },
@@ -179,12 +184,13 @@ ERROR till timed out after 2.0s … reader responded in 3.4s
       before: { lines: ['price-svc → tax (700ms)', '         → tax (700ms)', '         → tax (700ms)'], outcome: 'p95 2.4s' },
       after: (x) => ({ lines: x.fix === 'cache' ? ['price-svc → cache (1ms)', '(tax refreshed hourly)'] : ['price-svc → tax ×3 in parallel (700ms)'], outcome: x.fix === 'cache' ? 'p95 0.18s ✓' : 'p95 0.87s ✓' }),
       why: 'Metrics said "slow", but only a trace showed where: one stop, making repeated sequential calls. Adding copies or timeouts treats symptoms. Remove the repeated work (cache) or at least stop waiting in series (parallel).',
-      real: `# trace (Tempo/Jaeger)
+      real: `# A trace: one request, and every call it made along the way (Tempo/Jaeger)
 GET /menu ─────────────────────── 2.4s
   price-svc ──────────────────── 2.15s
     tax-api ───── 700ms
            tax-api ───── 700ms
-                  tax-api ───── 700ms   ← N+1 pattern`,
+                  tax-api ───── 700ms   ← N+1 pattern
+# The same slow call, one after another: ask for all the prices in one call instead`,
       realCaption: 'Sequential repeated calls inside one span are the classic "N+1" shape in a trace.',
     },
   },
@@ -242,14 +248,15 @@ GET /menu ─────────────────────── 
       before: { lines: ['page: CPU>70%, disk>80%, any 500', 'email: error rate'], outcome: '286 pages, real incidents ignored' },
       after: (x) => ({ lines: [`page: ${arr(x.page).join(', ')}`, `ticket: ${arr(x.ticket).join(', ') || '(none)'}`], outcome: '3 pages, both incidents caught ✓' }),
       why: 'Every non-actionable page trains people to ignore the bell. Alert on symptoms (error rate, latency) that mean users are hurting, with a duration so blips don\'t page. Slow-burn causes like a filling disk become tickets.',
-      real: `- alert: HighErrorRate
+      real: `# Alert rules: when to wake a human (page), and when a ticket will do
+- alert: HighErrorRate
   expr: sum(rate(http_requests_total{code=~"5.."}[5m]))
-        / sum(rate(http_requests_total[5m])) > 0.02
-  for: 5m
-  labels: { severity: page }
+        / sum(rate(http_requests_total[5m])) > 0.02   # over 2% of requests failing
+  for: 5m                       # …for 5 minutes in a row
+  labels: { severity: page }    # customers are hurt: wake someone
 - alert: DiskFillingUp
-  expr: disk_used_ratio > 0.8
-  labels: { severity: ticket }`,
+  expr: disk_used_ratio > 0.8   # disk more than 80% full
+  labels: { severity: ticket }  # not urgent: fix it in work hours`,
       realCaption: 'Every page should be urgent, actionable and user-visible. If it isn\'t, change it.',
     },
   },
@@ -287,16 +294,16 @@ app.listen(3000);`,
       },
       vars: { started: '' },
       commands: [
-        { match: /^npm start$/, usage: 'npm start', help: 'run the service', run: (_m, s) => { s.vars.started = s.files['app.js']; return { out: 'granary-svc listening on :3000', changed: false }; } },
+        { match: /^npm start$/, usage: 'npm start', help: 'start the app', run: (_m, s) => { s.vars.started = s.files['app.js']; return { out: 'granary-svc listening on :3000', changed: false }; } },
         {
-          match: /^curl\s+(?:https?:\/\/)?localhost:3000\/metrics$/, usage: 'curl localhost:3000/metrics', help: 'what the Watchtower sees', run: (_m, s) => {
+          match: /^curl\s+(?:https?:\/\/)?localhost:3000\/metrics$/, usage: 'curl localhost:3000/metrics', help: 'show the numbers (metrics) the app reports to the Watchtower', run: (_m, s) => {
             const a = instr(String(s.vars.started));
             if (!s.vars.started) return { out: 'curl: connection refused (is the service running? npm start)' };
             if (!a.endpoint) return { out: 'HTTP 404 Cannot GET /metrics', evidence: true, verify: true };
             return { out: a.counter && a.inc ? '# TYPE orders_total counter\norders_total 1284' : '# (no metrics registered)', verify: true };
           },
         },
-        { match: /^grep -r metrics \.?$/, usage: 'grep -r metrics .', help: 'where metrics are used', run: (_m, s) => ({ out: s.files['app.js'].split('\n').filter((l) => l.includes('metrics')).join('\n') + '\n(imported, never used)', evidence: true }) },
+        { match: /^grep -r metrics \.?$/, usage: 'grep -r metrics .', help: 'search every file for the word metrics', run: (_m, s) => ({ out: s.files['app.js'].split('\n').filter((l) => l.includes('metrics')).join('\n') + '\n(imported, never used)', evidence: true }) },
       ],
     },
     check: (s) => {
@@ -323,10 +330,11 @@ app.listen(3000);`,
       before: { lines: ['app.post("/orders", …)', '(no counters, no /metrics)'], outcome: 'Watchtower: no data' },
       after: () => ({ lines: ['orders = metrics.counter("orders_total")', 'orders.inc() per order', 'GET /metrics'], outcome: 'orders_total 1284 ✓' }),
       why: 'Instrumentation is code: count the events that matter, expose them, and the monitoring system scrapes them. Start with request counts, errors and durations for every handler.',
-      real: `const client = require('prom-client');
+      real: `// Make the app count things, so the Watchtower can see them
+const client = require('prom-client');
 const orders = new client.Counter({ name: 'orders_total', help: 'Orders received' });
-app.post('/orders', (req, res) => { orders.inc(); /* … */ });
-app.get('/metrics', async (_req, res) => res.send(await client.register.metrics()));`,
+app.post('/orders', (req, res) => { orders.inc(); /* … */ });   // +1 for every order
+app.get('/metrics', async (_req, res) => res.send(await client.register.metrics()));   // the page the Watchtower reads`,
       realCaption: 'OpenTelemetry auto-instrumentation can add most HTTP metrics for you.',
     },
   },
@@ -361,7 +369,7 @@ panels:
       vars: { loaded: '' },
       commands: [
         {
-          match: /^promql\s+["'](.+)["']$/, usage: 'promql "sum(rate(http_requests_total[5m]))"', help: 'run a query', run: (m) => {
+          match: /^promql\s+["'](.+)["']$/, usage: 'promql "sum(rate(http_requests_total[5m]))"', help: 'ask the metrics database: how many requests per second?', run: (m) => {
             const q = m[1].replace(/\s+/g, '');
             if (isAvail(q)) return { out: '0.9971  (99.7% of requests succeed)' };
             if (isP95(q)) return { out: '0.31  (95% of requests finish within 310ms)' };
@@ -370,7 +378,7 @@ panels:
             return { out: 'no data' };
           },
         },
-        { match: /^dashboard load$/, usage: 'dashboard load', help: 'load dashboard.yaml', run: (_m, s) => { s.vars.loaded = s.files['dashboard.yaml']; const p = panels(s.files['dashboard.yaml']); return { out: `Availability: ${isAvail(p[0]) ? '99.7% ✓' : 'invalid / empty'}\np95 latency: ${isP95(p[1]) ? '0.31s ✓' : 'invalid / empty'}`, changed: true, verify: true }; } },
+        { match: /^dashboard load$/, usage: 'dashboard load', help: 'load your edited dashboard.yaml onto the screen', run: (_m, s) => { s.vars.loaded = s.files['dashboard.yaml']; const p = panels(s.files['dashboard.yaml']); return { out: `Availability: ${isAvail(p[0]) ? '99.7% ✓' : 'invalid / empty'}\np95 latency: ${isP95(p[1]) ? '0.31s ✓' : 'invalid / empty'}`, changed: true, verify: true }; } },
       ],
     },
     check: (s) => {
@@ -391,9 +399,11 @@ panels:
       before: { lines: ['Availability: query ""', 'p95 latency:  query ""'], outcome: 'empty dashboard' },
       after: () => ({ lines: ['good ÷ all over 5m', 'histogram_quantile(0.95, …)'], outcome: '99.7% · 310ms ✓' }),
       why: 'Counters only go up, so use rate() to see change per second, sum() to combine servers, and a ratio for availability. Latency needs a percentile from the histogram, since averages hide the slow requests customers notice.',
-      real: `sum(rate(http_requests_total{code!~"5.."}[5m]))
+      real: `# The share of requests that did NOT fail (success rate):
+sum(rate(http_requests_total{code!~"5.."}[5m]))
   / sum(rate(http_requests_total[5m]))
 
+# How slow the slowest 5% of requests are (the 95th percentile):
 histogram_quantile(0.95,
   sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`,
       realCaption: 'These two lines are the start of almost every service dashboard and SLO.',

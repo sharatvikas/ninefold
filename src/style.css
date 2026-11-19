@@ -149,6 +149,8 @@ button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100
 .sc-msg { font-family: system-ui, sans-serif; font-size: 1.1cqw; color: #5a4a3a; min-height: 1.4em; }
 .sc-msg.bad { color: var(--red); }
 .btn.armed { background: var(--red); border-color: #7a1a10; box-shadow: 0 0.3cqw 0 #7a1a10; color: #fff; }
+.code .cmt { color: #8a8f80; font-style: italic; }
+.code-legend { font-family: system-ui, sans-serif; font-size: 1cqw; color: #7a6a5a; margin-top: 0.3cqw; }
 .feedback-link { display: block; margin-top: 0.8cqw; font-family: system-ui, sans-serif; font-size: 1.05cqw; color: #7a6a5a; text-align: right; }
 .feedback-link:hover { color: var(--wood-dark); }
 .reset-btn { background: #8a5a5a; border-color: #5a3a3a; box-shadow: 0 0.3cqw 0 #5a3a3a; font-size: 0.9cqw; }
@@ -386,6 +388,7 @@ ol.order .otext { flex: 1; background: #fff8e8; border: 0.2cqw solid var(--wood-
 .term-out .cmd { color: #f0c674; }
 .term-out .ok { color: #b5bd68; }
 .term-out .err { color: #cc6666; }
+.term-out .explain { color: #8fa88f; font-style: italic; font-family: ui-monospace, Menlo, monospace; }
 .term-in { display: flex; gap: 0.6cqw; align-items: center; border-top: 0.15cqw solid #373b41; padding-top: 0.4cqw; }
 .prompt { font-family: ui-monospace, Menlo, monospace; font-size: 1.3cqw; color: #b5bd68; }
 .term-input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-family: ui-monospace, Menlo, monospace; font-size: 1.35cqw; }

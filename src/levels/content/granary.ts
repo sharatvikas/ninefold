@@ -57,13 +57,14 @@ export const GRANARY: LevelSpec[] = [
       before: { lines: ['grain 16% · logs<30d 3%', 'logs>30d 81% (kept forever)'], outcome: 'disk 100%, writes fail' },
       after: (x) => ({ lines: [`rotate+compress: ${x.rotate ? 'on' : 'off'}`, `retain: ${num(x.keep)} days`], outcome: 'disk ~41%, stays flat ✓' }),
       why: 'Disks fill up from things that grow forever: logs, temp files, old backups. Find what\'s using the space first, then add a retention policy so it can\'t recur. A bigger disk only buys time.',
-      real: `$ du -sh /var/log/* | sort -h | tail
+      real: `# Which folders under /var/log are biggest? (largest last)
+$ du -sh /var/log/* | sort -h | tail
 81G  /var/log/granary
-# /etc/logrotate.d/granary
+# Fix: /etc/logrotate.d/granary tells logrotate how to tidy these logs
 /var/log/granary/*.log {
-  daily
-  rotate 30
-  compress
+  daily        # start a new log file every day
+  rotate 30    # keep 30 old files, delete anything older
+  compress     # zip old files to save space
 }`,
       realCaption: 'Alert on disk usage trend ("full in 4 days"), not just on the current percentage.',
     },
@@ -112,10 +113,12 @@ export const GRANARY: LevelSpec[] = [
       before: { lines: ['index: (id)', 'WHERE customer = …', '→ full scan, 50,000 rows'], outcome: '42s per pickup' },
       after: (x) => ({ lines: [`indexes: ${arr(x.idx).map((v) => `(${v})`).join(' ')}`, 'WHERE customer = …', '→ index lookup'], outcome: '0.02s per pickup ✓' }),
       why: 'Without an index, a database reads every row to answer a query. Index the columns you filter on often, and skip the rarely-used ones, because each index slows down writes.',
-      real: `EXPLAIN SELECT * FROM sacks WHERE customer = 'Rosa';
-  Seq Scan on sacks (rows=50000)
+      real: `-- Ask the database HOW it will run this query:
+EXPLAIN SELECT * FROM sacks WHERE customer = 'Rosa';
+  Seq Scan on sacks (rows=50000)   -- reads every row: slow
+-- Add an index (like the index at the back of a book) on the customer column:
 CREATE INDEX CONCURRENTLY sacks_customer_idx ON sacks (customer);
-  Index Scan using sacks_customer_idx (rows=12)`,
+  Index Scan using sacks_customer_idx (rows=12)   -- jumps straight to Rosa's 12 rows`,
       realCaption: 'EXPLAIN shows the query plan. "Seq Scan" on a big table is the classic missing-index smell.',
     },
   },
@@ -173,9 +176,11 @@ CREATE INDEX CONCURRENTLY sacks_customer_idx ON sacks (customer);
       before: { lines: ['tables: customers, sacks', 'where: same disk', 'restore tests: never'], outcome: 'fire = orders lost forever' },
       after: (x) => ({ lines: [`tables: ${arr(x.tables).join(', ')}`, `where: ${x.where}`, `restore tests: ${x.drill ? 'weekly' : 'never'}`], outcome: 'drill passed: full ledger back ✓' }),
       why: 'Backups fail silently. Back up everything by default, keep copies somewhere a single disaster can\'t reach, and test restores regularly, since a restore test is the only proof a backup works.',
-      real: `$ pg_dump --format=custom granary > /tmp/granary.dump   # all tables
+      real: `# Back up every table into one file:
+$ pg_dump --format=custom granary > /tmp/granary.dump
+# Keep a copy somewhere else, in case this whole region goes down:
 $ aws s3 cp /tmp/granary.dump s3://backups-other-region/
-# weekly CI job:
+# Weekly CI job: really restore it, and check every row came back
 $ pg_restore -d granary_drill granary.dump && ./verify-row-counts.sh`,
       realCaption: '3-2-1 rule: 3 copies, 2 kinds of media, 1 offsite. Plus restore drills.',
     },
@@ -239,10 +244,11 @@ $ pg_restore -d granary_drill granary.dump && ./verify-row-counts.sh`,
       before: { lines: ['incoming: 400 writes/s', 'replica: 300/s − report'], outcome: 'lag grows to hours' },
       after: (x) => ({ lines: ['incoming: 400 writes/s', `replica: ${x.disk === 'ssd' ? 3000 : 300}/s${x.report === 'replica' ? ' − report' : ''}`], outcome: 'lag < 1s ✓' }),
       why: 'A replica must be at least as capable as the primary\'s write load, or lag grows without bound. Heavy reads on the replica compete with replay. Give it the same class of disk, and send big analytical jobs elsewhere.',
-      real: `SELECT now() - pg_last_xact_replay_timestamp() AS lag;
-  03:12:41
-# move the replica to the same storage class as the primary (gp3, 3000 IOPS)
-# point reporting at a separate read replica / warehouse`,
+      real: `-- How far behind the main database is the copy (replica)?
+SELECT now() - pg_last_xact_replay_timestamp() AS lag;
+  03:12:41      -- over 3 hours behind!
+-- Fix: give the replica disks as fast as the primary's (gp3, 3000 IOPS),
+-- and send heavy reports to a separate copy so they don't slow it down`,
       realCaption: 'Alert on replication lag; stale reads cause very confusing bugs.',
     },
   },
@@ -277,11 +283,11 @@ reserved_for_admins = 10`,
       },
       vars: { running: 100 },
       commands: [
-        { match: /^db show max_connections$/, usage: 'db show max_connections', help: 'connection limit', run: () => ({ out: 'max_connections = 200 (10 reserved for admins → 190 for apps)' }) },
-        { match: /^db connections$/, usage: 'db connections', help: 'current connections', run: (_m, s) => { const want = 8 * num(s.vars.running); return { out: `bakery-app (8 pods) wants ${want}\nconnected: ${Math.min(want, 190)} / 190${want > 190 ? `\nrejected: ${want - 190}  "too many clients already"` : ''}`, evidence: want > 190, verify: true }; } },
-        { match: /^kubectl get deploy bakery-app$/, usage: 'kubectl get deploy bakery-app', help: 'replicas', run: () => ({ out: 'NAME        READY  UP-TO-DATE\nbakery-app  8/8    8   (scaled from 2 this morning)', evidence: true }) },
-        { match: /^kubectl rollout restart deploy\/bakery-app$/, usage: 'kubectl rollout restart deploy/bakery-app', help: 'restart with new config', run: (_m, s) => { s.vars.running = poolMax(s.files['app-config.yaml']); return { out: `restarted 8 pods (pool max ${s.vars.running} each)`, changed: true }; } },
-        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/order$/, usage: 'curl http://bakery.town/order', help: '20 test orders', run: (_m, s) => { const p = num(s.vars.running); const want = 8 * p; const fails = want > 190 ? 7 : p < 12 ? 4 : 0; return { out: `20 orders: ${20 - fails} OK, ${fails} failed${p < 12 && want <= 190 ? ' (waiting for a free connection: timeout)' : ''}`, verify: true }; } },
+        { match: /^db show max_connections$/, usage: 'db show max_connections', help: 'show the most connections the database will accept', run: () => ({ out: 'max_connections = 200 (10 reserved for admins → 190 for apps)' }) },
+        { match: /^db connections$/, usage: 'db connections', help: 'count the connections open right now', run: (_m, s) => { const want = 8 * num(s.vars.running); return { out: `bakery-app (8 pods) wants ${want}\nconnected: ${Math.min(want, 190)} / 190${want > 190 ? `\nrejected: ${want - 190}  "too many clients already"` : ''}`, evidence: want > 190, verify: true }; } },
+        { match: /^kubectl get deploy bakery-app$/, usage: 'kubectl get deploy bakery-app', help: 'show how many copies (replicas) of the app are running', run: () => ({ out: 'NAME        READY  UP-TO-DATE\nbakery-app  8/8    8   (scaled from 2 this morning)', evidence: true }) },
+        { match: /^kubectl rollout restart deploy\/bakery-app$/, usage: 'kubectl rollout restart deploy/bakery-app', help: 'restart the app\'s copies one by one so they read the new config', run: (_m, s) => { s.vars.running = poolMax(s.files['app-config.yaml']); return { out: `restarted 8 pods (pool max ${s.vars.running} each)`, changed: true }; } },
+        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/order$/, usage: 'curl http://bakery.town/order', help: 'place 20 test orders and count how many work', run: (_m, s) => { const p = num(s.vars.running); const want = 8 * p; const fails = want > 190 ? 7 : p < 12 ? 4 : 0; return { out: `20 orders: ${20 - fails} OK, ${fails} failed${p < 12 && want <= 190 ? ' (waiting for a free connection: timeout)' : ''}`, verify: true }; } },
       ],
     },
     check: (s) => {
@@ -297,11 +303,11 @@ reserved_for_admins = 10`,
       before: { lines: ['pool.max: 100 × 8 pods = 800', 'db limit: 190'], outcome: '"too many clients already"' },
       after: (s) => ({ lines: [`pool.max: ${s.vars.running} × 8 pods = ${8 * num(s.vars.running)}`, 'db limit: 190'], outcome: 'all orders succeed ✓' }),
       why: 'Connection limits are a shared budget. Scaling out multiplies every pool. Size pools from real concurrency (12 queries), check that copies × pool fits the database, and consider a pooler (PgBouncer) as you grow.',
-      real: `# app-config.yaml
+      real: `# app-config.yaml: how many database connections each app copy may open
   pool:
 -   max: 100
-+   max: 20      # 8 pods × 20 = 160 ≤ 190
-# or: put PgBouncer in front, transaction pooling`,
++   max: 20      # 8 copies × 20 = 160, under the database's limit of 190
+# Or: put PgBouncer in front, so many app connections share a few database ones`,
       realCaption: 'Remember this whenever an autoscaler can add copies.',
     },
   },
@@ -328,11 +334,11 @@ reserved_for_admins = 10`,
       files: { 'app-config.yaml': 'database:\n  host: granary-primary\n  pool:\n    max: 20' },
       vars: { promoted: false, fenced: false, appHost: 'granary-primary' },
       commands: [
-        { match: /^db status$/, usage: 'db status', help: 'cluster status', run: (_m, s) => ({ out: `granary-primary  ${s.vars.fenced ? 'FENCED' : 'DOWN (may restart: auto-recovery on)'}\ngranary-replica  ${s.vars.promoted ? 'PRIMARY, read-write' : 'replica, read-only, lag 0s'}`, evidence: true }) },
-        { match: /^db promote granary-replica$/, usage: 'db promote granary-replica', help: 'make the replica the primary', run: (_m, s) => { s.vars.promoted = true; return { out: 'granary-replica promoted: now read-write', changed: true }; } },
-        { match: /^db fence granary-primary$/, usage: 'db fence granary-primary', help: 'block old primary from writes', run: (_m, s) => { s.vars.fenced = true; return { out: 'granary-primary fenced: auto-recovery disabled, writes blocked', changed: true }; } },
-        { match: /^kubectl rollout restart deploy\/bakery-app$/, usage: 'kubectl rollout restart deploy/bakery-app', help: 'reload config', run: (_m, s) => { s.vars.appHost = hostOf(s.files['app-config.yaml']); return { out: `bakery-app restarted → database ${s.vars.appHost}`, changed: true }; } },
-        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/order$/, usage: 'curl http://bakery.town/order', help: 'test an order', run: (_m, s) => ({ out: s.vars.appHost === 'granary-replica' && s.vars.promoted ? 'HTTP 201 order saved' : s.vars.appHost === 'granary-replica' ? 'HTTP 500 cannot write: database is read-only' : 'HTTP 500 could not connect to granary-primary', verify: true }) },
+        { match: /^db status$/, usage: 'db status', help: 'show the databases: which is main (primary) and which is the copy (replica)', run: (_m, s) => ({ out: `granary-primary  ${s.vars.fenced ? 'FENCED' : 'DOWN (may restart: auto-recovery on)'}\ngranary-replica  ${s.vars.promoted ? 'PRIMARY, read-write' : 'replica, read-only, lag 0s'}`, evidence: true }) },
+        { match: /^db promote granary-replica$/, usage: 'db promote granary-replica', help: 'turn the copy (replica) into the new main database', run: (_m, s) => { s.vars.promoted = true; return { out: 'granary-replica promoted: now read-write', changed: true }; } },
+        { match: /^db fence granary-primary$/, usage: 'db fence granary-primary', help: 'lock the old main database so it can\'t accept writes any more', run: (_m, s) => { s.vars.fenced = true; return { out: 'granary-primary fenced: auto-recovery disabled, writes blocked', changed: true }; } },
+        { match: /^kubectl rollout restart deploy\/bakery-app$/, usage: 'kubectl rollout restart deploy/bakery-app', help: 'restart the app\'s copies one by one so they read the new config', run: (_m, s) => { s.vars.appHost = hostOf(s.files['app-config.yaml']); return { out: `bakery-app restarted → database ${s.vars.appHost}`, changed: true }; } },
+        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/order$/, usage: 'curl http://bakery.town/order', help: 'place a test order to see if it works', run: (_m, s) => ({ out: s.vars.appHost === 'granary-replica' && s.vars.promoted ? 'HTTP 201 order saved' : s.vars.appHost === 'granary-replica' ? 'HTTP 500 cannot write: database is read-only' : 'HTTP 500 could not connect to granary-primary', verify: true }) },
       ],
     },
     check: (s) => ({
@@ -345,10 +351,12 @@ reserved_for_admins = 10`,
       before: { lines: ['primary: DOWN (auto-recovery on)', 'replica: read-only', 'app → granary-primary'], outcome: 'all orders fail' },
       after: () => ({ lines: ['replica: PRIMARY (read-write)', 'old primary: fenced', 'app → granary-replica'], outcome: 'orders saving ✓, no split brain' }),
       why: 'Failover is more than promotion. If the old primary returns and accepts writes, you get two diverging databases, which is far worse than downtime. Fence first or straight after, repoint clients, then verify writes.',
-      real: `$ pg_ctl promote -D /var/lib/postgresql/data      # on the replica
-$ # fence: stop + disable the old primary / revoke its IP
-# better: use a DNS name or managed failover (RDS Multi-AZ, Patroni)
-#         so clients don't need a config change`,
+      real: `# On the copy (replica): make it the new main database
+$ pg_ctl promote -D /var/lib/postgresql/data
+# "Fence" the old main one: stop it and take away its address,
+# so it can never take writes again (two mains = mixed-up data)
+# Better: use a DNS name or managed failover (RDS Multi-AZ, Patroni)
+#         so apps don't need a config change`,
       realCaption: 'Rehearse this when it\'s calm, not first at 2am.',
     },
   },

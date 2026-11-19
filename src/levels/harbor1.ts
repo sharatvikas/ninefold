@@ -422,12 +422,14 @@ export class HarborScene extends IncidentScene {
       before: { label: 'BEFORE', visual: holdViz(START_CONFIG.hold, PEAK), caption: `Hold ${START_CONFIG.hold} · busiest voyage ${PEAK} crates → overflows, sinks, relaunches, sinks again. Restarted ${this.stage.restarts}× while you investigated.` },
       after: { label: 'AFTER', visual: holdViz(this.cfg.hold, PEAK), caption: `Hold ${this.cfg.hold} · busiest voyage ${PEAK} crates → fits${this.cfg.hold > PEAK ? ` with ${this.cfg.hold - PEAK} spare` : ', just'}. Ships sail; 0 restarts.` },
       why: 'Relaunching a ship that\'s too small just repeats the crash. The fix was to give it room for its peak load, and you sized it from evidence (the busiest voyage), not a guess. A little headroom is good; a lot is wasted money.',
-      realWorld: `$ kubectl get pods
-ship-7   0/1   CrashLoopBackOff   ${this.stage.restarts}   5m
+      realWorld: `# List the app copies (pods) and their state:
+$ kubectl get pods
+ship-7   0/1   CrashLoopBackOff   ${this.stage.restarts}   5m    # crashes, restarts, crashes again
+# Why did it stop?
 $ kubectl describe pod ship-7 | grep Reason
-    Reason:   OOMKilled
+    Reason:   OOMKilled     # Out Of Memory: it used more than its limit
 
-# deployment.yaml → resources.limits
+# deployment.yaml → resources.limits (the most memory it may use)
 -   memory: "${START_CONFIG.hold * MI_PER_CRATE}Mi"
 +   memory: "${this.cfg.hold * MI_PER_CRATE}Mi"`,
       realWorldCaption: 'Crates = memory, hold size = memory limit, sinking = OOMKilled, relaunching = CrashLoopBackOff. Later Harbor tickets put you at a real terminal with kubectl.',

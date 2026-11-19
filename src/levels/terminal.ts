@@ -57,15 +57,17 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
         kind: 'output',
         result: {
           out: [
-            'Commands for this incident:',
-            ...spec.commands.map((c) => `  ${c.usage.padEnd(34)} ${c.help}`),
+            'Commands for this incident (type one and press Enter):',
+            ...spec.commands.flatMap((c) => [`  ${c.usage}`, `      ${c.help}`]),
             '',
             'Always available:',
-            '  ls                                 list files',
-            '  cat <file>                         show a file',
-            '  grep <text> <file>                 find lines in a file',
-            '  edit <file>                        open a file in the editor',
-            '  clear                              clear the screen',
+            '  ls                  lists the files in this folder',
+            '  cat <file>          prints a whole file so you can read it',
+            '  grep <text> <file>  shows only the lines of a file that contain your text',
+            '  edit <file>         opens a file so you can change it',
+            '  clear               wipes the screen',
+            '',
+            'Tip: press the up arrow to bring back your last command.',
           ].join('\n'),
         },
       };
@@ -102,6 +104,27 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
 
 /** Only the level's own files: names like "toString" must not reach JavaScript's built-ins. */
 const fileAt = (s: TermState, path: string): string | undefined => (Object.hasOwn(s.files, path) ? s.files[path] : undefined);
+
+const BUILTIN_HELP: Record<string, string> = {
+  help: 'lists the commands you can use here',
+  ls: 'lists the files in this folder',
+  cat: 'prints a whole file so you can read it',
+  grep: 'shows only the lines of a file that contain your text',
+  edit: 'opens a file so you can change it',
+  vim: 'opens a file so you can change it',
+  nano: 'opens a file so you can change it',
+  vi: 'opens a file so you can change it',
+  clear: 'wipes the screen (nothing is lost)',
+};
+
+/** A plain-English line saying what a command does, shown before its output for players new to terminals. */
+export function explain(spec: TermSpec, raw: string): string | undefined {
+  const line = raw.trim();
+  if (!line) return undefined;
+  const cmd = spec.commands.find((c) => c.match.test(line));
+  if (cmd) return cmd.help;
+  return BUILTIN_HELP[line.split(/\s+/)[0]];
+}
 
 const out = (text: string): Outcome => ({ kind: 'output', result: { out: text } });
 

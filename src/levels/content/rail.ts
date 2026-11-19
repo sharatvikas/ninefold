@@ -68,14 +68,15 @@ export const RAIL: LevelSpec[] = [
       before: { lines: ['manifest: wheels, boiler, whistle', 'code:     + import date-utils'], outcome: 'build ✗ cannot find "date-utils"' },
       after: (x) => ({ lines: [`manifest: ${arr(x.parts).join(', ')}`, 'code:     import date-utils'], outcome: 'build ✓ test ✓ ship ✓' }),
       why: 'A build only has what\'s declared. The code and the dependency list must change together. The build log said exactly what was missing; skipping stations would have shipped broken code.',
-      real: `// package.json
+      real: `// package.json: the list of parts (dependencies) the code needs
   "dependencies": {
     "wheels": "^2.0.0",
     "boiler": "^1.4.0",
     "whistle": "^0.9.0",
-+   "date-utils": "^3.1.0"
++   "date-utils": "^3.1.0"     // the part the new code uses
   }
 
+# Install exactly what's listed, then build:
 $ npm ci && npm run build   # ✓`,
       realCaption: 'Builds should run "npm ci" from the lockfile, so a missing dependency fails loudly in CI rather than in production.',
     },
@@ -138,8 +139,9 @@ $ npm ci && npm run build   # ✓`,
       before: { lines: ['sleep(2)', 'expect(bread).golden()'], outcome: 'fails whenever the oven takes > 2s (~25%)' },
       after: () => ({ lines: ['waitUntil(oven.ready,', '  { every: 0.2s, timeout: 15s })', 'expect(bread).golden()'], outcome: `20/20 passed, ~${WARM_AVG}s avg ✓` }),
       why: 'Fixed sleeps are the most common cause of flaky tests: the wait is either too short (flaky) or too long (slow). Waiting for the condition itself is both reliable and fast. Retries just hide the flakiness, and real bugs with it.',
-      real: `- await sleep(2000);
-+ await waitFor(() => oven.isReady(), { interval: 200, timeout: 15000 });
+      real: `// The test: don't wait a fixed time, wait until the oven is really ready
+- await sleep(2000);    // always waits 2s: sometimes too short
++ await waitFor(() => oven.isReady(), { interval: 200, timeout: 15000 });   // check every 0.2s, give up after 15s
   expect(await bread.color()).toBe('golden');`,
       realCaption: 'Playwright, Cypress and testing-library all have "wait for condition" helpers for exactly this.',
     },
@@ -206,19 +208,19 @@ $ npm ci && npm run build   # ✓`,
         return { lines: [`install ${x.cache ? '1 (cached)' : 12}`, `lint ‖ unit ${x.parallel ? 6 : 9}`, `integ ${(16 / s + (s > 1 ? 1 : 0)).toFixed(0)} (${s} shards) → build 3`], outcome: `${total.toFixed(0)} minutes ✓` };
       },
       why: 'Fast pipelines come from three moves: don\'t redo work (caching), don\'t wait for unrelated work (parallel jobs), and split the long pole (sharding). Each has a cost, so measure stage times first and attack the biggest.',
-      real: `# .github/workflows/ci.yml
+      real: `# .github/workflows/ci.yml: the steps GitHub runs on every change
 jobs:
-  lint:                 # lint, unit and integ jobs run in parallel
+  lint:                 # the lint, unit and integ jobs run side by side
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }   # cached deps
+      - uses: actions/checkout@v4        # get the code
+      - uses: actions/setup-node@v4      # install Node.js
+        with: { node-version: 22, cache: npm }   # reuse downloaded packages between runs
       - run: npm ci && npm run lint
   integ:
     runs-on: ubuntu-latest
     strategy:
-      matrix: { shard: [1, 2, 3, 4] }
+      matrix: { shard: [1, 2, 3, 4] }    # split the slow tests into 4 parts that run at once
     steps:              # same checkout + setup-node, then:
       - run: npm ci && npm run test:integ -- --shard=\${{ matrix.shard }}/4`,
       realCaption: 'Speeding up CI means more frequent, smaller releases, which are much safer.',
@@ -275,10 +277,11 @@ jobs:
       before: { lines: ['image: bakery-app:latest', 'tags: overwritable'], outcome: 'old nightly re-tags → prod runs v2.3.0' },
       after: (x) => ({ lines: [`image: ${x.ref === 'digest' ? 'bakery-app@sha256:bb22…' : x.ref === 'tag' ? 'bakery-app:v2.4.1' : 'bakery-app:latest'}`, `tags: ${x.immutable ? 'immutable' : 'overwritable'}`], outcome: 'prod runs exactly v2.4.1 ✓' }),
       why: '"latest" means "whatever was pushed last", which isn\'t necessarily what you released. Deploy a specific version, and make release tags immutable (or deploy by digest, which can never change) so the artifact you tested is the one that runs.',
-      real: `# deployment.yaml
+      real: `# deployment.yaml: "latest" can mean a different version every day
 -   image: bakery-app:latest
-+   image: bakery-app:v2.4.1
++   image: bakery-app:v2.4.1    # an exact version: the same every time
 
+# Stop anyone reusing a version name for different code:
 $ aws ecr put-image-tag-mutability \\
     --repository-name bakery-app --image-tag-mutability IMMUTABLE`,
       realCaption: 'Build once, promote the same artifact through every environment.',
@@ -307,19 +310,19 @@ $ aws ecr put-image-tag-mutability \\
       files: {},
       vars: { state: 'canary' },
       commands: [
-        { match: /^rollout status$/, usage: 'rollout status', help: 'current traffic split', run: (_m, s) => ({ out: s.vars.state === 'canary' ? 'stable v2: 90%\ncanary v3: 10%\nstatus: PAUSED (waiting for promote/abort)' : s.vars.state === 'aborted' ? 'stable v2: 100%\ncanary v3: 0% (aborted)\nstatus: HEALTHY' : 'v3: 100%\nstatus: DEGRADED' }) },
-        { match: /^metrics compare$/, usage: 'metrics compare', help: 'v2 vs v3 errors & latency', run: () => ({ out: '            v2 (stable)   v3 (canary)\nerror rate     0.2%          7.9%   ⚠\np95 latency    180ms         210ms\norders/min     54            5.8', evidence: true }) },
-        { match: /^logs v3$/, usage: 'logs v3', help: 'recent canary errors', run: () => ({ out: 'ERROR checkout: price is undefined for item "seasonal-pie"\nERROR checkout: price is undefined for item "seasonal-pie"\nERROR checkout: price is undefined for item "seasonal-pie"', evidence: true }) },
+        { match: /^rollout status$/, usage: 'rollout status', help: 'show what share of customers get each version', run: (_m, s) => ({ out: s.vars.state === 'canary' ? 'stable v2: 90%\ncanary v3: 10%\nstatus: PAUSED (waiting for promote/abort)' : s.vars.state === 'aborted' ? 'stable v2: 100%\ncanary v3: 0% (aborted)\nstatus: HEALTHY' : 'v3: 100%\nstatus: DEGRADED' }) },
+        { match: /^metrics compare$/, usage: 'metrics compare', help: 'compare errors and speed of the old (v2) and new (v3) versions', run: () => ({ out: '            v2 (stable)   v3 (canary)\nerror rate     0.2%          7.9%   ⚠\np95 latency    180ms         210ms\norders/min     54            5.8', evidence: true }) },
+        { match: /^logs v3$/, usage: 'logs v3', help: 'show recent errors from the new version (v3)', run: () => ({ out: 'ERROR checkout: price is undefined for item "seasonal-pie"\nERROR checkout: price is undefined for item "seasonal-pie"\nERROR checkout: price is undefined for item "seasonal-pie"', evidence: true }) },
         {
-          match: /^rollout promote$/, usage: 'rollout promote', help: 'send 100% to v3', run: (_m, s) => {
+          match: /^rollout promote$/, usage: 'rollout promote', help: 'send every customer to the new version (v3)', run: (_m, s) => {
             if (s.vars.state === 'aborted') return { out: 'nothing to promote: canary was aborted' };
             s.vars.state = 'promoted';
             return { out: 'promoted v3 to 100%…\n⚠ error rate now 7.9% for ALL customers. Checkout failing for seasonal pie.', changed: true, bad: true };
           },
         },
-        { match: /^rollout abort$/, usage: 'rollout abort', help: 'send everyone back to v2', run: (_m, s) => { s.vars.state = 'aborted'; return { out: 'aborting canary… traffic 100% → v2 (stable)\ncanary pods scaled to 0', changed: true }; } },
-        { match: /^rollout undo$/, usage: 'rollout undo', help: 'roll back a full promotion', run: (_m, s) => { if (s.vars.state !== 'promoted') return { out: 'nothing to undo' }; s.vars.state = 'aborted'; return { out: 'rolled back to v2: 100%', changed: true }; } },
-        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'sample 20 requests', run: (_m, s) => { const errs = s.vars.state === 'aborted' ? 0 : s.vars.state === 'promoted' ? 2 : 0; return { out: `20 requests: ${20 - errs} OK, ${errs} errors${s.vars.state === 'canary' ? ' (but 10% of real traffic is on v3)' : ''}`, verify: true }; } },
+        { match: /^rollout abort$/, usage: 'rollout abort', help: 'stop the test and send everyone back to the old version (v2)', run: (_m, s) => { s.vars.state = 'aborted'; return { out: 'aborting canary… traffic 100% → v2 (stable)\ncanary pods scaled to 0', changed: true }; } },
+        { match: /^rollout undo$/, usage: 'rollout undo', help: 'undo a full switch to v3', run: (_m, s) => { if (s.vars.state !== 'promoted') return { out: 'nothing to undo' }; s.vars.state = 'aborted'; return { out: 'rolled back to v2: 100%', changed: true }; } },
+        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'visit the site 20 times and count how many work', run: (_m, s) => { const errs = s.vars.state === 'aborted' ? 0 : s.vars.state === 'promoted' ? 2 : 0; return { out: `20 requests: ${20 - errs} OK, ${errs} errors${s.vars.state === 'canary' ? ' (but 10% of real traffic is on v3)' : ''}`, verify: true }; } },
       ],
     },
     check: (s) => ({
@@ -332,11 +335,13 @@ $ aws ecr put-image-tag-mutability \\
       before: { lines: ['v2 90%  errors 0.2%', 'v3 10%  errors 7.9%'], outcome: 'waiting for a decision' },
       after: (s) => ({ lines: ['v2 100%  errors 0.2%', `v3 ${s.vars.state === 'aborted' ? 'aborted' : '?'}`], outcome: 'customers healthy ✓' }),
       why: 'A canary is only useful if someone compares it to the baseline and is willing to abort. v3 had 40× the error rate of v2, and the logs showed why (missing price for a new item). Aborting limited the damage to 10% of traffic for a few minutes.',
-      real: `$ kubectl argo rollouts get rollout bakery-app
+      real: `# How is the canary (the 10% test release) doing?
+$ kubectl argo rollouts get rollout bakery-app
   canary  10%  ✖ errors 7.9%
+# Too many errors: stop it and send everyone back to the old version
 $ kubectl argo rollouts abort bakery-app
 # Better: automate it with an AnalysisTemplate that aborts
-# when error rate > 1% for 2 minutes.`,
+# when the error rate is over 1% for 2 minutes.`,
       realCaption: 'Argo Rollouts and Flagger can make this call for you, using metrics.',
     },
   },
@@ -363,18 +368,18 @@ $ kubectl argo rollouts abort bakery-app
       files: {},
       vars: { migrated: false, live: 'blue', outage: false },
       commands: [
-        { match: /^env status$/, usage: 'env status', help: 'blue & green state', run: (_m, s) => ({ out: `blue  v1  ${s.vars.live === 'blue' ? 'LIVE' : 'standby'}  healthy\ngreen v2  ${s.vars.live === 'green' ? 'LIVE' : 'standby'}  ${s.vars.migrated ? 'healthy' : 'UNHEALTHY'}` }) },
-        { match: /^curl\s+(?:https?:\/\/)?green\.internal\/health$/, usage: 'curl http://green.internal/health', help: 'check green', run: (_m, s) => (s.vars.migrated ? { out: 'HTTP 200 {"status":"ok","version":"v2"}' } : { out: 'HTTP 503 {"status":"starting","error":"database schema is v1, app needs v2: migrations pending"}', evidence: true }) },
-        { match: /^logs green$/, usage: 'logs green', help: 'green startup log', run: (_m, s) => (s.vars.migrated ? { out: 'ready on :3000' } : { out: 'checking schema… found v1, need v2\nERROR pending migration 0042_add_seasonal_menu\nnot ready', evidence: true }) },
-        { match: /^migrate --env green$/, usage: 'migrate --env green', help: 'run DB migrations for v2', run: (_m, s) => { s.vars.migrated = true; return { out: 'applying 0042_add_seasonal_menu (adds column, backward compatible)… done\nschema v2 (v1 app still works with it)', changed: true }; } },
+        { match: /^env status$/, usage: 'env status', help: 'show the two copies of the app (blue = live, green = new) and their state', run: (_m, s) => ({ out: `blue  v1  ${s.vars.live === 'blue' ? 'LIVE' : 'standby'}  healthy\ngreen v2  ${s.vars.live === 'green' ? 'LIVE' : 'standby'}  ${s.vars.migrated ? 'healthy' : 'UNHEALTHY'}` }) },
+        { match: /^curl\s+(?:https?:\/\/)?green\.internal\/health$/, usage: 'curl http://green.internal/health', help: 'ask the new (green) copy if it is healthy', run: (_m, s) => (s.vars.migrated ? { out: 'HTTP 200 {"status":"ok","version":"v2"}' } : { out: 'HTTP 503 {"status":"starting","error":"database schema is v1, app needs v2: migrations pending"}', evidence: true }) },
+        { match: /^logs green$/, usage: 'logs green', help: 'show what the green copy printed when it started', run: (_m, s) => (s.vars.migrated ? { out: 'ready on :3000' } : { out: 'checking schema… found v1, need v2\nERROR pending migration 0042_add_seasonal_menu\nnot ready', evidence: true }) },
+        { match: /^migrate --env green$/, usage: 'migrate --env green', help: 'update the database layout so the new version can use it', run: (_m, s) => { s.vars.migrated = true; return { out: 'applying 0042_add_seasonal_menu (adds column, backward compatible)… done\nschema v2 (v1 app still works with it)', changed: true }; } },
         {
-          match: /^switch --to (blue|green)$/, usage: 'switch --to green', help: 'move the junction', run: (m, s) => {
+          match: /^switch --to (blue|green)$/, usage: 'switch --to green', help: 'send all customers to the green copy', run: (m, s) => {
             s.vars.live = m[1];
             if (m[1] === 'green' && !s.vars.migrated) { s.vars.outage = true; return { out: 'junction → green\n⚠ customers getting HTTP 503 from green!', changed: true, bad: true }; }
             return { out: `junction → ${m[1]} (instant, no dropped connections)`, changed: true };
           },
         },
-        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'what customers see', run: (_m, s) => ({ out: s.vars.live === 'green' ? (s.vars.migrated ? 'HTTP 200 bakery v2 ✓' : 'HTTP 503') : 'HTTP 200 bakery v1', verify: true }) },
+        { match: /^curl\s+(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'visit the website the way a customer would', run: (_m, s) => ({ out: s.vars.live === 'green' ? (s.vars.migrated ? 'HTTP 200 bakery v2 ✓' : 'HTTP 503') : 'HTTP 200 bakery v1', verify: true }) },
       ],
     },
     check: (s) => ({
@@ -387,9 +392,12 @@ $ kubectl argo rollouts abort bakery-app
       before: { lines: ['live:  blue  v1', 'green: v2  503 (schema v1)'], outcome: 'switching now = outage' },
       after: () => ({ lines: ['migrate green (backward-compatible)', 'live:  green v2  200'], outcome: 'switched, zero downtime ✓' }),
       why: 'Blue-green gives instant, reversible switches, but only for an environment that\'s actually healthy. Run migrations that both versions can live with, verify green directly, then flip. If anything goes wrong, flip back.',
-      real: `$ curl -s green.internal/health
-{"error":"migrations pending"}
+      real: `# Is the new (green) copy healthy?
+$ curl -s green.internal/health
+{"error":"migrations pending"}     # its database hasn't been updated yet
+# Update the database layout for the new version:
 $ ./migrate up --env green
+# Now point the load balancer at green:
 $ aws elbv2 modify-listener --listener-arn $L \\
     --default-actions Type=forward,TargetGroupArn=$GREEN_TG`,
       realCaption: 'Backward-compatible ("expand then contract") migrations let blue and green share one database.',

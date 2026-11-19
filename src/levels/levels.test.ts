@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newTermState, run } from './terminal';
+import { explain, newTermState, run } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
 import { resetProgress, completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
@@ -100,5 +100,14 @@ describe('terminal', () => {
       expect(run(spec, s, `cat ${name}`)).toEqual({ kind: 'output', result: { out: `cat: ${name}: No such file` } });
       expect(run(spec, s, `edit ${name}`).kind).toBe('output');
     }
+  });
+});
+
+describe('terminal explanations', () => {
+  it('explains level commands from their help text and the built-ins in plain words', () => {
+    const spec = { host: 'h', motd: '', files: {}, commands: [{ match: /^rollout abort$/, usage: 'rollout abort', help: 'send everyone back to v2', run: () => ({ out: '' }) }] };
+    expect(explain(spec, 'rollout abort')).toBe('send everyone back to v2');
+    expect(explain(spec, 'cat notes.txt')).toMatch(/prints a whole file/);
+    expect(explain(spec, 'rm -rf /')).toBeUndefined();
   });
 });

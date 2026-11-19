@@ -315,7 +315,7 @@ export abstract class IncidentScene implements Scene {
     const why = h('div', 'why');
     why.append(h('div', 'sub', 'WHY IT WORKED'), h('div', '', r.why));
     const real = h('div', '');
-    real.append(h('div', 'sub', 'THE SAME FIX, FOR REAL'), h('pre', 'code', r.realWorld), h('div', 'caption', r.realWorldCaption));
+    real.append(h('div', 'sub', 'THE SAME FIX, FOR REAL'), codeBlock(r.realWorld), h('div', 'code-legend', 'Grey lines explain the code · − removed · + added · $ a command you type'), h('div', 'caption', r.realWorldCaption));
     lower.append(why, real);
     const notes: string[] = [];
     if (this.attempts.guessedFirst) notes.push('changed things before finding evidence (−1)');
@@ -334,4 +334,20 @@ export abstract class IncidentScene implements Scene {
     this.root.append(wrap);
     btn.focus();
   }
+}
+
+/** Whole-line and trailing comments, in the comment styles the snippets use (#, //, --, ;, <!--). */
+const COMMENT = /^(\s*(?:#|\/\/|--|;|<!--).*)$|(\s{2,}(?:#|\/\/|--|;)\s.*)$/;
+
+/** A code snippet with its explanation comments dimmed, so the code and the words read apart. */
+export function codeBlock(text: string): HTMLElement {
+  const pre = h('pre', 'code');
+  for (const line of text.split('\n')) {
+    const m = line.match(COMMENT);
+    const at = m ? (m[1] !== undefined ? 0 : line.length - m[2].length) : line.length;
+    pre.append(line.slice(0, at));
+    if (at < line.length) pre.append(h('span', 'cmt', line.slice(at)));
+    pre.append('\n');
+  }
+  return pre;
 }

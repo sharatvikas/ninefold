@@ -5,7 +5,7 @@ import { h } from '../ui/ui';
 import { getLevel } from './catalog';
 import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './incident';
 import { passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
-import { newTermState, run, saveFile, type TermState } from './terminal';
+import { explain, newTermState, run, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
 
 const CHANGE_TAB = 'change';
@@ -418,6 +418,8 @@ export class SpecScene extends IncidentScene {
   private exec(spec: TerminalLevel, line: string): void {
     const s = this.term!;
     this.print(`${spec.term.host}$ ${line}`, 'cmd');
+    const what = explain(spec.term, line);
+    if (what) this.print(`# what this does: ${what}`, 'explain');
     const o = run(spec.term, s, line);
     if (o.kind === 'clear') this.termLines = [];
     else if (o.kind === 'edit') {

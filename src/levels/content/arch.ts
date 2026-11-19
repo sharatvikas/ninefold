@@ -59,11 +59,12 @@ export const ARCH: LevelSpec[] = [
       before: { lines: ['+ window east-1', '+ window east-2', '~ door red → green', '- roof'], outcome: 'apply would destroy the roof' },
       after: () => ({ lines: ['+ window east-1', '+ window east-2', '~ door red → green'], outcome: 'Plan: 2 to add, 1 to change, 0 to destroy ✓' }),
       why: 'Infrastructure as code makes reality match the code, including deleting things that are no longer in it. Always read the plan before applying, especially lines that destroy. Your intent and the plan must match exactly.',
-      real: `$ terraform plan
-  + aws_instance.window_east_1
+      real: `# Preview what Terraform would do, before it does anything:
+$ terraform plan
+  + aws_instance.window_east_1    # + means "will create"
   + aws_instance.window_east_2
-  ~ aws_s3_bucket.door  (tags.colour: "red" → "green")
-  - aws_ebs_volume.roof      # !!
+  ~ aws_s3_bucket.door  (tags.colour: "red" → "green")   # ~ means "will change"
+  - aws_ebs_volume.roof      # - means "will DELETE": stop and check!
 Plan: 2 to add, 1 to change, 1 to destroy.`,
       realCaption: 'Read every "-" and "-/+" before typing yes.',
     },
@@ -122,13 +123,15 @@ Plan: 2 to add, 1 to change, 1 to destroy.`,
       before: { lines: ['reality:   shed (lanterns)', 'blueprint: (no shed)', 'plan:      no changes (blind)'], outcome: 'unmanaged: nobody maintains it' },
       after: () => ({ lines: ['reality:   shed (lanterns)', 'blueprint: shed (imported)', 'plan:      no changes'], outcome: 'shed is managed ✓' }),
       why: 'Infrastructure as code only manages what it knows about. Resources created by hand don\'t show up in a plan at all, so you need an inventory (cloud asset listings, tag audits) to find them. When something unmanaged is needed, import it; when it\'s junk, delete it on purpose. Excluding an area just hides the next one.',
-      real: `$ terraform state list | grep shed
+      real: `# Which resources does Terraform track that mention "shed"?
+$ terraform state list | grep shed
   (nothing: Terraform doesn't know it exists)
-# bring it under management (Terraform 1.5+)
+# Tell Terraform to take charge of the shed that already exists (Terraform 1.5+):
 import {
-  to = aws_instance.shed
-  id = "i-0abc123"
+  to = aws_instance.shed      # the name it gets in our code
+  id = "i-0abc123"            # the real server's id in AWS
 }
+# Let Terraform write the matching code, then preview:
 $ terraform plan -generate-config-out=shed.tf
 Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.`,
       realCaption: 'A plan only shows drift on resources Terraform already manages. Hand-built ones need an inventory.',
@@ -187,12 +190,13 @@ Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.`,
       before: { lines: ['name: granary → granary-ledger', '-/+ forces replacement', 'prevent_destroy: off'], outcome: 'every record since 1987 deleted' },
       after: (x) => ({ lines: [`name: ${str(x.name)}`, `~ tags.team: ${str(x.team)} (in place)`, `prevent_destroy: ${x.protect ? 'on' : 'off'}`], outcome: 'ledger intact, guarded ✓' }),
       why: 'Some attributes are immutable: changing them means destroy and recreate. "-/+" in a plan is the most dangerous symbol there is. Keep the name, ship the safe parts, and add prevent_destroy so stateful resources can\'t be removed by accident.',
-      real: `resource "aws_db_instance" "granary" {
-  identifier = "granary"           # changing this forces replacement
-  tags       = { team = "granary" }
+      real: `# Terraform code describing the granary database
+resource "aws_db_instance" "granary" {
+  identifier = "granary"             # changing this forces replacement (delete + recreate!)
+  tags       = { team = "granary" }  # labels only: safe to change
 
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = true           # refuse any plan that would delete it
   }
 }`,
       realCaption: 'Also enable deletion protection on the database itself, and take backups.',
@@ -248,12 +252,13 @@ Plan: 1 to import, 0 to add, 0 to change, 0 to destroy.`,
       before: { lines: ['state: laptop file', 'locking: none', '14:02 Ada & Ben both apply'], outcome: 'ledger lost the well' },
       after: () => ({ lines: ['state: remote, shared', 'locking: on', 'versioning: on'], outcome: 'Ben: "waiting for lock held by Ada…" ✓' }),
       why: 'State must be shared (one source of truth), locked (one writer at a time) and versioned (so mistakes can be undone). A remote backend with locking gives all three.',
-      real: `terraform {
-  backend "s3" {
-    bucket       = "ninefold-tf-state"   # versioning enabled
-    key          = "town/terraform.tfstate"
+      real: `# Where Terraform keeps its memory of what it built (the "state" file)
+terraform {
+  backend "s3" {                             # keep it in a shared S3 bucket, not on a laptop
+    bucket       = "ninefold-tf-state"       # versioning on, so old copies can be restored
+    key          = "town/terraform.tfstate"  # the file's name inside the bucket
     region       = "eu-west-1"
-    use_lockfile = true                  # state locking
+    use_lockfile = true                      # only one person can apply at a time
   }
 }`,
       realCaption: 'Error: "Error acquiring the state lock". That means it\'s working: wait your turn.',
@@ -306,14 +311,14 @@ resource "house" "this" {
       },
       commands: [
         {
-          match: /^terraform plan$/, usage: 'terraform plan', help: 'show what would change',
+          match: /^terraform plan$/, usage: 'terraform plan', help: 'preview what Terraform would change, without changing anything',
           run: (_m, s) => {
             const r = analyseHouses(s.files['houses.tf']);
             if (r.modules.length === 0) return { out: 'house.school: smoke_alarm = (none)\nNo changes. (3 resources, 2 with alarms)', evidence: true, verify: true };
             return { out: `${r.modules.map((m) => `module.${m}: house "${m}" smoke_alarm = true`).join('\n')}${r.resources.length ? `\n${r.resources.length} copy-pasted resource(s) still present` : ''}\nPlan: ${r.modules.length} houses via module`, verify: true };
           },
         },
-        { match: /^grep -r smoke_alarm \.?$/, usage: 'grep -r smoke_alarm .', help: 'find every smoke_alarm', run: (_m, s) => ({ out: s.files['houses.tf'].split('\n').filter((l) => l.includes('smoke_alarm')).map((l) => `houses.tf: ${l.trim()}`).join('\n') + '\nmodules/house/main.tf: smoke_alarm = true\n(school has none)', evidence: true }) },
+        { match: /^grep -r smoke_alarm \.?$/, usage: 'grep -r smoke_alarm .', help: 'search every file for the word smoke_alarm', run: (_m, s) => ({ out: s.files['houses.tf'].split('\n').filter((l) => l.includes('smoke_alarm')).map((l) => `houses.tf: ${l.trim()}`).join('\n') + '\nmodules/house/main.tf: smoke_alarm = true\n(school has none)', evidence: true }) },
       ],
     },
     check: (s) => {
@@ -335,12 +340,14 @@ resource "house" "this" {
       before: { lines: ['resource "house" "library" {…alarm}', 'resource "house" "bakery"  {…alarm}', 'resource "house" "school"  {…}'], outcome: 'school: no smoke alarm' },
       after: () => ({ lines: ['module "library" { source = "./modules/house" }', 'module "bakery"  { … }', 'module "school"  { … }'], outcome: 'all 3 houses have alarms ✓' }),
       why: 'Copy-paste means every fix has to be made N times, and someone always misses one. A module puts the shared parts in one place, so a fix there reaches every house. Pass in only what\'s different.',
-      real: `module "school" {
-  source = "./modules/house"
+      real: `# Build the school from the shared "house" building block (a module)
+module "school" {
+  source = "./modules/house"   # where the module's code lives
   name   = "school"
 }
-# then: terraform state mv house.school module.school.house.this
-# (or a "moved" block) so nothing is destroyed`,
+# Then tell Terraform it's the same school, just moved, so nothing is destroyed:
+$ terraform state mv house.school module.school.house.this
+# (a "moved" block in the code does the same job)`,
       realCaption: 'When refactoring to modules, use "moved" blocks so Terraform moves resources instead of recreating them.',
     },
   },
@@ -377,11 +384,11 @@ resource "house" "this" {
       },
       vars: { rotated: false },
       commands: [
-        { match: /^grep -ri? password \.?$/, usage: 'grep -ri password .', help: 'search the repo', run: (_m, s) => ({ out: Object.entries(s.files).flatMap(([f, t]) => t.split('\n').filter((l) => /password/i.test(l)).map((l) => `${f}: ${l.trim()}`)).join('\n'), evidence: /password\s*=\s*"/i.test(s.files['main.tf']) }) },
-        { match: /^git log -p( main\.tf)?$/, usage: 'git log -p main.tf', help: 'history of the file', run: () => ({ out: 'commit 7f3a… (2 weeks ago) "add vault"\n+  password = "hunter2-correct-horse"\n\n(cloned by 14 people since)', evidence: true }) },
-        { match: /^secrets rotate vault$/, usage: 'secrets rotate vault', help: 'new password, old one revoked', run: (_m, s) => { s.vars.rotated = true; return { out: 'town-secrets: vault_password rotated (v2)\nold password revoked: anyone using it is locked out', changed: true }; } },
+        { match: /^grep -ri? password \.?$/, usage: 'grep -ri password .', help: 'search every file for the word password (any upper/lower case)', run: (_m, s) => ({ out: Object.entries(s.files).flatMap(([f, t]) => t.split('\n').filter((l) => /password/i.test(l)).map((l) => `${f}: ${l.trim()}`)).join('\n'), evidence: /password\s*=\s*"/i.test(s.files['main.tf']) }) },
+        { match: /^git log -p( main\.tf)?$/, usage: 'git log -p main.tf', help: 'show every past change to main.tf, and who made it', run: () => ({ out: 'commit 7f3a… (2 weeks ago) "add vault"\n+  password = "hunter2-correct-horse"\n\n(cloned by 14 people since)', evidence: true }) },
+        { match: /^secrets rotate vault$/, usage: 'secrets rotate vault', help: 'make a new password and switch off the old, leaked one', run: (_m, s) => { s.vars.rotated = true; return { out: 'town-secrets: vault_password rotated (v2)\nold password revoked: anyone using it is locked out', changed: true }; } },
         {
-          match: /^terraform plan$/, usage: 'terraform plan', help: 'validate & plan', run: (_m, s) => {
+          match: /^terraform plan$/, usage: 'terraform plan', help: 'check the files are valid and preview what would change', run: (_m, s) => {
             const f = squash(s.files['main.tf']);
             if (/password = [a-z0-9-]{4,}/.test(f) && !/password = var\./.test(f)) return { out: 'warning: literal secret in main.tf\nNo changes.', verify: true, evidence: true };
             if (/password = var\.vault_password/.test(f)) return { out: 'var.vault_password: (sensitive value from town-secrets)\nNo changes. Configuration is valid.', verify: true };
@@ -410,11 +417,13 @@ resource "house" "this" {
       before: { lines: ['password = "hunter2-correct-horse"', '(in git history, 14 clones)'], outcome: 'anyone with repo access can open the vault' },
       after: () => ({ lines: ['password = var.vault_password', '(from town-secrets, rotated)'], outcome: 'leaked value revoked ✓' }),
       why: 'Deleting the line isn\'t enough: it lives on in history and in every clone. Treat it as compromised and rotate it, then load secrets from a secret manager at deploy time so they never touch the repo.',
-      real: `- password = "hunter2-correct-horse"
+      real: `# In the code: never write the password itself, point to a secret instead
+- password = "hunter2-correct-horse"
 + password = var.vault_password
 
+# The old password leaked, so swap it for a new one:
 $ aws secretsmanager rotate-secret --secret-id town/vault
-# and add a pre-commit secret scanner (gitleaks, trufflehog)`,
+# Also add a scanner (gitleaks, trufflehog) that blocks commits containing passwords`,
       realCaption: 'Rewriting git history is optional clean-up. Rotating the secret is the actual fix.',
     },
   },

@@ -61,10 +61,10 @@ export const HALL: LevelSpec[] = [
       before: { lines: ['SLI: servers up', 'SLO: 100%'], outcome: 'up 100% while customers suffer' },
       after: (x) => ({ lines: ['SLI: orders OK in < 2s', `SLO: ${num(x.target)}% / 30 days`], outcome: `error budget: ${(100 - num(x.target)).toFixed(1)}% to spend ✓` }),
       why: 'An SLI must reflect user experience: success AND speed. The SLO is a deliberate trade-off: the gap to 100% is the error budget you can "spend" on releases and experiments. It ends the arguments, because the number decides.',
-      real: `# SLI (PromQL)
+      real: `# SLI (PromQL): the share of orders that went well
 # good = orders that succeeded in under 2s (histogram bucket le="2")
 sum(rate(order_duration_seconds_bucket{status="ok", le="2"}[30d]))
-  / sum(rate(order_duration_seconds_count[30d]))
+  / sum(rate(order_duration_seconds_count[30d]))     # ÷ all orders
 # SLO: 99.5% over 30 days → error budget 0.5% ≈ 216 minutes`,
       realCaption: 'Tools like Sloth or Pyrra generate SLO alert rules from a spec like this.',
     },
@@ -110,10 +110,11 @@ sum(rate(order_duration_seconds_bucket{status="ok", le="2"}[30d]))
       before: { lines: ['budget: 216 min', 'used:   180 min (day 3)', 'plan:   keep shipping'], outcome: 'next bad release breaks the SLO' },
       after: (x) => ({ lines: ['budget: 216 min', `left:   ${num(x.left)} min`, 'plan:   freeze risky changes, fix causes'], outcome: 'SLO kept, team learns ✓' }),
       why: 'The error budget turns reliability into an objective decision. While there\'s budget, ship. When it\'s nearly gone, slow down and invest in reliability. Lowering the target to dodge the decision breaks the promise to customers.',
-      real: `error budget = (1 − 0.995) × 30 × 24 × 60 = 216 min
-burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than sustainable
-# multi-window burn-rate alert:
-# page if burn rate > 14.4 over 1h AND over 5m`,
+      real: `# How much "badness" we may have in 30 days:
+error budget = (1 − 0.995) × 30 × 24 × 60 = 216 min
+# How fast we're using it up (1× = exactly on budget):
+burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than we can afford
+# Alert: wake someone only if it burns over 14.4× in the last hour AND the last 5 minutes`,
       realCaption: 'Agree on the error-budget policy before you need it.',
     },
   },
@@ -165,12 +166,13 @@ burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than sustainable
       before: { lines: ['min 3 · max 3', '3 × ~330/s = ~1000/s'], outcome: 'festival 2000/s → outage' },
       after: (x) => ({ lines: [`min ${num(x.min)} · max ${num(x.max)} · target ${num(x.cpu)}%`, `up to ${num(x.max)} × ${Math.round(330 * num(x.cpu) / 100)}/s`], outcome: 'festival handled, normal days cheap ✓' }),
       why: 'Use last year\'s peak to size the max, keep a CPU target that leaves room for spikes and slow scale-up, and keep the minimum low so you only pay for the festival on festival day. Load-test before the big day.',
-      real: `apiVersion: autoscaling/v2
+      real: `# A Kubernetes autoscaler: adds or removes app copies to match the load
+apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 spec:
-  minReplicas: 3
-  maxReplicas: 12
-  metrics:
+  minReplicas: 3     # never fewer than 3 copies
+  maxReplicas: 12    # never more than 12
+  metrics:           # aim to keep each copy's CPU about 60% busy
     - type: Resource
       resource: { name: cpu, target: { type: Utilization, averageUtilization: 60 } }`,
       realCaption: 'Check the database and other dependencies can take 4× too. That\'s the Big Incident in Act 2.',
@@ -237,9 +239,11 @@ spec:
         return { lines: [`dev ${Math.round(dev)}`, `orphan disks ${has(a, 'disks') ? 0 : 1100}`, 'snapshot 900 (legal) · prod 5,600'], outcome: `${Math.round(bill)} / month ✓` };
       },
       why: 'Cost work is investigation: find spend with no value (idle, orphaned, oversized), and check each item\'s purpose before deleting. Production that\'s busy and records that are required are worth their price.',
-      real: `$ aws ec2 describe-volumes --filters Name=status,Values=available   # orphan disks
+      real: `# Find disks nobody is using (still billed every month):
+$ aws ec2 describe-volumes --filters Name=status,Values=available
+# See the bill split by environment (dev, prod…):
 $ aws ce get-cost-and-usage --group-by Type=TAG,Key=env
-# Instance Scheduler: stop env=dev 19:00–08:00 and weekends`,
+# Then switch dev machines off at night and at weekends (AWS Instance Scheduler)`,
       realCaption: 'Tag everything with owner and environment, or you\'ll never know what\'s safe to cut.',
     },
   },
@@ -297,7 +301,8 @@ $ aws ce get-cost-and-usage --group-by Type=TAG,Key=env
       before: { lines: ['timeline: jumbled', 'cause: "Ben was careless"', 'action: "be more careful"'], outcome: 'nothing changes, it happens again' },
       after: () => ({ lines: ['timeline: 14:00 → 14:27', 'factors: no test, no canary, no dashboard', 'actions: 3 concrete fixes'], outcome: 'the system gets safer ✓' }),
       why: 'Blame makes people hide mistakes; blameless reviews surface them. Look for the conditions that let a normal action cause harm, and turn each one into an action item with an owner.',
-      real: `## Incident #212: Menu errors (27 min)
+      real: `<!-- A postmortem: what happened, why, and what we'll change. It blames systems, never people. -->
+## Incident #212: Menu errors (27 min)
 **Impact:** 12% of orders failed 14:00–14:27
 **Contributing factors:** missing test case; 100% rollout; no per-item error panel
 **Action items:**
@@ -333,10 +338,10 @@ maxmemory 0            # 0 = unlimited
 maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
       vars: { running: '' },
       commands: [
-        { match: /^history$/, usage: 'history', help: 'recent on-call commands', run: () => ({ out: ' 2:04  cache restart   (Lin)\n 2:11  cache restart   (Ben)\n 2:02  cache restart   (Lin)\n … 47 nights', evidence: true }) },
-        { match: /^cache info memory$/, usage: 'cache info memory', help: 'memory stats', run: (_m, s) => { const c2 = cacheConf(String(s.vars.running || s.files['cache.conf'])); return { out: `used_memory: 7.6 GB / 8 GB\nmaxmemory: ${c2.max || '0 (unlimited)'}\npolicy: ${c2.policy}\nevicted_keys: ${c2.ok ? 'thousands (old menus removed) ✓' : '0 (nothing is ever removed)'}`, evidence: !c2.ok }; } },
-        { match: /^cache restart$/, usage: 'cache restart', help: 'restart with cache.conf', run: (_m, s) => { s.vars.running = s.files['cache.conf']; return { out: 'cache restarted (memory freed)', changed: true }; } },
-        { match: /^cache simulate-week$/, usage: 'cache simulate-week', help: 'fast-forward a week', run: (_m, s) => { const c2 = cacheConf(String(s.vars.running || '')); const cron = /cache restart/.test(s.files.crontab); return { out: c2.ok ? 'memory stays at ~2 GB all week, old entries evicted, 0 restarts ✓' : cron ? 'memory hits 8 GB nightly → cron restarts it at 2:00 → cache empty, menu slow for 10 min each morning' : 'memory hits 8 GB on night 1 → OOM → page', verify: true }; } },
+        { match: /^history$/, usage: 'history', help: 'show the commands the last on-call person ran', run: () => ({ out: ' 2:04  cache restart   (Lin)\n 2:11  cache restart   (Ben)\n 2:02  cache restart   (Lin)\n … 47 nights', evidence: true }) },
+        { match: /^cache info memory$/, usage: 'cache info memory', help: 'show how much memory the cache is using', run: (_m, s) => { const c2 = cacheConf(String(s.vars.running || s.files['cache.conf'])); return { out: `used_memory: 7.6 GB / 8 GB\nmaxmemory: ${c2.max || '0 (unlimited)'}\npolicy: ${c2.policy}\nevicted_keys: ${c2.ok ? 'thousands (old menus removed) ✓' : '0 (nothing is ever removed)'}`, evidence: !c2.ok }; } },
+        { match: /^cache restart$/, usage: 'cache restart', help: 'restart the cache so it reads cache.conf again', run: (_m, s) => { s.vars.running = s.files['cache.conf']; return { out: 'cache restarted (memory freed)', changed: true }; } },
+        { match: /^cache simulate-week$/, usage: 'cache simulate-week', help: 'pretend a week has passed, to see if memory keeps growing', run: (_m, s) => { const c2 = cacheConf(String(s.vars.running || '')); const cron = /cache restart/.test(s.files.crontab); return { out: c2.ok ? 'memory stays at ~2 GB all week, old entries evicted, 0 restarts ✓' : cron ? 'memory hits 8 GB nightly → cron restarts it at 2:00 → cache empty, menu slow for 10 min each morning' : 'memory hits 8 GB on night 1 → OOM → page', verify: true }; } },
       ],
     },
     check: (s) => {
@@ -352,11 +357,11 @@ maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
       before: { lines: ['maxmemory 0 (unlimited)', 'policy noeviction', 'fix: human restarts at 2am'], outcome: '47 pages, 47 nights' },
       after: (s) => { const c2 = cacheConf(String(s.vars.running)); return { lines: [`maxmemory ${c2.max}`, `policy ${c2.policy}`], outcome: 'flat memory, 0 restarts ✓' }; },
       why: 'Toil is manual, repetitive work that scales with the system. The best automation removes the need for the work entirely: here, a cache with a size limit and an eviction policy. A cron restart would have hidden the bug.',
-      real: `# redis.conf
-- maxmemory 0
-- maxmemory-policy noeviction
-+ maxmemory 2gb
-+ maxmemory-policy allkeys-lru`,
+      real: `# redis.conf: the cache's settings
+- maxmemory 0                  # 0 = no limit: grows until the machine runs out
+- maxmemory-policy noeviction  # when full, refuse new data (errors!)
++ maxmemory 2gb                # cap the cache at 2 GB
++ maxmemory-policy allkeys-lru # when full, drop the least recently used items`,
       realCaption: 'Rule of thumb: keep toil under 50% of on-call time. Fix causes, not symptoms.',
     },
   },
