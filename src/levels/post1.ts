@@ -227,6 +227,12 @@ export class PostScene extends IncidentScene {
     };
   }
 
+  protected coach(): string {
+    if (this.phase === 'play' && this.steps.cause && !this.steps.fix) return 'NEXT: open 🗂 SORTING WALL (key 2), fix the one wrong line, then save.';
+    if (this.phase === 'play' && this.steps.fix) return 'NEXT: prove it. Open ✉ TEST LETTER (key 3) and send a letter to the bakery.';
+    return super.coach();
+  }
+
   protected tabs(): Tab[] {
     return [
       { id: 'lookup', icon: '🔎', label: 'LOOKUP' },

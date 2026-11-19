@@ -76,6 +76,22 @@ export class SpecScene extends IncidentScene {
     return this.spec.intro;
   }
 
+  protected coach(): string {
+    if (this.phase !== 'play') return super.coach();
+    if (this.spec.type === 'config') {
+      if (this.busy) return 'Checking your change… watch the results appear on the right.';
+      if (this.steps.cause && !this.steps.fix) {
+        const key = this.tabs().findIndex((t) => t.id === CHANGE_TAB) + 1;
+        return `NEXT: open ⚙️ CHANGE (key ${key}), change only the setting your evidence points to, then press the green ▶ button.`;
+      }
+      return super.coach();
+    }
+    if (!this.steps.cause) return 'NEXT: find the cause. Type help and press Enter to see the commands, then run the ones that show status, logs or files. Step 2 turns green when you spot it.';
+    if (!this.steps.fix) return 'NEXT: make one change. Type help to see which command fixes it, or open a file with edit <file name>.';
+    if (this.attempts.failedChanges > 0) return super.coach();
+    return 'NEXT: prove it worked. Run the command that tests it (type help: look for curl, test or status).';
+  }
+
   protected tabs(): Tab[] {
     const ev: Tab[] = this.spec.evidence.map((e) => ({ id: e.id, icon: e.icon, label: e.label }));
     if (this.spec.type === 'config') return [...ev, { id: CHANGE_TAB, icon: '⚙️', label: 'CHANGE' }];

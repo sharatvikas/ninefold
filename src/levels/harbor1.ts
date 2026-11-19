@@ -226,6 +226,12 @@ export class HarborScene extends IncidentScene {
     };
   }
 
+  protected coach(): string {
+    if (this.phase === 'play' && this.stage.verifying) return 'Checking your change… watch the next three voyages.';
+    if (this.phase === 'play' && this.steps.cause && !this.steps.fix) return 'NEXT: open ⚙️ MANIFEST (key 3), change only the setting your evidence points to, then apply it.';
+    return super.coach();
+  }
+
   protected tabs(): Tab[] {
     return [
       { id: 'log', icon: '📜', label: 'LOGBOOK' },
