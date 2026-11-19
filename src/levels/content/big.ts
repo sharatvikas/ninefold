@@ -148,7 +148,7 @@ nginx.ingress.kubernetes.io/limit-rps: "20"     # max 20 requests a second per c
       ],
       goal: 'Get bakery.town fully working: correct DNS, a valid certificate, and a working database. Then verify end to end.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'curl https://bakery.town: what customers see\ndig bakery.town\nlb list: load balancers\ncat town.zone\nedit town.zone\ndns reload\ncert show bakery.town\ncert renew bakery.town\ndb status\ndb promote granary-replica\ndb fence granary-primary\ncat app-config.yaml\nedit app-config.yaml\napp restart' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Check each layer, from what customers see down to the database. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter.\n\n1. What do customers see?\n   curl https://bakery.town\n2. Names (DNS): where does bakery.town point, and where should it?\n   dig bakery.town\n   lb list\n   cat town.zone\n   edit town.zone\n   dns reload\n3. The security certificate:\n   cert show bakery.town\n   cert renew bakery.town\n4. The database:\n   db status\n   db promote granary-replica\n   db fence granary-primary\n5. The app\'s settings:\n   cat app-config.yaml\n   edit app-config.yaml\n   app restart\n6. After each fix, check what customers see again (step 1).' }],
     term: {
       host: 'ops',
       motd: '⚠ 02:00 PAGE: bakery.town unreachable\nOn call: you. Good luck.',

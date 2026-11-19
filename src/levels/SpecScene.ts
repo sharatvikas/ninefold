@@ -90,7 +90,7 @@ export class SpecScene extends IncidentScene {
     }
     const book = this.spec.evidence.some((e) => e.kind === 'doc' && e.label === 'HANDBOOK') ? ' New to this? Click the ▶ commands in the 📘 HANDBOOK, in order.' : '';
     if (!this.steps.cause) return `NEXT: find the cause. Type help and press Enter to see the commands, then run the ones that show status, logs or files.${book}`;
-    if (!this.steps.fix) return 'NEXT: make one change. Type help to see which command fixes it, or open a file with edit <file name>.';
+    if (!this.steps.fix) return `NEXT: make one change. Type help to see which command fixes it, or open a file with edit <file name>.${book ? ' The 📘 HANDBOOK lists them step by step.' : ''}`;
     if (this.attempts.failedChanges > 0) return super.coach();
     return 'NEXT: prove it worked. Run the command that tests it (type help: look for curl, test or status).';
   }
@@ -133,7 +133,7 @@ export class SpecScene extends IncidentScene {
           continue;
         }
         const b = h('button', 'doc-cmd', `▶ ${line.trim()}`);
-        b.title = `Put "${cmd}" in the terminal`;
+        b.title = /<[^<>]+>/.test(cmd) ? `Put "${cmd}" in the terminal: type over the <part> with what you found` : `Put "${cmd}" in the terminal`;
         b.addEventListener('click', () => {
           this.pendingInput = cmd;
           this.openTab(TERM_TAB);
@@ -424,6 +424,8 @@ export class SpecScene extends IncidentScene {
     input.spellcheck = false;
     input.value = this.pendingInput;
     this.pendingInput = '';
+    // Select a <placeholder> so typing what you found replaces it.
+    const hole = input.value.match(/<[^<>]+>/);
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowUp' && this.history.length) {
         this.histIdx = Math.min(this.history.length - 1, this.histIdx + 1);
@@ -449,6 +451,7 @@ export class SpecScene extends IncidentScene {
     setTimeout(() => {
       out.scrollTop = out.scrollHeight;
       input.focus();
+      if (hole?.index !== undefined) input.setSelectionRange(hole.index, hole.index + hole[0].length);
     }, 0);
     return wrap;
   }

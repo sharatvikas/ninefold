@@ -255,7 +255,7 @@ $ aws sts assume-role \\
       ],
       goal: 'Find which key opened the vault, disable exactly that key, and confirm the backup job still works.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'audit search vault: vault events\naudit search key <KEYID>: everything a key did\niam list-keys svc-backup\niam disable-key <KEYID>  (undo: iam enable-key)\nbackup test: run the backup job now' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Search the audit log (the record of who did what) for the vault:\n   audit search vault\n2. Look up everything one access key did.\n   Click, then type the key you found over <KEYID>:\n   audit search key <KEYID>\n3. List the backup account\'s keys:\n   iam list-keys svc-backup\n4. Stop the leak. Switch off one key (type the key over <KEYID>):\n   iam disable-key <KEYID>\n   iam enable-key <KEYID>    (undo, if you picked the wrong one)\n5. Check the backups still work:\n   backup test' }],
     term: {
       host: 'security',
       motd: 'Security console · audit log retention 90 days',
@@ -322,7 +322,7 @@ $ aws iam update-access-key --user-name svc-backup \\
       ],
       goal: 'Find what\'s denying Kit, fix the real cause without weakening anyone else\'s protections, and confirm.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'iam simulate kit read granary-ledger\niam groups kit\niam policy <name>\niam remove-from-group <user> <group>\niam delete-policy <name>' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Ask: can Kit read the ledger, and if not, why?\n   iam simulate kit read granary-ledger\n2. See which groups Kit belongs to:\n   iam groups kit\n3. Read a rule (policy). Type the rule\'s name over <name>:\n   iam policy <name>\n4. Fix it for Kit only. Take someone out of a group (type over the <parts>):\n   iam remove-from-group <user> <group>\n   Deleting a rule removes its protection for everyone, so it is risky:\n   iam delete-policy <name>\n5. Ask again to check (step 1).' }],
     term: {
       host: 'security',
       motd: 'Security console',

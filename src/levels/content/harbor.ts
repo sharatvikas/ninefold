@@ -207,7 +207,7 @@ resources:
       ],
       goal: 'Find the noisy neighbour, cap it with a limit, apply, and check node-2 recovers.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Each ▶ command can be clicked, or typed into the ⌨️ TERMINAL yourself.\n\n1. See which machine is overloaded:\n   kubectl top nodes\n2. See which app copy (pod) uses the most CPU:\n   kubectl top pods\n3. Read that app\'s settings:\n   kubectl describe deploy batch-report\n4. Open its file to add a CPU limit:\n   edit batch-report.yaml\n5. Apply your saved change:\n   kubectl apply -f batch-report.yaml\n\nA CPU limit looks like this in the file:\n  resources:\n    limits:\n      cpu: 500m' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Each ▶ command can be clicked, or typed into the ⌨️ TERMINAL yourself.\n\n1. See which machine is overloaded:\n   kubectl top nodes\n2. See which app copy (pod) uses the most CPU:\n   kubectl top pods\n3. Read that app\'s settings:\n   kubectl describe deploy batch-report\n4. Give it a CPU limit (the most CPU it may use). Type an amount over <amount>, e.g. 500m (500m = half a CPU):\n   kubectl set resources deploy batch-report --limits=cpu=<amount>\n5. Check it worked: every app should now get its share of CPU:\n   kubectl top pods\n\nPrefer editing files? edit batch-report.yaml, add the limit under resources, then kubectl apply -f batch-report.yaml.' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',
@@ -244,6 +244,17 @@ spec:
             return { out: `deployment.apps/batch-report configured${lim ? ` (cpu limit ${lim}m)` : ' (no limit set)'}`, changed: true };
           },
         },
+        {
+          // The one-line way: real kubectl can set a limit without hand-editing YAML.
+          match: /^kubectl set resources deploy(?:ment)?[ /]batch-report\s+--limits[= ]cpu=(\d+(?:\.\d+)?m?)$/,
+          usage: 'kubectl set resources deploy batch-report --limits=cpu=<amount>',
+          help: 'give batch-report a CPU limit in one line, e.g. --limits=cpu=500m (500m = half a CPU)',
+          run: (m, s) => {
+            s.files['batch-report.yaml'] = withCpuLimit(s.files['batch-report.yaml'], m[1]);
+            s.vars.applied = s.files['batch-report.yaml'];
+            return { out: `deployment.apps/batch-report resource requirements updated (cpu limit ${limitOf(s.files['batch-report.yaml'])}m)`, changed: true };
+          },
+        },
         { match: /^kubectl delete deploy batch-report$/, usage: 'kubectl delete deploy batch-report', help: 'delete the app completely (careful: hard to undo!)', run: () => ({ out: 'deployment "batch-report" deleted\n⚠ finance: "where are tonight\'s sales reports?!"', changed: true, bad: true }) },
       ],
     },
@@ -256,7 +267,7 @@ spec:
           c('limit is at least its request (200m)', lim >= 200),
           c('change applied to the cluster', !!s.vars.applied),
         ],
-        hint: 'Add resources.limits.cpu under the container\'s resources, then kubectl apply.',
+        hint: 'Give batch-report a CPU limit, e.g. kubectl set resources deploy batch-report --limits=cpu=500m (or edit the file, then kubectl apply).',
       };
     },
     solve: (s) => {
@@ -268,7 +279,10 @@ spec:
       before: { lines: ['batch-report: requests 200m, limits <none>', 'using 1920m on node-2'], outcome: 'bakery-app starved & slow' },
       after: (s) => ({ lines: [`batch-report: limits cpu ${limitOf(String(s.vars.applied))}m`, 'node-2: 55%'], outcome: 'bakery-app fast again ✓' }),
       why: 'Requests decide where pods go and guarantee each pod its share when the node is busy; limits cap how far a pod can burst above that. With no limit, batch-report soaked up all the spare CPU, and bakery-app had requested too little to be protected. Cap the burster, and give important apps honest requests. Cap it, don\'t delete it: the report is still needed, and the loop bug goes into the backlog.',
-      real: `resources:
+      real: `# The one-line way (what you just did):
+$ kubectl set resources deploy batch-report --limits=cpu=500m
+# Teams also write it in the file, so the next deploy doesn't undo it:
+resources:
   requests:
     cpu: 200m    # what it normally needs (used to pick a machine for it)
   limits:
@@ -293,7 +307,7 @@ spec:
       ],
       goal: 'Find out why v3 isn\'t ready, fix the deployment, apply it, and see the rollout finish.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'kubectl rollout status deploy/bakery-app\nkubectl get pods\nkubectl logs bakery-app-v3-0\ncat deploy.yaml\nedit deploy.yaml\nkubectl apply -f deploy.yaml\nkubectl rollout undo deploy/bakery-app (last resort)' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See how the update is going:\n   kubectl rollout status deploy/bakery-app\n2. List the app copies (pods) and their state:\n   kubectl get pods\n3. Read what the new copy printed before it crashed:\n   kubectl logs bakery-app-v3-0\n4. Read the notes and the app\'s settings, then change the settings:\n   cat config-notes.md\n   cat deploy.yaml\n   edit deploy.yaml\n5. Apply your saved change:\n   kubectl apply -f deploy.yaml\n\nLast resort only (it ships nothing new): go back to the old version:\n   kubectl rollout undo deploy/bakery-app' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',
@@ -351,6 +365,12 @@ FATAL: environment variable DB_HOST is not set
     },
   },
 ];
+
+/** Set the container's CPU limit in the YAML, replacing an existing one. */
+function withCpuLimit(yaml: string, cpu: string): string {
+  if (limitOf(yaml)) return yaml.replace(/(limits:\s*\n\s*cpu:\s*)\S+/, `$1${cpu}`);
+  return `${yaml.replace(/\s+$/, '')}\n            limits:\n              cpu: ${cpu}`;
+}
 
 function limitOf(yaml: string): number {
   const m = yaml.match(/limits:\s*\n\s*cpu:\s*["']?(\d+(?:\.\d+)?)(m?)["']?/);

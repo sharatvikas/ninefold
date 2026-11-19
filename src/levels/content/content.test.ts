@@ -63,6 +63,17 @@ describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
       const docs = spec.evidence.filter((e) => e.kind === 'doc');
       for (const d of docs) if (d.kind === 'doc' && d.label === 'HANDBOOK') expect(d.text.split('\n').some((l) => runnableIn(spec.term, l)), d.id).toBe(true);
     });
+    it('only lists handbook steps that really run', () => {
+      // A step's command line is indented 3 spaces; indented guidance ends in ":" or a word and "." (not " ." as in grep … .).
+      for (const d of spec.evidence) {
+        if (d.kind !== 'doc' || d.label !== 'HANDBOOK') continue;
+        const lines = d.text.split('\n');
+        const steps = lines.filter((l) => /^ {3}\S/.test(l) && !/(:|\S\.)$/.test(l.trim()));
+        expect(steps.filter((l) => !runnableIn(spec.term, l))).toEqual([]);
+        // and nothing else in the handbook turns into a button by accident
+        expect(lines.filter((l) => !/^ {3}\S/.test(l) && runnableIn(spec.term, l))).toEqual([]);
+      }
+    });
     it('runs every documented command without crashing', () => {
       const s = newTermState(spec.term);
       for (const cmd of spec.term.commands) {
@@ -78,5 +89,18 @@ describe('coverage', () => {
     const bespoke = ['harbor-1', 'post-1'];
     const ids = new Set([...ALL_SPECS.map((s) => s.id), ...bespoke]);
     expect(LEVELS.filter((l) => !ids.has(l.id)).map((l) => l.id)).toEqual([]);
+  });
+});
+
+describe('harbor-5 one-line limit', () => {
+  it('is solved by kubectl set resources, without editing YAML', async () => {
+    const spec = ALL_SPECS.find((s) => s.id === 'harbor-5');
+    if (spec?.type !== 'terminal') throw new Error('harbor-5 should be a terminal level');
+    const s = newTermState(spec.term);
+    expect(passed(spec.check(s))).toBe(false);
+    run(spec.term, s, 'kubectl set resources deploy batch-report --limits=cpu=500m');
+    expect(passed(spec.check(s))).toBe(true);
+    run(spec.term, s, 'kubectl set resources deploy batch-report --limits=cpu=2');
+    expect(passed(spec.check(s))).toBe(false);
   });
 });

@@ -303,7 +303,7 @@ $ aws ecr put-image-tag-mutability \\
       ],
       goal: 'Compare v3 against v2, make the right call, and confirm customers are healthy.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'rollout status: current split\nmetrics compare: error rate & latency, v2 vs v3\nlogs v3: recent v3 errors\nrollout promote: send everyone to v3\nrollout abort: send everyone back to v2\ncurl http://bakery.town: sample 20 requests' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See how customers are split between the versions:\n   rollout status\n2. Compare the old version (v2) with the new one (v3):\n   metrics compare\n3. Read the new version\'s recent errors:\n   logs v3\n4. Decide. Pick ONE, based on what you found:\n   rollout promote    (send everyone to v3)\n   rollout abort      (send everyone back to v2)\n5. Check what customers get now:\n   curl http://bakery.town' }],
     term: {
       host: 'release',
       motd: 'Release console · rollout "bakery-app" · canary step 1/3 (10%) · paused for analysis',
@@ -361,7 +361,7 @@ $ kubectl argo rollouts abort bakery-app
       ],
       goal: 'Get green healthy, switch the junction, and confirm customers are on v2.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'env status: blue & green\ncurl http://green.internal/health: check green directly\nlogs green: green\'s startup log\nmigrate --env green: run database migrations\nswitch --to green|blue: move the junction\ncurl http://bakery.town: what customers see' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See the two copies of the app (blue = live now, green = new):\n   env status\n2. Ask green directly if it is healthy:\n   curl http://green.internal/health\n3. Read what green printed when it started:\n   logs green\n4. A tool you may need, depending on what you found:\n   migrate --env green    (updates the database layout for the new version)\n5. Send customers to green:\n   switch --to green\n6. Check what customers get now:\n   curl http://bakery.town' }],
     term: {
       host: 'deploy',
       motd: 'Deploy console · live: BLUE (v1) · standby: GREEN (v2)',

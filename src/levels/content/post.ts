@@ -244,7 +244,7 @@ $ aws ec2 authorize-security-group-ingress \\
       ],
       goal: 'Find out why visitors still reach a broken server, fix the load balancer config, reload it, and confirm with curl.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'lb status: what the load balancer thinks of each server\ncurl http://bakery.town: visit the site 10 times\ncurl http://bakery-a:3000/health: ask server a directly (try b and c too)\ncat lb.conf: read the config\nedit lb.conf: change it\nlb reload: apply your change' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See what the load balancer thinks of each server:\n   lb status\n2. Visit the site the way customers do:\n   curl http://bakery.town\n3. Ask each server directly if it is healthy:\n   curl http://bakery-a:3000/health\n   curl http://bakery-b:3000/health\n   curl http://bakery-c:3000/health\n4. Read the load balancer\'s settings, then change them:\n   cat lb.conf\n   edit lb.conf\n5. Apply your change, then visit the site again (step 2):\n   lb reload' }],
     term: {
       host: 'lb-1',
       motd: 'Town gate load balancer (lb-1). 3 backends in pool "bakery".',
@@ -350,7 +350,7 @@ upstream bakery {
       ],
       goal: 'Find where the letters get lost, fix the route, and confirm with traceroute.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'traceroute 10.0.9.5: shows each hop.\nip route: shows r2\'s routing table.\nRoutes live in routes.conf. Format: <network> via <next hop>\nAfter editing: route reload' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Follow the path to the east-side house, one hop at a time:\n   traceroute 10.0.9.5\n2. See the routing table (which road each address range takes):\n   ip route\n3. Check whether a router is alive. Type its address over <next hop>:\n   ping <next hop>\n4. Read the routes, then change them.\n   Each line looks like <network> via <next hop>, for example 10.0.1.0/24 via 10.0.0.1.\n   cat routes.conf\n   edit routes.conf\n5. Apply your change, then follow the path again (step 1):\n   route reload' }],
     term: {
       host: 'r2',
       motd: 'Router r2 · interfaces: eth0 10.0.6.2 (to r1), eth1 10.0.7.2 (to r3), eth2 10.0.8.2 (old east link, decommissioned)',
