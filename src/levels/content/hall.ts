@@ -27,12 +27,12 @@ export const HALL: LevelSpec[] = [
     },
     evidence: [
       {
-        kind: 'inspect', id: 'voices', icon: '🗣', label: 'WHAT PEOPLE SAY', hint: 'Click each.',
+        kind: 'inspect', id: 'voices', icon: '🗣', label: 'WHAT PEOPLE SAY', hint: 'Everyone measures "working" differently. Click each person to hear what they mean.',
         items: [
           { title: 'Customer', summary: '"If checkout takes >2s I give up"', detail: 'Slow counts as broken. Speed and success both matter, and 2 seconds is the line.', evidence: true },
           { title: 'Customer', summary: '"It\'s fine if it fails once in a while"', detail: 'Customers tolerate the occasional failure. They don\'t need perfection.', evidence: true },
           { title: 'Ovens team', summary: '"The servers are up 100%!"', detail: 'Servers being up doesn\'t mean orders work. That measures machines, not customers.' },
-          { title: 'Mayor Bo', summary: '"99.99% would need 3 extra bakers"', detail: 'Each extra nine costs a lot. Below about 99%, customers start leaving.', evidence: true },
+          { title: 'Mayor Bo', summary: '"99.99% would need 3 extra bakers"', detail: 'Each extra nine costs a lot. Below about 99%, customers start leaving. In a 30-day month, 99% allows about 7 hours of bad service, 99.5% about 3.5 hours, 99.9% about 43 minutes and 99.99% only 4 minutes. 99.99% would need 3 extra bakers.', evidence: true },
         ],
       },
     ],
@@ -163,9 +163,9 @@ burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than we can afford
     },
     recap: {
       headline: 'Capacity planning is arithmetic: peak ÷ per-server capacity, plus headroom.',
-      before: { lines: ['min 3 · max 3', '3 × ~330/s = ~1000/s'], outcome: 'festival 2000/s → outage' },
-      after: (x) => ({ lines: [`min ${num(x.min)} · max ${num(x.max)} · target ${num(x.cpu)}%`, `up to ${num(x.max)} × ${Math.round(330 * num(x.cpu) / 100)}/s`], outcome: 'festival handled, normal days cheap ✓' }),
-      why: 'Use last year\'s peak to size the max, keep a CPU target that leaves room for spikes and slow scale-up, and keep the minimum low so you only pay for the festival on festival day. Load-test before the big day.',
+      before: { lines: ['min 3 · max 3', '3 × 330/s flat out ≈ 1,000/s'], outcome: 'festival 2000/s → outage' },
+      after: (x) => ({ lines: [`min ${num(x.min)} · max ${num(x.max)} · target ${num(x.cpu)}%`, `up to ${num(x.max)} × ~${Math.round(330 * num(x.cpu) / 100)}/s at ${num(x.cpu)}% CPU = ${num(x.max) * Math.round(330 * num(x.cpu) / 100)}/s`], outcome: 'festival handled, normal days cheap ✓' }),
+      why: 'Use last year\'s peak to size the max. Keep a CPU target that leaves room for spikes and slow scale-up. Keep the minimum low, so you only pay for the festival on festival day. Load-test before the big day.',
       real: `# A Kubernetes autoscaler: adds or removes app copies to match the load
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -192,13 +192,13 @@ spec:
         'Some expensive things are expensive for a reason.',
         'Check each item before you cut it.',
       ],
-      goal: 'Cut the bill by 40% or more without hurting production or breaking any rules.',
+      goal: 'Cut the bill by 40% or more (from 12,400 to about 7,400 coins or less) without hurting production or breaking any rules.',
     },
     evidence: [
       {
         kind: 'inspect', id: 'bill', icon: '🧾', label: 'BILL BREAKDOWN', hint: 'Click each line item.',
         items: [
-          { title: 'dev servers ×12', summary: '4,800/month · 5% avg CPU', detail: 'Twelve large dev servers running 24/7, but used only in office hours, and barely then. Scheduling them off nights and weekends saves ~70%; smaller sizes save more.', evidence: true },
+          { title: 'dev servers ×12', summary: '4,800/month · 5% avg CPU', detail: 'Twelve large dev servers running 24/7, but used only in office hours, and barely then. Turning them off nights and weekends saves about 70%. Shrinking them to a small size halves what is left. The two stack: do both and 4,800 drops to 720.', evidence: true },
           { title: 'unattached disks ×31', summary: '1,100/month', detail: 'Disks left behind by deleted servers. Attached to nothing, used by nothing.', evidence: true },
           { title: '2019 tax snapshot (5 TB)', summary: '900/month', detail: 'Legal note: "Keep until 2029. Only copy of 2019 tax records." Expensive, but required.', evidence: true },
           { title: 'production database', summary: '3,200/month · 70% CPU', detail: 'Busy and appropriately sized. Shrinking it would slow the bakery down.' },

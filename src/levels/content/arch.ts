@@ -214,13 +214,14 @@ resource "aws_db_instance" "granary" {
       known: [
         'The state ledger is how the builders know what already exists.',
         'Right now the ledger is a file on Ada\'s laptop, copied to Ben by chat.',
+        'A shared place isn\'t enough on its own: it also needs a lock, so only one person writes at a time.',
         'Two applies at once both read the old ledger, then both wrote their own version.',
       ],
       goal: 'Set up the ledger so two architects can never clobber each other again.',
     },
     evidence: [
       {
-        kind: 'log', id: 'log', icon: '📜', label: 'APPLY LOG', hint: 'Click lines.',
+        kind: 'log', id: 'log', icon: '📜', label: 'APPLY LOG', hint: 'What happened at 14:02, line by line. Click each line and watch who read and wrote the ledger, and when.',
         lines: [
           { t: '14:02:01', text: 'Ada: read state (v41)', note: 'Ada starts from version 41 of the ledger.' },
           { t: '14:02:03', text: 'Ben: read state (v41)', note: 'Ben also starts from v41. Neither knows about the other.', evidence: true },
@@ -251,7 +252,7 @@ resource "aws_db_instance" "granary" {
       headline: 'Two applies read the same old ledger and the last one to write won.',
       before: { lines: ['state: laptop file', 'locking: none', '14:02 Ada & Ben both apply'], outcome: 'ledger lost the well' },
       after: () => ({ lines: ['state: remote, shared', 'locking: on', 'versioning: on'], outcome: 'Ben: "waiting for lock held by Ada…" ✓' }),
-      why: 'State must be shared (one source of truth), locked (one writer at a time) and versioned (so mistakes can be undone). A remote backend with locking gives all three.',
+      why: 'State must be shared (one source of truth), locked (one writer at a time) and versioned (so mistakes can be undone). A remote backend with locking gives all three. Git is shared but has no lock (two people can still push at once), and state files can contain passwords, so they don\'t belong in git.',
       real: `# Where Terraform keeps its memory of what it built (the "state" file)
 terraform {
   backend "s3" {                             # keep it in a shared S3 bucket, not on a laptop

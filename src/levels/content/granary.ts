@@ -7,7 +7,7 @@ export const GRANARY: LevelSpec[] = [
     id: 'granary-1',
     type: 'config',
     alert: 'BARN FULL: NEW GRAIN REJECTED',
-    board: { broken: ['barn: 100% full', 'new orders: rejected'], fixed: ['barn: 41% full', 'orders: accepted ✓'] },
+    board: { broken: ['barn: 100% full', 'new orders: rejected'], fixed: ['barn: 25% full', 'orders: accepted ✓'] },
     intro: {
       symptom: 'The barn is full to the rafters. Farmers arriving with today\'s harvest are being turned away, so orders can\'t be saved.',
       known: [
@@ -22,12 +22,12 @@ export const GRANARY: LevelSpec[] = [
         kind: 'chart', id: 'space', icon: '📈', label: 'WHAT\'S IN THE BARN', hint: 'Share of barn space (%). Click each.',
         bars: [
           { label: 'grain', value: 16, note: 'Real data: 16%. Growing slowly and steadily.' },
-          { label: 'logs <30d', value: 3, note: 'The last 30 days of logs: 3%. The auditor needs these.' },
-          { label: 'logs >30d', value: 81, note: 'Logs older than 30 days: 81% of the barn! Never rotated, never compressed, kept forever.', evidence: true },
+          { label: 'logs <30d', value: 9, note: 'The last 30 days of logs: 9% (2% a week, for about 4 weeks). The auditor needs these.' },
+          { label: 'logs >30d', value: 75, note: 'Logs older than 30 days: 75% of the barn! Never rotated, never compressed, kept forever.', evidence: true },
         ],
         unit: '%',
       },
-      { kind: 'log', id: 'growth', icon: '📜', label: 'BARN NOTES', hint: 'Click lines.', lines: [{ text: 'logs grow 2% of the barn per week', note: 'Without rotation, the barn fills up again regardless of size.', evidence: true }, { text: 'quote: a barn twice the size, 4,000 coins', note: 'A bigger barn just postpones it: logs would fill it again in about 40 weeks.' }] },
+      { kind: 'log', id: 'growth', icon: '📜', label: 'BARN NOTES', hint: 'Notes about what fills the barn. Click each line to read it.', lines: [{ text: 'logs grow 2% of the barn per week', note: 'Without rotation, the barn fills up again regardless of size.', evidence: true }, { text: 'quote: a barn twice the size, 4,000 coins', note: 'A barn twice the size gives you 100% more room. At 2% a week, logs fill that in about 50 weeks: less than a year.' }] },
     ],
     configTitle: 'BARN HOUSEKEEPING',
     fields: [
@@ -48,14 +48,14 @@ export const GRANARY: LevelSpec[] = [
           c(`auditor gets 30 days of logs (keeping ${keep})`, keep >= 30),
           c('no grain thrown away', true),
         ],
-        hint: x.bigger && !ok ? 'A bigger barn fills up again. What keeps growing forever?' : keep < 30 ? 'The auditor needs 30 days.' : 'What\'s taking 81% of the space, and does it need to stay forever?',
+        hint: x.bigger && !ok ? 'A bigger barn fills up again. What keeps growing forever?' : keep < 30 ? 'The auditor needs 30 days.' : 'What\'s taking 75% of the space, and does it need to stay forever?',
         wasteful: x.bigger && ok ? 'with rotation on, the new barn isn\'t needed: 4,000 coins for empty space.' : undefined,
       };
     },
     recap: {
-      headline: 'Old logs nobody needed filled 81% of the barn.',
-      before: { lines: ['grain 16% · logs<30d 3%', 'logs>30d 81% (kept forever)'], outcome: 'disk 100%, writes fail' },
-      after: (x) => ({ lines: [`rotate+compress: ${x.rotate ? 'on' : 'off'}`, `retain: ${num(x.keep)} days`], outcome: 'disk ~41%, stays flat ✓' }),
+      headline: 'Old logs nobody needed filled 75% of the barn.',
+      before: { lines: ['grain 16% · logs<30d 9%', 'logs>30d 75% (kept forever)'], outcome: 'disk 100%, writes fail' },
+      after: (x) => ({ lines: [`rotate+compress: ${x.rotate ? 'on' : 'off'}`, `retain: ${num(x.keep)} days`], outcome: 'disk ~25% (16% grain + 9% logs), stays flat ✓' }),
       why: 'Disks fill up from things that grow forever: logs, temp files, old backups. Find what\'s using the space first, then add a retention policy so it can\'t recur. A bigger disk only buys time.',
       real: `# Which folders under /var/log are biggest? (largest last)
 $ du -sh /var/log/* | sort -h | tail
@@ -260,11 +260,12 @@ SELECT now() - pg_last_xact_replay_timestamp() AS lag;
     alert: 'TOO MANY CONNECTIONS',
     board: { broken: ['db: too many clients', 'orders failing'], fixed: ['connections: 160/200', 'orders OK ✓'] },
     intro: {
-      symptom: 'Since the bakery app was scaled up to 8 copies this morning, about a third of orders fail with "sorry, too many clients already".',
+      symptom: 'Since the bakery app was scaled up to 8 copies this morning, most orders fail with "sorry, too many clients already".',
       known: [
         'Each app copy opens a pool of database connections at start-up.',
         'The database accepts a limited number of connections.',
         'Each copy runs at most 12 queries at the same time.',
+        'Every copy opens its whole pool at start-up, even when it is quiet.',
       ],
       goal: 'Find the mismatch, fix the pool size, restart the app, and confirm orders succeed.',
     },

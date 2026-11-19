@@ -469,3 +469,10 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 .snip-k { font-family: var(--px); font-size: 0.9cqw; color: var(--wood-dark); }
 .snip { font-family: system-ui, sans-serif; font-size: 1.05cqw; text-transform: none; }
 .snip:disabled { cursor: default; }
+.irl { font-family: system-ui, sans-serif; font-size: 1.2cqw; line-height: 1.4; color: #2f5a3a; background: #e8f4e6; border-radius: 0.4cqw; padding: 0.35cqw 0.7cqw; }
+.recap-irl { margin: 0.3cqw 0 0.5cqw; }
+.wordlist { margin: 0.3cqw 0 0; font-family: system-ui, sans-serif; font-size: 1.15cqw; line-height: 1.35; display: grid; grid-template-columns: max-content 1fr; gap: 0.25cqw 0.9cqw; }
+.wordlist dt { font-weight: 700; color: var(--wood-dark); }
+.wordlist dd { margin: 0; }
+.recap-words { margin-top: 0.5cqw; font-family: system-ui, sans-serif; font-size: 1.1cqw; }
+.recap-words summary { cursor: pointer; color: var(--wood); }

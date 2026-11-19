@@ -21,7 +21,7 @@ export const HARBOR: LevelSpec[] = [
     },
     evidence: [
       {
-        kind: 'log', id: 'crane', icon: '📜', label: 'CRANE LOG', hint: 'Click lines.',
+        kind: 'log', id: 'crane', icon: '📜', label: 'CRANE LOG', hint: 'What the crane did this morning. Click each line, and compare the label it asks for with the warehouse list.',
         lines: [
           { t: '09:00', text: 'order: load "bakery-app:v2.4.l"', note: 'The order this morning. Look very closely at the label.' },
           { t: '09:00', text: 'warehouse: no cargo labeled "bakery-app:v2.4.l"', note: 'The warehouse has nothing with that exact label. Compare it with the warehouse list: that last character is a lowercase L, not a one.', evidence: true },
@@ -75,7 +75,7 @@ $ kubectl describe pod ship-9
     },
     evidence: [
       {
-        kind: 'log', id: 'events', icon: '📜', label: 'HARBOR EVENTS', hint: 'Click lines.',
+        kind: 'log', id: 'events', icon: '📜', label: 'HARBOR EVENTS', hint: 'What the harbor recorded about ship-4. Click each line to read it.',
         lines: [
           { t: '10:00', text: 'Started ship-4', note: 'The ship started fine.' },
           { t: '10:00', text: 'Readiness probe failed: GET :8080/healthz → connection refused', note: 'The harbor master knocks on port 8080, path /healthz. Nobody answers on 8080 at all.', evidence: true },
@@ -145,7 +145,7 @@ readinessProbe:
       goal: 'Get the waiting ships berthed with reservations that match what they really use.',
     },
     evidence: [
-      { kind: 'log', id: 'events', icon: '📜', label: 'HARBOR EVENTS', hint: 'Click lines.', lines: [{ text: 'ship-5: 0/3 berths available: 3 Insufficient cpu', note: 'No berth has 4000 units free, and none ever will: they only have 2000 each.', evidence: true }, { text: 'ship-5 requests cpu: 4000m', note: 'Each ship asks to reserve 4000m (4 whole CPUs).', evidence: true }] },
+      { kind: 'log', id: 'events', icon: '📜', label: 'HARBOR EVENTS', hint: 'Why the new ships can\'t berth. Click each line to read it.', lines: [{ text: 'ship-5: 0/3 berths available: 3 Insufficient cpu', note: 'No berth has 4000 units free, and none ever will: they only have 2000 each.', evidence: true }, { text: 'ship-5 requests cpu: 4000m', note: 'Each ship asks to reserve 4000m (4 whole CPUs).', evidence: true }] },
       {
         kind: 'chart', id: 'usage', icon: '📈', label: 'ACTUAL CPU USE', hint: 'What similar ships really use (millicores), busiest hour.',
         bars: [

@@ -5,9 +5,14 @@ import { feedbackLink, feedbackUrl, h } from '../ui/ui';
 import type { LevelResult } from '../world/TownScene';
 import type { LevelMeta } from './catalog';
 import { newAttempts, trustFor, type Attempts } from './sims/score';
+import { IN_REAL_LIFE } from './content/inRealLife';
+import { textOf, wordsIn, type Word } from './glossary';
 
 export type Exit = (r: LevelResult) => void;
 export type StepId = 'understand' | 'cause' | 'fix' | 'verify';
+
+/** Always the last tool: the real-world words this ticket uses, explained. */
+const WORDS_TAB: Tab = { id: 'words', icon: '📖', label: 'WORDS' };
 
 const STEPS: [StepId, string][] = [
   ['understand', 'UNDERSTAND'],
@@ -112,7 +117,7 @@ export abstract class IncidentScene implements Scene {
 
     const tray = h('div', 'tray');
     const bar = h('div', 'hotbar');
-    this.tabs().forEach((tab, i) => {
+    this.allTabs().forEach((tab, i) => {
       const b = h('button', 'slot');
       b.append(h('span', 'key', String(i + 1)), h('span', 'icon', tab.icon), h('small', /\S{9,}/.test(tab.label) ? 'long' : '', tab.label));
       b.addEventListener('click', () => this.openTab(tab.id));
@@ -164,7 +169,7 @@ export abstract class IncidentScene implements Scene {
         this.game.ui.toast('PRESS ESC AGAIN TO LEAVE · THIS TICKET RESTARTS', 'info');
       }
     }
-    this.tabs().forEach((tab, i) => {
+    this.allTabs().forEach((tab, i) => {
       if (input.wasPressed(String(i + 1)) && !this.blocked) this.openTab(tab.id);
     });
   }
@@ -184,17 +189,45 @@ export abstract class IncidentScene implements Scene {
   }
 
   protected openTab(id: string): void {
-    const tab = this.tabs().find((t) => t.id === id);
+    const tab = this.allTabs().find((t) => t.id === id);
     if (!tab) return;
     this.activeTab = id;
     this.tabBtns.forEach((b, k) => b.classList.toggle('sel', k === id));
     this.panelTitle.textContent = `${tab.icon} ${tab.label}`;
-    this.panelBody.replaceChildren(this.renderTab(id));
+    this.panelBody.replaceChildren(this.tabContent(id));
   }
 
   /** Re-render the open tab (after state changes). */
   protected refreshTab(): void {
-    if (this.activeTab) this.panelBody.replaceChildren(this.renderTab(this.activeTab));
+    if (this.activeTab) this.panelBody.replaceChildren(this.tabContent(this.activeTab));
+  }
+
+  private allTabs(): Tab[] {
+    return [...this.tabs(), WORDS_TAB];
+  }
+
+  private tabContent(id: string): Node {
+    return id === WORDS_TAB.id ? this.wordsTab() : this.renderTab(id);
+  }
+
+  /** Everything this ticket says, so the 📖 WORDS tool can explain the real-world words it uses. Subclasses add their text. */
+  protected wordsSource(): string {
+    return textOf(this.intro());
+  }
+
+  private words: Word[] | undefined;
+
+  protected ticketWords(): Word[] {
+    this.words ??= wordsIn(`${this.wordsSource()} ${IN_REAL_LIFE[this.meta.id] ?? ''}`);
+    return this.words;
+  }
+
+  private wordsTab(): Node {
+    const wrap = h('div', 'evidence words');
+    const real = IN_REAL_LIFE[this.meta.id];
+    if (real) wrap.append(h('div', 'sub', 'IN REAL LIFE'), h('div', 'irl', real));
+    wrap.append(h('div', 'sub', 'WORDS IN THIS TICKET'), wordList(this.ticketWords()));
+    return wrap;
   }
 
   protected say(msg: string, kind: 'good' | 'bad' | 'info' | 'warn' = 'info'): void {
@@ -291,7 +324,8 @@ export abstract class IncidentScene implements Scene {
       known,
       h('div', 'sub', 'YOUR GOAL'),
       h('div', 'goal', i.goal),
-      h('div', 'howto', 'How every ticket works: ① read this card · ② find the cause with the tools at the bottom · ③ change one thing · ④ check it really works. Guessing costs Trust. Stuck? Follow the 👉 yellow line.'),
+      ...(IN_REAL_LIFE[this.meta.id] ? [h('div', 'sub', 'IN REAL LIFE'), h('div', 'irl', IN_REAL_LIFE[this.meta.id])] : []),
+      h('div', 'howto', 'How every ticket works: ① read this card · ② find the cause with the tools at the bottom · ③ change one thing · ④ check it really works. Guessing costs Trust. Stuck? Follow the 👉 yellow line. New word? The 📖 WORDS tool explains it.'),
       btn,
     );
     wrap.append(card);
@@ -342,7 +376,11 @@ export abstract class IncidentScene implements Scene {
     fb.target = '_blank';
     fb.rel = 'noopener';
     foot.append(h('div', 'score', notes.length ? `Trust: ${notes.join(', ')}.` : 'Clean fix: evidence first, one change, verified. Full Trust!'), btn);
-    card.append(h('div', 'title', '✓ TICKET SOLVED'), h('div', 'headline', r.headline), ba, lower, foot, fb);
+    const mapping = IN_REAL_LIFE[this.meta.id];
+    const irl = mapping ? h('div', 'irl recap-irl', `IN REAL LIFE: ${mapping}`) : h('div');
+    const words = h('details', 'recap-words');
+    words.append(h('summary', '', `📖 Words in this ticket (${this.ticketWords().length})`), wordList(this.ticketWords()));
+    card.append(h('div', 'title', '✓ TICKET SOLVED'), h('div', 'headline', r.headline), irl, ba, lower, foot, words, fb);
     wrap.append(card);
     this.root.append(wrap);
     btn.focus();
@@ -368,4 +406,11 @@ export function codeBlock(text: string): HTMLElement {
     pre.append('\n');
   }
   return pre;
+}
+
+/** A list of words with their plain-English meaning. */
+function wordList(words: Word[]): HTMLElement {
+  const dl = h('dl', 'wordlist');
+  for (const w of words) dl.append(h('dt', '', w.term), h('dd', '', w.plain));
+  return dl;
 }

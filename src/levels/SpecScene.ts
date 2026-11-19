@@ -7,6 +7,7 @@ import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './in
 import { applySnippet, passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
 import { explain, newTermState, run, runnableIn, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
+import { textOf } from './glossary';
 
 const CHANGE_TAB = 'change';
 const TERM_TAB = 'terminal';
@@ -76,6 +77,19 @@ export class SpecScene extends IncidentScene {
 
   protected intro(): Intro {
     return this.spec.intro;
+  }
+
+  protected wordsSource(): string {
+    const spec = this.spec;
+    let real = '';
+    if (typeof spec.recap.real === 'string') real = spec.recap.real;
+    else if (spec.type === 'config') real = (spec.recap.real as (c: Cfg) => string)(clone(spec.solution));
+    else {
+      const t = newTermState(spec.term);
+      spec.solve(t);
+      real = (spec.recap.real as (s: TermState) => string)(t);
+    }
+    return `${textOf(spec)} ${real}`;
   }
 
   protected coach(): string {
@@ -216,7 +230,7 @@ export class SpecScene extends IncidentScene {
         // A real search needs a few letters, so a one-letter search can't flag the answer.
         const searched = q.length >= 3;
         const hits = q ? e.lines.filter((l) => l.toLowerCase().includes(q)) : e.lines.slice(0, 8);
-        list.append(h('div', 'muted', q ? `${hits.length} of ${e.lines.length} lines match "${this.searchQuery}"` : `${e.lines.length} lines. Showing the first 8. Search to filter.`));
+        list.append(h('div', 'muted', q ? `${hits.length} of ${e.lines.length} lines match "${this.searchQuery}"` : e.lines.length <= 8 ? `${e.lines.length} lines. Search to filter.` : `${e.lines.length} lines. Showing the first 8. Search to filter.`));
         for (const l of hits.slice(0, 40)) list.append(h('div', searched && e.evidence.test(l) ? 'hitline' : '', l));
         if (q && !searched) list.append(h('div', 'muted', 'Type at least 3 letters to search properly.'));
         if (searched && hits.some((l) => e.evidence.test(l))) {

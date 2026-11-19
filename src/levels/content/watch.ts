@@ -4,8 +4,19 @@ import { arr, c, has, num, type LevelSpec } from '../spec';
 /** ~300 lines of realistic noise with a handful of real errors. */
 function bigLog(): string[] {
   const R = rng(42);
-  const svc = ['menu-svc', 'checkout', 'auth', 'oven-ctl', 'stock'];
-  const msgs = ['GET /menu 200 12ms', 'cache hit menu:today', 'POST /cart 200 31ms', 'session refreshed', 'oven temp 182C ok', 'stock check flour=OK', 'GET /health 200 1ms', 'order queued', 'WARN slow query 210ms (stock.list)', 'payment authorised'];
+  // Each line comes from the service that would really log it, at the right level.
+  const lines: [level: string, svc: string, msg: string][] = [
+    ['INFO', 'menu-svc', 'GET /menu 200 12ms'],
+    ['INFO', 'menu-svc', 'cache hit menu:today'],
+    ['INFO', 'checkout', 'POST /cart 200 31ms'],
+    ['INFO', 'auth', 'session refreshed'],
+    ['INFO', 'oven-ctl', 'oven temp 182C ok'],
+    ['INFO', 'stock', 'stock check flour=OK'],
+    ['INFO', 'auth', 'GET /health 200 1ms'],
+    ['INFO', 'checkout', 'order queued'],
+    ['WARN', 'stock', 'slow query 210ms (stock.list)'],
+    ['INFO', 'checkout', 'payment authorised'],
+  ];
   const out: string[] = [];
   for (let i = 0; i < 300; i++) {
     const t = `09:${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}`;
@@ -17,7 +28,8 @@ function bigLog(): string[] {
       out.push(`${t} ERROR auth: token expired for user=guest (retried OK)`);
       continue;
     }
-    out.push(`${t} INFO ${svc[Math.floor(R() * svc.length)]}: ${msgs[Math.floor(R() * msgs.length)]}`);
+    const [level, svc, msg] = lines[Math.floor(R() * lines.length)];
+    out.push(`${t} ${level} ${svc}: ${msg}`);
   }
   return out;
 }
@@ -75,7 +87,7 @@ export const WATCH: LevelSpec[] = [
       after: (x) => ({ lines: arr(x.lamps).map((l) => `lamp: ${l}`), outcome: 'all 4 outages would have been caught ✓' }),
       why: 'These four signals describe what users feel (slow, failing) and what\'s coming (load, fullness). Measure them for every user-facing service before anything else. Most other metrics are for debugging, not alerting.',
       real: `# PromQL: one query per "golden signal" (the four numbers that show a service's health)
-# latency: how slow are the slowest 5% of requests?
+# latency: 95% of requests take this long or less (1 in 20 is slower)
 latency:    histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))
 # traffic: requests per second
 traffic:    sum(rate(http_requests_total[5m]))
@@ -99,6 +111,7 @@ saturation: avg(queue_depth) / avg(queue_capacity)`,
         'Almost every log line is normal noise.',
         'Searching is faster than scrolling: try words like ERROR or the service name.',
         'The till waits a fixed time for the card reader.',
+        'A declined card is a real "no" from the bank. Retrying a payment can charge the customer twice.',
       ],
       goal: 'Find the error that matters, then change the till setting so checkouts stop failing.',
     },
@@ -141,10 +154,10 @@ ERROR till timed out after 2.0s … reader responded in 3.4s
   {
     id: 'watch-3',
     type: 'config',
-    alert: 'MENU PAGE TAKES 2.4s',
-    board: { broken: ['GET /menu p95: 2.4s', 'target: < 1s'], fixed: ['GET /menu p95: fast', 'target met ✓'] },
+    alert: 'MENU PAGE TAKES 2.3s',
+    board: { broken: ['GET /menu p95: 2.3s', 'target: < 1s'], fixed: ['GET /menu p95: fast', 'target met ✓'] },
     intro: {
-      symptom: 'The menu page takes 2.4 seconds to load. Each part of the system says it\'s "fine".',
+      symptom: 'The menu page takes 2.3 seconds to load. Each part of the system says it\'s "fine".',
       known: [
         'One page view travels through several services, like a courier with several stops.',
         'A trace records how long each stop took.',
@@ -158,7 +171,7 @@ ERROR till timed out after 2.0s … reader responded in 3.4s
         bars: [
           { label: 'gateway', value: 20, note: 'Gateway: 20ms. Fine.' },
           { label: 'menu-svc', value: 60, note: 'menu-svc: 60ms of its own work. Fine.' },
-          { label: 'price-svc', value: 2150, note: 'price-svc: 2150ms. This is the slow stop. Look inside it…', evidence: true },
+          { label: 'price-svc', value: 2150, note: 'price-svc: 2150ms (2,100 of it waiting for the tax office, 50 of its own work). This is the slow stop. Look inside it…', evidence: true },
           { label: '└ tax ×3', value: 2100, note: 'Inside price-svc: three calls to the tax office, one after another, 700ms each. Tax rates change once a year.', evidence: true },
           { label: 'render', value: 40, note: 'Render: 40ms.' },
         ],
@@ -181,17 +194,17 @@ ERROR till timed out after 2.0s … reader responded in 3.4s
     },
     recap: {
       headline: 'Every page view called the tax office three times, one after another, for data that changes yearly.',
-      before: { lines: ['price-svc → tax (700ms)', '         → tax (700ms)', '         → tax (700ms)'], outcome: 'p95 2.4s' },
-      after: (x) => ({ lines: x.fix === 'cache' ? ['price-svc → cache (1ms)', '(tax refreshed hourly)'] : ['price-svc → tax ×3 in parallel (700ms)'], outcome: x.fix === 'cache' ? 'p95 0.18s ✓' : 'p95 0.87s ✓' }),
+      before: { lines: ['price-svc → tax (700ms)', '         → tax (700ms)', '         → tax (700ms)'], outcome: 'p95 2.3s' },
+      after: (x) => ({ lines: x.fix === 'cache' ? ['price-svc → cache (1ms)', '(tax refreshed hourly)'] : ['price-svc → tax ×3 in parallel (700ms)'], outcome: x.fix === 'cache' ? 'p95 0.17s ✓' : 'p95 0.87s ✓' }),
       why: 'Metrics said "slow", but only a trace showed where: one stop, making repeated sequential calls. Adding copies or timeouts treats symptoms. Remove the repeated work (cache) or at least stop waiting in series (parallel).',
       real: `# A trace: one request, and every call it made along the way (Tempo/Jaeger)
-GET /menu ─────────────────────── 2.4s
+GET /menu ─────────────────────── 2.3s
   price-svc ──────────────────── 2.15s
     tax-api ───── 700ms
            tax-api ───── 700ms
-                  tax-api ───── 700ms   ← N+1 pattern
-# The same slow call, one after another: ask for all the prices in one call instead`,
-      realCaption: 'Sequential repeated calls inside one span are the classic "N+1" shape in a trace.',
+                  tax-api ───── 700ms   ← the same slow call, three times in a row
+# Fix: remember the answer (cache it), since tax rates change once a year`,
+      realCaption: 'Look for the same call repeated one after another inside a span. A similar shape, one call per item in a list, is called "N+1".',
     },
   },
 
@@ -218,6 +231,7 @@ GET /menu ─────────────────────── 
           { label: 'disk>80%', value: 64, note: 'Disk over 80%: 64 pages. The disk fills over weeks. Worth fixing, but in office hours.', evidence: true },
           { label: 'any 500', value: 30, note: 'Every single error: 30 pages. One error isn\'t an outage; a rising error RATE is.' },
           { label: 'err rate', value: 2, note: 'Error rate over 2% for 5 minutes: 2 pages, both real incidents. Not even enabled for paging yet, these were emails!', evidence: true },
+          { label: 'slow >1s', value: 1, note: 'p95 latency over 1s for 10 minutes: this would have paged once, during the checkout slowdown when customers waited 8 seconds. Real, and worth waking up for.', evidence: true },
         ],
       },
     ],
@@ -246,7 +260,7 @@ GET /menu ─────────────────────── 
     recap: {
       headline: 'Page on customer pain, ticket the rest.',
       before: { lines: ['page: CPU>70%, disk>80%, any 500', 'email: error rate'], outcome: '286 pages, real incidents ignored' },
-      after: (x) => ({ lines: [`page: ${arr(x.page).join(', ')}`, `ticket: ${arr(x.ticket).join(', ') || '(none)'}`], outcome: '3 pages, both incidents caught ✓' }),
+      after: (x) => ({ lines: [`page: ${arr(x.page).map(alertName).join(', ')}`, `ticket: ${arr(x.ticket).map(alertName).join(', ') || '(none)'}`], outcome: '3 pages, both incidents caught ✓' }),
       why: 'Every non-actionable page trains people to ignore the bell. Alert on symptoms (error rate, latency) that mean users are hurting, with a duration so blips don\'t page. Slow-burn causes like a filling disk become tickets.',
       real: `# Alert rules: when to wake a human (page), and when a ticket will do
 - alert: HighErrorRate
@@ -396,7 +410,7 @@ panels:
       // Each button fills its own panel's query.
       'dashboard.yaml': [
         { label: 'Availability: good requests ÷ all requests', text: 'title: Availability (%)\n    query: sum(rate(http_requests_total{code!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))', replace: 'title: Availability (%)\n    query: ""' },
-        { label: 'p95 latency: the slowest 5% of requests', text: 'title: p95 latency (s)\n    query: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))', replace: 'title: p95 latency (s)\n    query: ""' },
+        { label: 'p95 latency: the time 95% of requests stay under', text: 'title: p95 latency (s)\n    query: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))', replace: 'title: p95 latency (s)\n    query: ""' },
       ],
     },
     check: (s) => {
@@ -421,7 +435,7 @@ panels:
 sum(rate(http_requests_total{code!~"5.."}[5m]))
   / sum(rate(http_requests_total[5m]))
 
-# How slow the slowest 5% of requests are (the 95th percentile):
+# The time 95% of requests stay under (the 95th percentile; 1 in 20 is slower):
 histogram_quantile(0.95,
   sum by (le) (rate(http_request_duration_seconds_bucket[5m])))`,
       realCaption: 'These two lines are the start of almost every service dashboard and SLO.',
@@ -454,3 +468,7 @@ function isP95(q = ''): boolean {
   return /histogram_quantile\(0\.95,sum(by\(le\))?\(rate\(http_request_duration_seconds_bucket\[\d+m\]\)\)(by\(le\))?\)/.test(q);
 }
 
+/** Readable names for watch-4's alert rules, for the recap. */
+function alertName(id: string): string {
+  return ({ cpu: 'CPU > 70%', disk: 'disk > 80%', any500: 'any single error', errrate: 'error rate', latency: 'slow pages' } as Record<string, string>)[id] ?? id;
+}

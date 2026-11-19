@@ -226,6 +226,10 @@ export class HarborScene extends IncidentScene {
     };
   }
 
+  protected wordsSource(): string {
+    return `${super.wordsSource()} ship = pod container, hold size = memory limit, OOMKilled, CrashLoopBackOff, kubectl get pods, deployment.yaml resources.limits`;
+  }
+
   protected coach(): string {
     if (this.phase === 'play' && this.stage.verifying) return 'Checking your change… watch the next three voyages.';
     if (this.phase === 'play' && this.steps.cause && !this.steps.fix) return 'NEXT: open ⚙️ MANIFEST (key 3), change only the setting your evidence points to, then apply it.';

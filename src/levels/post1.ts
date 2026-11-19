@@ -227,6 +227,10 @@ export class PostScene extends IncidentScene {
     };
   }
 
+  protected wordsSource(): string {
+    return `${super.wordsSource()} sorting wall = DNS, house number = IP address 10.0.3.12, A record, dig bakery.town, curl, town.zone`;
+  }
+
   protected coach(): string {
     if (this.phase === 'play' && this.steps.cause && !this.steps.fix) return 'NEXT: open 🗂 SORTING WALL (key 2), fix the one wrong line, then save.';
     if (this.phase === 'play' && this.steps.fix) return 'NEXT: prove it. Open ✉ TEST LETTER (key 3) and send a letter to the bakery.';

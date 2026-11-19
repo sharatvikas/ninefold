@@ -117,6 +117,7 @@ $ aws iam create-access-key --user-name vault-ops
 # 2. Once the apps use the new key, switch the old one off…
 $ aws iam update-access-key --access-key-id AKIA…OLD --status Inactive
 # 3. …and when nothing breaks, delete it for good
+# If a key has LEAKED, don\'t wait: switch the old one off straight away, then fix any app that breaks.
 $ aws iam delete-access-key --access-key-id AKIA…OLD`,
       realCaption: 'Rotate on any suspicion of exposure, and on a schedule anyway.',
     },
@@ -142,7 +143,7 @@ $ aws iam delete-access-key --access-key-id AKIA…OLD`,
         kind: 'inspect', id: 'cert', icon: '🔏', label: 'CURRENT SEAL', hint: 'Details of the certificate. Click each.',
         items: [
           { title: 'Valid until', summary: 'yesterday 23:59', detail: 'It expired yesterday. That\'s the warning.', evidence: true },
-          { title: 'Covers', summary: 'library.town, www.library.town', detail: 'Both names are listed. The new seal must keep both.' },
+          { title: 'Covers', summary: 'library.town, www.library.town', detail: 'Both names are listed. The new seal must keep both. Cover exactly the names visitors use: a seal for every shop in town would also work for the wrong people if it leaked.' },
           { title: 'Issued by', summary: 'Town CA (trusted)', detail: 'Browsers trust the Town CA. A self-made seal would trigger the same warning.' },
           { title: 'Renewal', summary: 'manual (calendar reminder)', detail: 'Renewed by hand from a calendar reminder… which went to someone who left last year.', evidence: true },
         ],
@@ -173,7 +174,7 @@ $ aws iam delete-access-key --access-key-id AKIA…OLD`,
     recap: {
       headline: 'The seal expired because renewal depended on a calendar reminder.',
       before: { lines: ['valid until: yesterday', 'names: library.town, www…', 'renewal: manual'], outcome: '"Your connection is not private"' },
-      after: (x) => ({ lines: [`names: ${arr(x.names).join(', ')}`, `issuer: ${str(x.issuer) === 'ca' ? 'Town CA' : 'self'}`, `renewal: ${x.auto ? 'automatic' : 'manual'}`], outcome: 'padlock ✓, renews itself' }),
+      after: (x) => ({ lines: [`names: ${arr(x.names).map((n) => ({ apex: 'library.town', www: 'www.library.town', wild: '*.town' })[n] ?? n).join(', ')}`, `issuer: ${str(x.issuer) === 'ca' ? 'Town CA' : 'self'}`, `renewal: ${x.auto ? 'automatic' : 'manual'}`], outcome: 'padlock ✓, renews itself' }),
       why: 'Certificate outages are almost always forgotten renewals. Automate renewal (ACME / Let\'s Encrypt / cert-manager), cover exactly the names you serve, and monitor expiry dates as a backstop.',
       real: `# cert-manager Certificate: renews the site's certificate automatically
 spec:

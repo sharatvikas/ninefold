@@ -64,7 +64,7 @@ export const POST: LevelSpec[] = [
       headline: 'Lower how long maps are trusted before a move, then change the address.',
       before: { lines: ['bakery  168h  → No.12', '(move day)', 'old maps trusted for 7 days'], outcome: 'Customers at the old shop for a week' },
       after: (x) => ({ lines: [`bakery  ${num(x.ttl)}h  → No.${num(x.house)}`, '(changed at the move)', `old maps expire in ≤ ${num(x.ttl)}h`], outcome: `Right door within ${num(x.ttl)} hour(s)` }),
-      why: 'Changing the wall only helps people who ask it. Everyone else trusts their copy until it expires. Short-lived copies mean changes spread fast, but too short floods the counter. Lower the time-to-live ahead of a planned change, at least one OLD time-to-live ahead (here a week), because copies made just before you lower it are still trusted for the old 168 hours. Raise it again afterwards.',
+      why: 'Changing the wall only helps people who ask it. Everyone else trusts their copy until it expires. Short-lived copies mean changes spread fast, but too short floods the counter. Lower the time-to-live ahead of a planned change, at least one OLD time-to-live ahead (here a week). Copies made just before you lower it are still trusted for the old 168 hours. Raise it again afterwards.',
       real: (x) => `; town.zone, TODAY: at least one old TTL (7 days) before the move
 ; TTL = how long other computers may remember the answer
 - bakery  604800  IN  A  10.0.3.12   ; TTL 7 days

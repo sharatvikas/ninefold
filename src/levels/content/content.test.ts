@@ -168,3 +168,19 @@ describe('editor insert buttons', () => {
     }
   });
 });
+
+describe('numbers players can check add up', () => {
+  const bars = (id: string, evId: string) => {
+    const e = ALL_SPECS.find((s) => s.id === id)?.evidence.find((x) => x.id === evId);
+    if (e?.kind !== 'chart') throw new Error(`${id}/${evId} is not a chart`);
+    return e.bars;
+  };
+  it('granary-1: the barn shares make 100%', () => {
+    expect(bars('granary-1', 'space').reduce((a, b) => a + b.value, 0)).toBe(100);
+  });
+  it('watch-3: the trace stops add up to the 2.3s page', () => {
+    const top = bars('watch-3', 'trace').filter((b) => !b.label.startsWith('└'));
+    expect(top.reduce((a, b) => a + b.value, 0)).toBeGreaterThanOrEqual(2250);
+    expect(top.reduce((a, b) => a + b.value, 0)).toBeLessThan(2350);
+  });
+});
