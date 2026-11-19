@@ -334,7 +334,8 @@ $ aws ce get-cost-and-usage --group-by Type=TAG,Key=env
       motd: 'menu cache (redis-like) · 8 GB RAM',
       files: { 'cache.conf': `port 6379
 # memory: a size like 512mb or 2gb (0 = unlimited)
-# policy when full: noeviction (refuse new data) or allkeys-lru (drop what was used longest ago)
+# policy when full: noeviction (refuse new data), allkeys-lru / allkeys-lfu (drop the least recently / least often used),
+#   volatile-lru / volatile-ttl (drop only keys that have an expiry time)
 maxmemory 0            # 0 = unlimited
 maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
       vars: { running: '' },

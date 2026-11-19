@@ -106,8 +106,8 @@ export interface ConfigLevel extends Base {
 
 /**
  * A ready-made block the file editor can insert, so beginners never hand-type code or indentation.
- * `replace`: swap this exact text if the file still has it. `after`: insert below the line containing this.
- * Otherwise it goes in at the cursor.
+ * `replace`: swap this exact text. `after`: insert below the line containing this. One of them is required,
+ * so a button only ever writes into its own spot.
  */
 export interface Snippet {
   label: string;
@@ -137,21 +137,18 @@ export const num = (v: Value | undefined): number => (typeof v === 'number' ? v 
 export const str = (v: Value | undefined): string => (typeof v === 'string' ? v : String(v ?? ''));
 export const has = (v: Value | undefined, x: string): boolean => arr(v).includes(x);
 
-/** Put a snippet into a file. Returns the new text and where the inserted text sits. */
-export function applySnippet(content: string, sn: Snippet, cursor = content.length): { text: string; at: number; end: number } {
-  if (sn.replace && content.includes(sn.replace)) {
+/** Put a snippet into its spot. Undefined when the spot is gone or the snippet is already there (no duplicates). */
+export function applySnippet(content: string, sn: Snippet): { text: string; at: number; end: number } | undefined {
+  if (content.includes(sn.text.trim())) return undefined;
+  if (sn.replace) {
     const at = content.indexOf(sn.replace);
+    if (at < 0) return undefined;
     return { text: content.slice(0, at) + sn.text + content.slice(at + sn.replace.length), at, end: at + sn.text.length };
   }
-  if (sn.after) {
-    const i = content.indexOf(sn.after);
-    if (i >= 0) {
-      const eol = content.indexOf('\n', i);
-      const cut = eol < 0 ? content.length : eol;
-      const at = cut + 1;
-      return { text: `${content.slice(0, cut)}\n${sn.text}${content.slice(cut)}`, at, end: at + sn.text.length };
-    }
-  }
-  const at = Math.max(0, Math.min(cursor, content.length));
-  return { text: content.slice(0, at) + sn.text + content.slice(at), at, end: at + sn.text.length };
+  const i = sn.after ? content.indexOf(sn.after) : -1;
+  if (i < 0) return undefined;
+  const eol = content.indexOf('\n', i);
+  const cut = eol < 0 ? content.length : eol;
+  const at = cut + 1;
+  return { text: `${content.slice(0, cut)}\n${sn.text}${content.slice(cut)}`, at, end: at + sn.text.length };
 }

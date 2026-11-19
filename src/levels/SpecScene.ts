@@ -546,10 +546,13 @@ export class SpecScene extends IncidentScene {
       tools.append(h('span', 'snip-k', 'INSERT:'));
       for (const sn of snippets) {
         const b = h('button', 'btn sm snip', `＋ ${sn.label}`);
+        // Greyed out once its block is in the file (or its spot is gone), so nothing is ever duplicated.
+        b.disabled = !applySnippet(ta.value, sn);
         b.addEventListener('click', () => {
-          const r = applySnippet(ta.value, sn, ta.selectionStart);
+          const r = applySnippet(ta.value, sn);
+          b.disabled = true;
+          if (!r) return;
           ta.value = r.text;
-          b.disabled = true; // used once: a second copy would be a duplicate
           ta.focus();
           // Select a <blank> in what was inserted, so typing fills it; otherwise put the cursor after it.
           const hole = r.text.slice(r.at, r.end).match(/<[^<>]+>/);

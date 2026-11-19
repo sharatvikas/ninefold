@@ -125,7 +125,7 @@ describe('editor insert buttons', () => {
     const spec = ALL_SPECS.find((s) => s.id === id);
     if (spec?.type !== 'terminal' || !spec.snippets) throw new Error(`${id} has no snippets`);
     const s = newTermState(spec.term);
-    for (const [path, list] of Object.entries(spec.snippets)) for (const i of order ?? list.map((_, k) => k)) s.files[path] = applySnippet(s.files[path], list[i]).text;
+    for (const [path, list] of Object.entries(spec.snippets)) for (const i of order ?? list.map((_, k) => k)) s.files[path] = applySnippet(s.files[path], list[i])?.text ?? s.files[path];
     return { spec, s };
   };
 
@@ -148,12 +148,23 @@ describe('editor insert buttons', () => {
     expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
   });
 
-  it('fill each dashboard panel, and the wrong order fails (watch-6)', () => {
-    const right = clickAll('watch-6');
-    run(right.spec.term, right.s, 'dashboard load');
-    expect(right.spec.check(right.s).cases.filter((c) => !c.pass)).toEqual([]);
-    const wrong = clickAll('watch-6', [1, 0]);
-    run(wrong.spec.term, wrong.s, 'dashboard load');
-    expect(passed(wrong.spec.check(wrong.s))).toBe(false);
+  it('fill each dashboard panel with its own query, in any order (watch-6)', () => {
+    for (const order of [[0, 1], [1, 0]]) {
+      const { spec, s } = clickAll('watch-6', order);
+      run(spec.term, s, 'dashboard load');
+      expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+    }
+  });
+
+  it('do nothing the second time, so no ticket passes with duplicated code', () => {
+    for (const id of ['arch-5', 'watch-5', 'watch-6']) {
+      const spec = ALL_SPECS.find((x) => x.id === id);
+      if (spec?.type !== 'terminal') continue;
+      for (const [path, list] of Object.entries(spec.snippets ?? {})) {
+        let text = spec.term.files[path];
+        for (const sn of list) text = applySnippet(text, sn)?.text ?? text;
+        for (const sn of list) expect(applySnippet(text, sn), `${id} ${sn.label}`).toBeUndefined();
+      }
+    }
   });
 });

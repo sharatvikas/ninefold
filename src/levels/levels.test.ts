@@ -140,12 +140,12 @@ describe('handbook commands', () => {
 });
 
 describe('editor snippets', () => {
-  it('replaces, inserts after a marker line, or inserts at the cursor', () => {
-    expect(applySnippet('a\nOLD\nc', { label: '', text: 'NEW', replace: 'OLD' }).text).toBe('a\nNEW\nc');
-    expect(applySnippet('a\n// here\nc', { label: '', text: '  x();', after: '// here' }).text).toBe('a\n// here\n  x();\nc');
-    expect(applySnippet('ab', { label: '', text: 'X' }, 1).text).toBe('aXb');
-    // replace target already gone (player edited it): falls back to the cursor
-    const r = applySnippet('abc', { label: '', text: 'X', replace: 'zzz' }, 3);
-    expect(r).toEqual({ text: 'abcX', at: 3, end: 4 });
+  it('only write into their own spot, once', () => {
+    expect(applySnippet('a\nOLD\nc', { label: '', text: 'NEW', replace: 'OLD' })?.text).toBe('a\nNEW\nc');
+    expect(applySnippet('a\n// here\nc', { label: '', text: '  x();', after: '// here' })?.text).toBe('a\n// here\n  x();\nc');
+    // spot gone (already used, or the player rewrote it): nothing happens
+    expect(applySnippet('abc', { label: '', text: 'X', replace: 'zzz' })).toBeUndefined();
+    // already there: no duplicate
+    expect(applySnippet('a\n// here\n  x();\nc', { label: '', text: '  x();', after: '// here' })).toBeUndefined();
   });
 });

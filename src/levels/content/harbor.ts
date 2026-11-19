@@ -405,6 +405,6 @@ function dbHostSet(yaml: string): boolean {
 
 /** Set DB_HOST in the env list, replacing an existing value. */
 function withDbHost(yaml: string, value: string): string {
-  if (dbHostOf(yaml) !== undefined) return yaml.replace(/(name:\s*["']?DB_HOST["']?\s*\n\s*value:\s*)\S+/, `$1${value}`);
+  if (dbHostOf(yaml) !== undefined) return yaml.replace(/(name:\s*["']?DB_HOST["']?\s*\n\s*value:\s*)\S+/i, `$1${value}`);
   return `${yaml.replace(/\s+$/, '')}\n            - name: DB_HOST\n              value: ${value}`;
 }

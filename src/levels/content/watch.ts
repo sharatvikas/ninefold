@@ -365,7 +365,7 @@ app.get('/metrics', async (_req, res) => res.send(await client.register.metrics(
       ],
       goal: 'Write the two queries (availability and p95 latency) into dashboard.yaml and load it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Try a query on the metrics database:\n   promql "sum(rate(http_requests_total[5m]))"\n2. Read the dashboard, then fill in its two queries. Each ＋ button in the editor fills the next empty query, so match each one to its panel\'s title:\n   cat dashboard.yaml\n   edit dashboard.yaml\n3. Load your dashboard to check it:\n   dashboard load\n\nUseful query pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Try a query on the metrics database:\n   promql "sum(rate(http_requests_total[5m]))"\n2. Read the dashboard, then fill in its two queries. In the editor, a ＋ button fills each panel\'s query:\n   cat dashboard.yaml\n   edit dashboard.yaml\n3. Load your dashboard to check it:\n   dashboard load\n\nUseful query pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
     term: {
       host: 'grafana',
       motd: 'Dashboard repo · datasource: town-prometheus',
@@ -393,10 +393,10 @@ panels:
       ],
     },
     snippets: {
-      // Each button fills the next empty query. Match each one to its panel's title.
+      // Each button fills its own panel's query.
       'dashboard.yaml': [
-        { label: 'good requests ÷ all requests', text: 'query: sum(rate(http_requests_total{code!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))', replace: 'query: ""' },
-        { label: 'slowest 5% of requests (p95)', text: 'query: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))', replace: 'query: ""' },
+        { label: 'Availability: good requests ÷ all requests', text: 'title: Availability (%)\n    query: sum(rate(http_requests_total{code!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))', replace: 'title: Availability (%)\n    query: ""' },
+        { label: 'p95 latency: the slowest 5% of requests', text: 'title: p95 latency (s)\n    query: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))', replace: 'title: p95 latency (s)\n    query: ""' },
       ],
     },
     check: (s) => {
