@@ -7,6 +7,7 @@ import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './in
 import { applySnippet, passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
 import { explain, newTermState, run, runnableIn, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
+import { textOf } from './glossary';
 
 const CHANGE_TAB = 'change';
 const TERM_TAB = 'terminal';
@@ -76,6 +77,19 @@ export class SpecScene extends IncidentScene {
 
   protected intro(): Intro {
     return this.spec.intro;
+  }
+
+  protected wordsSource(): string {
+    const spec = this.spec;
+    let real = '';
+    if (typeof spec.recap.real === 'string') real = spec.recap.real;
+    else if (spec.type === 'config') real = (spec.recap.real as (c: Cfg) => string)(clone(spec.solution));
+    else {
+      const t = newTermState(spec.term);
+      spec.solve(t);
+      real = (spec.recap.real as (s: TermState) => string)(t);
+    }
+    return `${textOf(spec)} ${real}`;
   }
 
   protected coach(): string {

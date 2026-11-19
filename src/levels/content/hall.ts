@@ -27,7 +27,7 @@ export const HALL: LevelSpec[] = [
     },
     evidence: [
       {
-        kind: 'inspect', id: 'voices', icon: '🗣', label: 'WHAT PEOPLE SAY', hint: 'Click each.',
+        kind: 'inspect', id: 'voices', icon: '🗣', label: 'WHAT PEOPLE SAY', hint: 'Everyone measures "working" differently. Click each person to hear what they mean.',
         items: [
           { title: 'Customer', summary: '"If checkout takes >2s I give up"', detail: 'Slow counts as broken. Speed and success both matter, and 2 seconds is the line.', evidence: true },
           { title: 'Customer', summary: '"It\'s fine if it fails once in a while"', detail: 'Customers tolerate the occasional failure. They don\'t need perfection.', evidence: true },
@@ -165,7 +165,7 @@ burn rate    = 180 / (216 × 3/30) ≈ 8.3×   # 8× faster than we can afford
       headline: 'Capacity planning is arithmetic: peak ÷ per-server capacity, plus headroom.',
       before: { lines: ['min 3 · max 3', '3 × ~330/s = ~1000/s'], outcome: 'festival 2000/s → outage' },
       after: (x) => ({ lines: [`min ${num(x.min)} · max ${num(x.max)} · target ${num(x.cpu)}%`, `up to ${num(x.max)} × ${Math.round(330 * num(x.cpu) / 100)}/s`], outcome: 'festival handled, normal days cheap ✓' }),
-      why: 'Use last year\'s peak to size the max, keep a CPU target that leaves room for spikes and slow scale-up, and keep the minimum low so you only pay for the festival on festival day. Load-test before the big day.',
+      why: 'Use last year\'s peak to size the max. Keep a CPU target that leaves room for spikes and slow scale-up. Keep the minimum low, so you only pay for the festival on festival day. Load-test before the big day.',
       real: `# A Kubernetes autoscaler: adds or removes app copies to match the load
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler

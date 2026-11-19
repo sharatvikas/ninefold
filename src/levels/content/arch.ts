@@ -220,7 +220,7 @@ resource "aws_db_instance" "granary" {
     },
     evidence: [
       {
-        kind: 'log', id: 'log', icon: '📜', label: 'APPLY LOG', hint: 'Click lines.',
+        kind: 'log', id: 'log', icon: '📜', label: 'APPLY LOG', hint: 'What happened at 14:02, line by line. Click each line and watch who read and wrote the ledger, and when.',
         lines: [
           { t: '14:02:01', text: 'Ada: read state (v41)', note: 'Ada starts from version 41 of the ledger.' },
           { t: '14:02:03', text: 'Ben: read state (v41)', note: 'Ben also starts from v41. Neither knows about the other.', evidence: true },

@@ -27,7 +27,7 @@ export const GRANARY: LevelSpec[] = [
         ],
         unit: '%',
       },
-      { kind: 'log', id: 'growth', icon: '📜', label: 'BARN NOTES', hint: 'Click lines.', lines: [{ text: 'logs grow 2% of the barn per week', note: 'Without rotation, the barn fills up again regardless of size.', evidence: true }, { text: 'quote: a barn twice the size, 4,000 coins', note: 'A bigger barn just postpones it: logs would fill it again in about 40 weeks.' }] },
+      { kind: 'log', id: 'growth', icon: '📜', label: 'BARN NOTES', hint: 'Notes about what fills the barn. Click each line to read it.', lines: [{ text: 'logs grow 2% of the barn per week', note: 'Without rotation, the barn fills up again regardless of size.', evidence: true }, { text: 'quote: a barn twice the size, 4,000 coins', note: 'A bigger barn just postpones it: logs would fill it again in about 40 weeks.' }] },
     ],
     configTitle: 'BARN HOUSEKEEPING',
     fields: [
