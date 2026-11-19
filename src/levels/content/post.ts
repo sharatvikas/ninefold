@@ -244,7 +244,7 @@ $ aws ec2 authorize-security-group-ingress \\
       ],
       goal: 'Find out why visitors still reach a broken server, fix the load balancer config, reload it, and confirm with curl.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Start with "lb status" and "curl http://bakery.town".\nCheck each backend directly: curl http://bakery-a:3000/health (and b, c).\nRead the config: cat lb.conf\nEdit with: edit lb.conf, then apply with: lb reload' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'lb status: what the load balancer thinks of each server\ncurl http://bakery.town: visit the site 10 times\ncurl http://bakery-a:3000/health: ask server a directly (try b and c too)\ncat lb.conf: read the config\nedit lb.conf: change it\nlb reload: apply your change' }],
     term: {
       host: 'lb-1',
       motd: 'Town gate load balancer (lb-1). 3 backends in pool "bakery".',

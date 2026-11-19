@@ -347,6 +347,8 @@ form.inline .k { font-size: 1.1cqw; }
 .level.tall .tray { height: 52cqh; }
 .level.mid .tray { height: 46cqh; }
 .doc { font-family: ui-monospace, Menlo, monospace; font-size: 1.3cqw; line-height: 1.55; white-space: pre-wrap; }
+.doc-cmd { display: block; font: inherit; text-align: left; margin: 0.15cqw 0; padding: 0.1cqw 0.6cqw; background: #24313a; color: #b8f0c8; border: 0; border-radius: 0.3cqw; cursor: pointer; }
+.doc-cmd:hover, .doc-cmd:focus-visible { background: #2f4a3a; outline: 0.2cqw solid #f8d030; }
 .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6cqw; }
 .card {
   text-align: left; display: flex; flex-direction: column; gap: 0.2cqw; cursor: pointer;

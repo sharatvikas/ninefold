@@ -5,7 +5,7 @@ import { h } from '../ui/ui';
 import { getLevel } from './catalog';
 import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './incident';
 import { passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
-import { explain, newTermState, run, saveFile, type TermState } from './terminal';
+import { explain, newTermState, run, runnableIn, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
 
 const CHANGE_TAB = 'change';
@@ -20,6 +20,8 @@ export class SpecScene extends IncidentScene {
   private termLines: { text: string; cls: string }[] = [];
   private history: string[] = [];
   private histIdx = -1;
+  /** A handbook command waiting to be placed in the terminal's input. */
+  private pendingInput = '';
   private seen = new Set<string>();
   private searchQuery = '';
   private results: { label: string; pass: boolean }[] = [];
@@ -86,7 +88,8 @@ export class SpecScene extends IncidentScene {
       }
       return super.coach();
     }
-    if (!this.steps.cause) return 'NEXT: find the cause. Type help and press Enter to see the commands, then run the ones that show status, logs or files. Step 2 turns green when you spot it.';
+    const book = this.spec.evidence.some((e) => e.kind === 'doc' && e.label === 'HANDBOOK') ? ' New to this? Click the ▶ commands in the 📘 HANDBOOK, in order.' : '';
+    if (!this.steps.cause) return `NEXT: find the cause. Type help and press Enter to see the commands, then run the ones that show status, logs or files.${book}`;
     if (!this.steps.fix) return 'NEXT: make one change. Type help to see which command fixes it, or open a file with edit <file name>.';
     if (this.attempts.failedChanges > 0) return super.coach();
     return 'NEXT: prove it worked. Run the command that tests it (type help: look for curl, test or status).';
@@ -116,7 +119,28 @@ export class SpecScene extends IncidentScene {
   private evidenceTab(e: Evidence): Node {
     const wrap = h('div', 'evidence');
     if (e.kind === 'doc') {
-      wrap.append(h('div', 'doc', e.text));
+      const spec = this.spec;
+      if (spec.type !== 'terminal') {
+        wrap.append(h('div', 'doc', e.text));
+        return wrap;
+      }
+      // Commands in the handbook are buttons: one click puts them in the terminal, ready to run.
+      const doc = h('div', 'doc');
+      for (const line of e.text.split('\n')) {
+        const cmd = runnableIn(spec.term, line);
+        if (!cmd) {
+          doc.append(h('div', '', line || ' '));
+          continue;
+        }
+        const b = h('button', 'doc-cmd', `▶ ${line.trim()}`);
+        b.title = `Put "${cmd}" in the terminal`;
+        b.addEventListener('click', () => {
+          this.pendingInput = cmd;
+          this.openTab(TERM_TAB);
+        });
+        doc.append(b);
+      }
+      wrap.append(h('div', 'hint', 'Click a ▶ command to put it in the terminal, then press Enter to run it.'), doc);
       return wrap;
     }
     wrap.append(h('div', 'hint', e.hint));
@@ -398,6 +422,8 @@ export class SpecScene extends IncidentScene {
     const input = h('input', 'term-input') as HTMLInputElement;
     input.autocomplete = 'off';
     input.spellcheck = false;
+    input.value = this.pendingInput;
+    this.pendingInput = '';
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowUp' && this.history.length) {
         this.histIdx = Math.min(this.history.length - 1, this.histIdx + 1);

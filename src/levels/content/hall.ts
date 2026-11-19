@@ -328,7 +328,7 @@ $ aws ce get-cost-and-usage --group-by Type=TAG,Key=env
       ],
       goal: 'Find why the cache grows forever and fix the cause, so nobody has to restart it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'history: what on-call has been doing\ncache info memory\ncat / edit cache.conf\ncache restart\ncache simulate-week: watch memory over a week\nedit crontab: schedule a command (cron)' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'history: what on-call has been doing\ncache info memory\ncat cache.conf\nedit cache.conf\ncache restart\ncache simulate-week: watch memory over a week\nedit crontab: schedule a command (cron)' }],
     term: {
       host: 'cache-1',
       motd: 'menu cache (redis-like) · 8 GB RAM',

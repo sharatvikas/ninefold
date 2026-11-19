@@ -126,6 +126,18 @@ export function explain(spec: TermSpec, raw: string): string | undefined {
   return BUILTIN_HELP[line.split(/\s+/)[0]];
 }
 
+/**
+ * The command a handbook line shows, if it can be run as written here.
+ * Accepts "cmd", "cmd: what it does", "cmd (note)" and numbered or indented lines.
+ */
+export function runnableIn(spec: TermSpec, line: string): string | undefined {
+  const cmd = line.trim().replace(/^\d+\.\s+/, '').split(/:\s/)[0].replace(/\s+\(.*\)$/, '').trim();
+  if (!cmd) return undefined;
+  if (spec.commands.some((c) => c.match.test(cmd))) return cmd;
+  const m = cmd.match(/^(?:ls|(?:cat|edit)\s+(\S+))$/);
+  return m && (!m[1] || Object.hasOwn(spec.files, m[1])) ? cmd : undefined;
+}
+
 const out = (text: string): Outcome => ({ kind: 'output', result: { out: text } });
 
 /** Save an edited file. Returns true if the content changed. */

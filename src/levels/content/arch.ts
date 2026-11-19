@@ -280,7 +280,7 @@ terraform {
       ],
       goal: 'Replace the three copies in houses.tf with three uses of the module, plan, and check that every house gets an alarm.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'ls, cat houses.tf, cat modules/house/main.tf\nterraform plan: what would change\nedit houses.tf\n\nModule usage looks like:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'ls\ncat houses.tf\ncat modules/house/main.tf\nterraform plan: what would change\nedit houses.tf\n\nModule usage looks like:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
     term: {
       host: 'blueprints',
       motd: 'Repo: town-blueprints (main)',

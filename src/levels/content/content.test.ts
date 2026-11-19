@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../catalog';
 import { passed, type LevelSpec } from '../spec';
-import { newTermState, run } from '../terminal';
+import { newTermState, run, runnableIn } from '../terminal';
 import { ALL_SPECS } from './index';
 import { VIGNETTES } from './vignettes';
 
@@ -58,6 +58,10 @@ describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
       spec.solve(s);
       const v = spec.check(s);
       expect(v.cases.filter((c) => !c.pass).map((c) => c.label)).toEqual([]);
+    });
+    it('has handbook commands a player can click to run', () => {
+      const docs = spec.evidence.filter((e) => e.kind === 'doc');
+      for (const d of docs) if (d.kind === 'doc' && d.label === 'HANDBOOK') expect(d.text.split('\n').some((l) => runnableIn(spec.term, l)), d.id).toBe(true);
     });
     it('runs every documented command without crashing', () => {
       const s = newTermState(spec.term);
