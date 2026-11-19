@@ -27,6 +27,12 @@ describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
     expect(VIGNETTES[spec.id]).toBeDefined();
   });
 
+  it('explains its real-world code with comments, for players new to code', () => {
+    const state = spec.type === 'config' ? structuredClone(spec.solution) : (() => { const t = newTermState(spec.term); spec.solve(t); return t; })();
+    const real = typeof spec.recap.real === 'function' ? (spec.recap.real as (s: unknown) => string)(state) : spec.recap.real;
+    expect(real).toMatch(/(^|\s)(#|\/\/|--|;|<!--)\s/m);
+  });
+
   it('has evidence to find', () => {
     expect(hasEvidence(spec)).toBe(true);
   });

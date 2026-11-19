@@ -1,7 +1,7 @@
 import { analytics, secsSince, type Step } from '../analytics/analytics';
 import type { Ctx } from '../art/pixels';
 import type { Game, Scene } from '../engine/game';
-import { h } from '../ui/ui';
+import { feedbackLink, feedbackUrl, h } from '../ui/ui';
 import type { LevelResult } from '../world/TownScene';
 import type { LevelMeta } from './catalog';
 import { newAttempts, trustFor, type Attempts } from './sims/score';
@@ -61,6 +61,8 @@ export abstract class IncidentScene implements Scene {
   private panelBody = h('div', 'pbody');
   private feed = h('div', 'feed hidden');
   private alertEl = h('div', 'alert hidden');
+  /** The beginner's guide line: what to do right now, in one plain sentence. */
+  private coachEl = h('div', 'coach');
   protected activeTab = '';
   protected phase: Phase = 'intro';
   /** Pop-ups opened on top of play (e.g. the file editor). */
@@ -104,19 +106,21 @@ export abstract class IncidentScene implements Scene {
     const leave = h('button', 'btn leave', '✕');
     leave.title = 'Leave (Esc)';
     leave.addEventListener('click', () => this.leaveLevel());
-    top.append(title, steps, leave);
+    const right = h('div', 'level-btns');
+    right.append(feedbackLink(`${this.meta.id} · ${this.meta.title}`, '💬'), leave);
+    top.append(title, steps, right);
 
     const tray = h('div', 'tray');
     const bar = h('div', 'hotbar');
     this.tabs().forEach((tab, i) => {
       const b = h('button', 'slot');
-      b.append(h('span', 'key', String(i + 1)), h('span', 'icon', tab.icon), h('small', '', tab.label));
+      b.append(h('span', 'key', String(i + 1)), h('span', 'icon', tab.icon), h('small', /\S{9,}/.test(tab.label) ? 'long' : '', tab.label));
       b.addEventListener('click', () => this.openTab(tab.id));
       this.tabBtns.set(tab.id, b);
       bar.append(b);
     });
     const panel = h('div', 'panel notes');
-    panel.append(this.panelTitle, this.panelBody, this.feed);
+    panel.append(this.coachEl, this.panelTitle, this.panelBody, this.feed);
     tray.append(bar, panel);
     this.root.append(top, this.alertEl, tray);
     this.game.ui.scene.append(this.root);
@@ -148,6 +152,8 @@ export abstract class IncidentScene implements Scene {
   /** Handle shared keys. Call from subclass update(). */
   protected baseUpdate(t: number): void {
     this.now = t;
+    const next = `👉 ${this.coach()}`;
+    if (this.coachEl.textContent !== next) this.coachEl.textContent = next;
     const { input } = this.game;
     if (input.wasPressed('escape') && !this.blocked) {
       // Leaving throws away work on this ticket, so once something has happened, ask for a second press.
@@ -161,6 +167,15 @@ export abstract class IncidentScene implements Scene {
     this.tabs().forEach((tab, i) => {
       if (input.wasPressed(String(i + 1)) && !this.blocked) this.openTab(tab.id);
     });
+  }
+
+  /** What to do now, for players who have never done this job. Points the way, never gives the answer. */
+  protected coach(): string {
+    if (this.phase === 'resolving' || this.phase === 'recap') return 'Fixed and checked. Nice work!';
+    if (!this.steps.cause) return `NEXT: find the cause. Open the tools below (keys 1–${this.tabs().length}) and click anything that looks wrong. Step 2 turns green when you spot it.`;
+    if (!this.steps.fix) return 'NEXT: change the one thing your evidence points to, then apply it.';
+    if (this.attempts.failedChanges > 0) return "That didn't fix it yet. Read the ✗ results and the hint, then try a different change.";
+    return 'NEXT: check that it really works.';
   }
 
   protected setAlert(text: string | undefined): void {
@@ -276,7 +291,7 @@ export abstract class IncidentScene implements Scene {
       known,
       h('div', 'sub', 'YOUR GOAL'),
       h('div', 'goal', i.goal),
-      h('div', 'howto', 'Find the cause with your tools, change what needs changing, then check that it really works. Guessing costs Trust.'),
+      h('div', 'howto', 'How every ticket works: ① read this card · ② find the cause with the tools at the bottom · ③ change one thing · ④ check it really works. Guessing costs Trust. Stuck? Follow the 👉 yellow line.'),
       btn,
     );
     wrap.append(card);
@@ -313,7 +328,7 @@ export abstract class IncidentScene implements Scene {
     const why = h('div', 'why');
     why.append(h('div', 'sub', 'WHY IT WORKED'), h('div', '', r.why));
     const real = h('div', '');
-    real.append(h('div', 'sub', 'THE SAME FIX, FOR REAL'), h('pre', 'code', r.realWorld), h('div', 'caption', r.realWorldCaption));
+    real.append(h('div', 'sub', 'THE SAME FIX, FOR REAL'), codeBlock(r.realWorld), h('div', 'code-legend', 'Grey lines explain the code · − removed · + added · $ a command you type'), h('div', 'caption', r.realWorldCaption));
     lower.append(why, real);
     const notes: string[] = [];
     if (this.attempts.guessedFirst) notes.push('changed things before finding evidence (−1)');
@@ -323,7 +338,7 @@ export abstract class IncidentScene implements Scene {
     btn.addEventListener('click', () => this.exit({ levelId: this.meta.id, trust, completed: true, gained: this.gained }));
     const foot = h('div', 'recap-foot');
     const fb = h('a', 'feedback-link', '💬 Was this ticket confusing or wrong? Tell me') as HTMLAnchorElement;
-    fb.href = feedbackUrl(this.meta.id, this.meta.title);
+    fb.href = feedbackUrl(`${this.meta.id} · ${this.meta.title}`);
     fb.target = '_blank';
     fb.rel = 'noopener';
     foot.append(h('div', 'score', notes.length ? `Trust: ${notes.join(', ')}.` : 'Clean fix: evidence first, one change, verified. Full Trust!'), btn);
@@ -334,17 +349,23 @@ export abstract class IncidentScene implements Scene {
   }
 }
 
-/** A pre-filled GitHub issue for one ticket. Only the ticket's id and title go in; nothing about the player. */
-export function feedbackUrl(id: string, title: string): string {
-  const body = [
-    `**Ticket:** ${id} · ${title}`,
-    '',
-    '**What was confusing, wrong or broken?**',
-    '',
-    '',
-    '**What did you expect instead?**',
-    '',
-  ].join('\n');
-  const q = new URLSearchParams({ title: `Ticket feedback: ${id} · ${title}`, body });
-  return `https://github.com/sharatvikas/ninefold/issues/new?${q}`;
+/** Whole-line and trailing comments, in the comment styles the snippets use (#, //, -- , ;, <!--). A line of `--flags` is code. */
+const COMMENT = /^(\s*(?:#|\/\/|--(?=\s|$)|;|<!--).*)$|(\s{2,}(?:#|\/\/|--|;)\s.*)$/;
+
+/** Where the explanation comment starts on a line (the line's length if it has none). */
+export function commentStart(line: string): number {
+  const m = line.match(COMMENT);
+  return m ? (m[1] !== undefined ? 0 : line.length - m[2].length) : line.length;
+}
+
+/** A code snippet with its explanation comments dimmed, so the code and the words read apart. */
+export function codeBlock(text: string): HTMLElement {
+  const pre = h('pre', 'code');
+  for (const line of text.split('\n')) {
+    const at = commentStart(line);
+    pre.append(line.slice(0, at));
+    if (at < line.length) pre.append(h('span', 'cmt', line.slice(at)));
+    pre.append('\n');
+  }
+  return pre;
 }

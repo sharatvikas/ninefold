@@ -57,15 +57,17 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
         kind: 'output',
         result: {
           out: [
-            'Commands for this incident:',
-            ...spec.commands.map((c) => `  ${c.usage.padEnd(34)} ${c.help}`),
+            'Commands for this incident (type one and press Enter):',
+            ...spec.commands.flatMap((c) => [`  ${c.usage}`, `      ${c.help}`]),
             '',
             'Always available:',
-            '  ls                                 list files',
-            '  cat <file>                         show a file',
-            '  grep <text> <file>                 find lines in a file',
-            '  edit <file>                        open a file in the editor',
-            '  clear                              clear the screen',
+            '  ls                  lists the files in this folder',
+            '  cat <file>          prints a whole file so you can read it',
+            '  grep <text> <file>  shows only the lines of a file that contain your text',
+            '  edit <file>         opens a file so you can change it',
+            '  clear               wipes the screen',
+            '',
+            'Tip: press the up arrow to bring back your last command.',
           ].join('\n'),
         },
       };
@@ -73,14 +75,14 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
       return { kind: 'output', result: { out: Object.keys(s.files).sort().join('\n') || '(no files)' } };
     case 'cat': {
       if (!arg) return out('usage: cat <file>');
-      const f = s.files[arg];
+      const f = fileAt(s, arg);
       return out(f === undefined ? `cat: ${arg}: No such file` : f);
     }
     case 'grep': {
       const m = arg.match(/^(?:-i\s+)?("[^"]+"|'[^']+'|\S+)\s+(\S+)$/);
       if (!m) return out('usage: grep <text> <file>');
       const needle = m[1].replace(/^["']|["']$/g, '').toLowerCase();
-      const f = s.files[m[2]];
+      const f = fileAt(s, m[2]);
       if (f === undefined) return out(`grep: ${m[2]}: No such file`);
       const hits = f.split('\n').filter((l) => l.toLowerCase().includes(needle));
       return out(hits.join('\n') || '(no matches)');
@@ -90,7 +92,7 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
     case 'nano':
     case 'vi': {
       if (!arg) return out(`usage: ${name} <file>`);
-      if (s.files[arg] === undefined) return out(`${name}: ${arg}: No such file (use ls to see files)`);
+      if (fileAt(s, arg) === undefined) return out(`${name}: ${arg}: No such file (use ls to see files)`);
       return { kind: 'edit', path: arg };
     }
     case 'clear':
@@ -98,6 +100,30 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
     default:
       return out(`${name}: command not found. Type "help" to see what you can use here.`);
   }
+}
+
+/** Only the level's own files: names like "toString" must not reach JavaScript's built-ins. */
+const fileAt = (s: TermState, path: string): string | undefined => (Object.hasOwn(s.files, path) ? s.files[path] : undefined);
+
+const BUILTIN_HELP: Record<string, string> = {
+  help: 'lists the commands you can use here',
+  ls: 'lists the files in this folder',
+  cat: 'prints a whole file so you can read it',
+  grep: 'shows only the lines of a file that contain your text',
+  edit: 'opens a file so you can change it',
+  vim: 'opens a file so you can change it',
+  nano: 'opens a file so you can change it',
+  vi: 'opens a file so you can change it',
+  clear: 'wipes the screen (nothing is lost)',
+};
+
+/** A plain-English line saying what a command does, shown before its output for players new to terminals. */
+export function explain(spec: TermSpec, raw: string): string | undefined {
+  const line = raw.trim();
+  if (!line) return undefined;
+  const cmd = spec.commands.find((c) => c.match.test(line));
+  if (cmd) return cmd.help;
+  return BUILTIN_HELP[line.split(/\s+/)[0]];
 }
 
 const out = (text: string): Outcome => ({ kind: 'output', result: { out: text } });

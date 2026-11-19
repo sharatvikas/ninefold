@@ -52,7 +52,9 @@ export const BIG: LevelSpec[] = [
       before: { lines: ['08:55 menu-svc v5 (100%)', '08:56 errors 0.2% → 14%', 'plan: restart everything'], outcome: '14% of orders failing' },
       after: () => ({ lines: ['rollback menu-svc → v4', 'harbor, post: untouched'], outcome: 'errors 0.2% within 2 min ✓' }),
       why: 'In an incident, ask "what changed?" and line it up with when the symptoms began. The closest preceding change, confirmed by the error logs, is the prime suspect. Mitigate with the smallest reversible action, and freeze other changes so cause and effect stay clear.',
-      real: `$ kubectl rollout history deploy/menu-svc
+      real: `# List the recent versions of menu-svc that were deployed:
+$ kubectl rollout history deploy/menu-svc
+# Go back to version 41, the last one that worked:
 $ kubectl rollout undo deploy/menu-svc --to-revision=41
 # Incident tip: put deploy markers on your dashboards
 # so "what changed?" is answered at a glance.`,
@@ -117,14 +119,16 @@ $ kubectl rollout undo deploy/menu-svc --to-revision=41
       before: { lines: ['30 servers × 20 conns = 600 > 300', 'retries: 3 instant', 'no rate limit'], outcome: 'cascading failure' },
       after: (x) => ({ lines: [`${num(x.max)} servers × ${num(x.pool)} = ${num(x.max) * num(x.pool)} conns ≤ 300`, `capacity ${num(x.max) * 200} req/s`, 'retries: backoff + jitter · rate limit on'], outcome: 'festival served ✓' }),
       why: 'Systems fail at their tightest limit, here the database connection limit, which autoscaling ignored. Size every hop together, retry with exponential backoff and jitter so clients don\'t stampede, and shed excess load quickly rather than let everything time out.',
-      real: `# HPA maxReplicas: 14 · pool.max: 20 → 280 ≤ 300
+      real: `# Capacity check: up to 14 app copies × 20 database connections each = 280,
+# which fits under the database's limit of 300
 retry:
-  attempts: 2
+  attempts: 2      # retry a failed call at most twice
+  # wait longer after each try, plus a random bit, so clients don't all retry at once:
   backoff: exponential(base=100ms, max=2s) + full jitter
-# per-client limit, so one noisy client can't hog it
-nginx.ingress.kubernetes.io/limit-rps: "20"     # per client IP
-# global shedding: cap total traffic at capacity (≤ 2800 req/s)
-# in the gateway / load balancer, and return 503 fast above it`,
+# Per-client limit, so one noisy client can't hog everything:
+nginx.ingress.kubernetes.io/limit-rps: "20"     # max 20 requests a second per client
+# Global shedding: cap total traffic at what we can serve (≤ 2800 req/s)
+# in the gateway / load balancer, and answer "503 busy" quickly above it`,
       realCaption: 'Cascading failures are the classic Big Incident. Look for multipliers: autoscaling × pools, retries × clients.',
     },
   },
@@ -156,22 +160,22 @@ library  300  IN  A  10.0.1.5`,
       vars: { dns: '10.0.1.9', cert: false, promoted: false, fenced: false, appHost: 'granary-primary' },
       commands: [
         {
-          match: /^curl\s+(?:-s\s+)?https?:\/\/bakery\.town\/?$/, usage: 'curl https://bakery.town', help: 'what customers see', run: (_m, s) => {
+          match: /^curl\s+(?:-s\s+)?https?:\/\/bakery\.town\/?$/, usage: 'curl https://bakery.town', help: 'visit the website the way a customer would', run: (_m, s) => {
             if (s.vars.dns !== '10.0.1.5') return { out: 'curl: (7) Failed to connect to bakery.town (10.0.1.9): no route to host', evidence: true, verify: true };
             if (!s.vars.cert) return { out: 'curl: (60) SSL certificate problem: certificate has expired', evidence: true, verify: true };
             if (!(s.vars.promoted && s.vars.appHost === 'granary-replica')) return { out: 'HTTP 500 {"error":"could not connect to database granary-primary"}', evidence: true, verify: true };
             return { out: `HTTP 200 bakery ✓  (order test: saved)${s.vars.fenced ? '' : '\n⚠ warning: old primary not fenced'}`, verify: true };
           },
         },
-        { match: /^dig\s+bakery\.town$/, usage: 'dig bakery.town', help: 'DNS lookup', run: (_m, s) => ({ out: `bakery.town. 300 IN A ${s.vars.dns}${s.vars.dns === '10.0.1.9' ? '   (old LB, decommissioned last week)' : ''}` }) },
-        { match: /^lb list$/, usage: 'lb list', help: 'load balancers', run: () => ({ out: 'lb-old  10.0.1.9  DECOMMISSIONED\nlb-1    10.0.1.5  ACTIVE  (serves bakery, library)' }) },
-        { match: /^dns reload$/, usage: 'dns reload', help: 'apply town.zone', run: (_m, s) => { const ip = squash(s.files['town.zone']).match(/bakery 300 in a (\d+\.\d+\.\d+\.\d+)/)?.[1] ?? s.files['town.zone'].match(/bakery\s+\d+\s+IN\s+A\s+(\S+)/i)?.[1] ?? ''; s.vars.dns = ip; return { out: `zone reloaded: bakery → ${ip || '(missing!)'}`, changed: true, bad: ip !== '10.0.1.5' && ip !== '10.0.1.9' }; } },
-        { match: /^cert show bakery\.town$/, usage: 'cert show bakery.town', help: 'certificate info', run: (_m, s) => ({ out: s.vars.cert ? 'valid until: +90 days · auto-renew: on' : 'valid until: yesterday 23:59 (EXPIRED) · auto-renew: off', evidence: !s.vars.cert }) },
-        { match: /^cert renew bakery\.town$/, usage: 'cert renew bakery.town', help: 'renew via Town CA', run: (_m, s) => { s.vars.cert = true; return { out: 'issued: bakery.town, www.bakery.town · valid 90 days · auto-renew enabled', changed: true }; } },
-        { match: /^db status$/, usage: 'db status', help: 'database cluster', run: (_m, s) => ({ out: `granary-primary  ${s.vars.fenced ? 'FENCED' : 'DOWN (auto-recovery on)'}\ngranary-replica  ${s.vars.promoted ? 'PRIMARY' : 'replica, lag 0s'}`, evidence: true }) },
-        { match: /^db promote granary-replica$/, usage: 'db promote granary-replica', help: 'promote replica', run: (_m, s) => { s.vars.promoted = true; return { out: 'promoted: read-write', changed: true }; } },
-        { match: /^db fence granary-primary$/, usage: 'db fence granary-primary', help: 'fence old primary', run: (_m, s) => { s.vars.fenced = true; return { out: 'old primary fenced', changed: true }; } },
-        { match: /^app restart$/, usage: 'app restart', help: 'restart app with config', run: (_m, s) => { s.vars.appHost = squash(s.files['app-config.yaml']).match(/host: ([\w-]+)/)?.[1] ?? ''; return { out: `app restarted → db ${s.vars.appHost}`, changed: true }; } },
+        { match: /^dig\s+bakery\.town$/, usage: 'dig bakery.town', help: 'ask DNS which address the name bakery.town points to', run: (_m, s) => ({ out: `bakery.town. 300 IN A ${s.vars.dns}${s.vars.dns === '10.0.1.9' ? '   (old LB, decommissioned last week)' : ''}` }) },
+        { match: /^lb list$/, usage: 'lb list', help: 'list the load balancers (they share traffic between servers)', run: () => ({ out: 'lb-old  10.0.1.9  DECOMMISSIONED\nlb-1    10.0.1.5  ACTIVE  (serves bakery, library)' }) },
+        { match: /^dns reload$/, usage: 'dns reload', help: 'load your edited town.zone file so DNS uses it', run: (_m, s) => { const ip = squash(s.files['town.zone']).match(/bakery 300 in a (\d+\.\d+\.\d+\.\d+)/)?.[1] ?? s.files['town.zone'].match(/bakery\s+\d+\s+IN\s+A\s+(\S+)/i)?.[1] ?? ''; s.vars.dns = ip; return { out: `zone reloaded: bakery → ${ip || '(missing!)'}`, changed: true, bad: ip !== '10.0.1.5' && ip !== '10.0.1.9' }; } },
+        { match: /^cert show bakery\.town$/, usage: 'cert show bakery.town', help: 'show the site\'s security certificate and when it expires', run: (_m, s) => ({ out: s.vars.cert ? 'valid until: +90 days · auto-renew: on' : 'valid until: yesterday 23:59 (EXPIRED) · auto-renew: off', evidence: !s.vars.cert }) },
+        { match: /^cert renew bakery\.town$/, usage: 'cert renew bakery.town', help: 'get a fresh certificate from the town\'s certificate authority', run: (_m, s) => { s.vars.cert = true; return { out: 'issued: bakery.town, www.bakery.town · valid 90 days · auto-renew enabled', changed: true }; } },
+        { match: /^db status$/, usage: 'db status', help: 'show the databases: which is main (primary) and which is the copy (replica)', run: (_m, s) => ({ out: `granary-primary  ${s.vars.fenced ? 'FENCED' : 'DOWN (auto-recovery on)'}\ngranary-replica  ${s.vars.promoted ? 'PRIMARY' : 'replica, lag 0s'}`, evidence: true }) },
+        { match: /^db promote granary-replica$/, usage: 'db promote granary-replica', help: 'turn the copy (replica) into the new main database', run: (_m, s) => { s.vars.promoted = true; return { out: 'promoted: read-write', changed: true }; } },
+        { match: /^db fence granary-primary$/, usage: 'db fence granary-primary', help: 'lock the old main database so it can\'t accept writes any more', run: (_m, s) => { s.vars.fenced = true; return { out: 'old primary fenced', changed: true }; } },
+        { match: /^app restart$/, usage: 'app restart', help: 'restart the app so it reads its config file again', run: (_m, s) => { s.vars.appHost = squash(s.files['app-config.yaml']).match(/host: ([\w-]+)/)?.[1] ?? ''; return { out: `app restarted → db ${s.vars.appHost}`, changed: true }; } },
       ],
     },
     check: (s) => ({
@@ -189,11 +193,14 @@ library  300  IN  A  10.0.1.5`,
       before: { lines: ['DNS → 10.0.1.9 (dead LB)', 'cert expired', 'db primary down, app → primary'], outcome: 'bakery.town: down' },
       after: () => ({ lines: ['DNS → 10.0.1.5', 'cert renewed + auto-renew', 'replica promoted, primary fenced'], outcome: 'bakery.town: 200 OK ✓' }),
       why: 'Real outages often have several causes, and each one hides the next. Work from the user inward (name → connection → trust → app → data), verify after every fix, and keep notes for the postmortem. That\'s the whole job, and you just did it.',
-      real: `dig bakery.town            # DNS
-curl -v https://bakery.town # TLS + HTTP
+      real: `# Check every layer, from the name down to the database:
+dig bakery.town             # DNS: does the name point to the right address?
+curl -v https://bakery.town # TLS + HTTP: does the site answer, and with what?
+# Is the security certificate still in date?
 openssl s_client -connect bakery.town:443 | openssl x509 -noout -dates
+# Is the app complaining about its database?
 kubectl logs deploy/bakery-app | grep database
-# fix, verify, repeat, then write the postmortem`,
+# Fix, verify, repeat. Then write the postmortem.`,
       realCaption: 'Congratulations, on-call engineer. Ninefold sleeps soundly tonight.',
     },
   },

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { commentStart } from './incident';
+import { explain, newTermState, run } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
 import { resetProgress, completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
@@ -87,5 +89,39 @@ describe('progress', () => {
     expect(loadProgress(storage).avatar).toBeUndefined();
     mem.set(STORAGE_KEY, JSON.stringify({ ...newProgress(), avatar: { name: 'x', look: { ...avatar.look, skin: 'red;}' } } }));
     expect(loadProgress(storage).avatar).toBeUndefined();
+  });
+});
+
+describe('terminal', () => {
+  it('treats built-in object names as missing files', () => {
+    const spec = { host: 'h', motd: '', files: { 'a.txt': 'hi' }, commands: [] };
+    const s = newTermState(spec);
+    expect(run(spec, s, 'cat a.txt')).toEqual({ kind: 'output', result: { out: 'hi' } });
+    for (const name of ['constructor', 'toString', '__proto__']) {
+      expect(run(spec, s, `cat ${name}`)).toEqual({ kind: 'output', result: { out: `cat: ${name}: No such file` } });
+      expect(run(spec, s, `edit ${name}`).kind).toBe('output');
+    }
+  });
+});
+
+describe('terminal explanations', () => {
+  it('explains level commands from their help text and the built-ins in plain words', () => {
+    const spec = { host: 'h', motd: '', files: {}, commands: [{ match: /^rollout abort$/, usage: 'rollout abort', help: 'send everyone back to v2', run: () => ({ out: '' }) }] };
+    expect(explain(spec, 'rollout abort')).toBe('send everyone back to v2');
+    expect(explain(spec, 'cat notes.txt')).toMatch(/prints a whole file/);
+    expect(explain(spec, 'rm -rf /')).toBeUndefined();
+  });
+});
+
+describe('recap code comments', () => {
+  it('dims explanations but never real code', () => {
+    const at = (l: string) => l.slice(commentStart(l));
+    expect(at('# Preview first:')).toBe('# Preview first:');
+    expect(at('-- Ask the database')).toBe('-- Ask the database');
+    expect(at('    --role-arn arn:aws:iam::123:role/x \\')).toBe('');
+    expect(at('  --lookup-attributes AttributeKey=AccessKeyId')).toBe('');
+    expect(at('$ npm run test -- --shard=1/4')).toBe('');
+    expect(at('  cpu: 500m    # the most it may use')).toBe('    # the most it may use');
+    expect(at('url: "https://a.town/#top"')).toBe('');
   });
 });

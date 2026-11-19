@@ -227,6 +227,12 @@ export class PostScene extends IncidentScene {
     };
   }
 
+  protected coach(): string {
+    if (this.phase === 'play' && this.steps.cause && !this.steps.fix) return 'NEXT: open 🗂 SORTING WALL (key 2), fix the one wrong line, then save.';
+    if (this.phase === 'play' && this.steps.fix) return 'NEXT: prove it. Open ✉ TEST LETTER (key 3) and send a letter to the bakery.';
+    return super.coach();
+  }
+
   protected tabs(): Tab[] {
     return [
       { id: 'lookup', icon: '🔎', label: 'LOOKUP' },
@@ -406,13 +412,15 @@ export class PostScene extends IncidentScene {
       before: { label: 'BEFORE', visual: flow('bakery', START_WALL.bakery, false), caption: 'The wall said bakery = No. 7, so every letter went to the butcher. Nothing was wrong with the bakery, the carrier or the roads.' },
       after: { label: 'AFTER', visual: flow('bakery', this.wall.bakery, true), caption: `You found the bakery at No. ${this.wall.bakery} by knocking, fixed that one line, and proved it with a test letter.` },
       why: 'Everyone in town finds places by name, so one wrong line on the wall sends everyone to the wrong door, even though every building works fine. You checked what the wall said (lookup), checked what was really there (knocking), changed one line, then verified.',
-      realWorld: `$ dig +short bakery.town
-10.0.3.7           # the butcher's server
+      realWorld: `# Ask DNS which address bakery.town points to:
+$ dig +short bakery.town
+10.0.3.7           # the butcher's server!
 
-# town.zone
+; town.zone: fix the one wrong line
 - bakery   IN  A   10.0.3.7
 + bakery   IN  A   10.0.3.12
 
+# Check again:
 $ dig +short bakery.town
 10.0.3.12          # ✓`,
       realWorldCaption: 'Sorting wall = DNS, name = domain, house number = IP address, one line = an A record, knocking = curl. In the next ticket you\'ll find that fixes take time to spread (TTL).',

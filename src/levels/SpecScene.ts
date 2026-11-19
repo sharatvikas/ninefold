@@ -5,7 +5,7 @@ import { h } from '../ui/ui';
 import { getLevel } from './catalog';
 import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './incident';
 import { passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
-import { newTermState, run, saveFile, type TermState } from './terminal';
+import { explain, newTermState, run, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
 
 const CHANGE_TAB = 'change';
@@ -74,6 +74,22 @@ export class SpecScene extends IncidentScene {
 
   protected intro(): Intro {
     return this.spec.intro;
+  }
+
+  protected coach(): string {
+    if (this.phase !== 'play') return super.coach();
+    if (this.spec.type === 'config') {
+      if (this.busy) return 'Checking your change… watch the results appear on the right.';
+      if (this.steps.cause && !this.steps.fix) {
+        const key = this.tabs().findIndex((t) => t.id === CHANGE_TAB) + 1;
+        return `NEXT: open ⚙️ CHANGE (key ${key}), change only the setting your evidence points to, then press the green ▶ button.`;
+      }
+      return super.coach();
+    }
+    if (!this.steps.cause) return 'NEXT: find the cause. Type help and press Enter to see the commands, then run the ones that show status, logs or files. Step 2 turns green when you spot it.';
+    if (!this.steps.fix) return 'NEXT: make one change. Type help to see which command fixes it, or open a file with edit <file name>.';
+    if (this.attempts.failedChanges > 0) return super.coach();
+    return 'NEXT: prove it worked. Run the command that tests it (type help: look for curl, test or status).';
   }
 
   protected tabs(): Tab[] {
@@ -173,10 +189,13 @@ export class SpecScene extends IncidentScene {
       const render = () => {
         list.replaceChildren();
         const q = this.searchQuery.trim().toLowerCase();
+        // A real search needs a few letters, so a one-letter search can't flag the answer.
+        const searched = q.length >= 3;
         const hits = q ? e.lines.filter((l) => l.toLowerCase().includes(q)) : e.lines.slice(0, 8);
         list.append(h('div', 'muted', q ? `${hits.length} of ${e.lines.length} lines match "${this.searchQuery}"` : `${e.lines.length} lines. Showing the first 8. Search to filter.`));
-        for (const l of hits.slice(0, 40)) list.append(h('div', e.evidence.test(l) ? 'hitline' : '', l));
-        if (q && hits.some((l) => e.evidence.test(l))) {
+        for (const l of hits.slice(0, 40)) list.append(h('div', searched && e.evidence.test(l) ? 'hitline' : '', l));
+        if (q && !searched) list.append(h('div', 'muted', 'Type at least 3 letters to search properly.'));
+        if (searched && hits.some((l) => e.evidence.test(l))) {
           this.found();
           this.say('That looks like the line that matters. Read it closely.', 'good');
         }
@@ -394,7 +413,7 @@ export class SpecScene extends IncidentScene {
       e.preventDefault();
       const line = input.value;
       input.value = '';
-      this.history.unshift(line);
+      if (line.trim()) this.history.unshift(line);
       this.histIdx = -1;
       this.exec(spec, line);
     });
@@ -415,6 +434,8 @@ export class SpecScene extends IncidentScene {
   private exec(spec: TerminalLevel, line: string): void {
     const s = this.term!;
     this.print(`${spec.term.host}$ ${line}`, 'cmd');
+    const what = explain(spec.term, line);
+    if (what) this.print(`# what this does: ${what}`, 'explain');
     const o = run(spec.term, s, line);
     if (o.kind === 'clear') this.termLines = [];
     else if (o.kind === 'edit') {

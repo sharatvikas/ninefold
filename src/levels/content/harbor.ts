@@ -47,10 +47,11 @@ export const HARBOR: LevelSpec[] = [
       before: { lines: ['image: bakery-app:v2.4.l', '          (lowercase L) ^'], outcome: 'ErrImagePull → ImagePullBackOff' },
       after: (x) => ({ lines: [`image: ${str(x.image)}`], outcome: 'pulled, running ✓' }),
       why: 'ImagePullBackOff means the node couldn\'t download the image: a typo, a tag that was never pushed, or missing registry credentials. The events say which. Retries back off because repeating instantly won\'t help.',
-      real: `$ kubectl describe pod ship-9
+      real: `# Ask Kubernetes why the pod (app copy) won't start:
+$ kubectl describe pod ship-9
   Failed to pull image "bakery-app:v2.4.l": not found
   Back-off pulling image
-# deployment.yaml
+# deployment.yaml: the version had a typo (letter l instead of number 1)
 -   image: bakery-app:v2.4.l
 +   image: bakery-app:v2.4.1`,
       realCaption: 'Generate image tags in CI instead of typing them, and this whole class of typo goes away.',
@@ -116,13 +117,14 @@ export const HARBOR: LevelSpec[] = [
       before: { lines: ['readinessProbe:', '  path: /healthz', '  port: 8080'], outcome: 'connection refused → Ready 0/1' },
       after: (x) => ({ lines: ['readinessProbe:', `  path: ${str(x.path)}`, `  port: ${num(x.port)}`], outcome: 'Ready 1/1 · receiving traffic ✓' }),
       why: 'A readiness probe decides if a pod gets traffic. If it points at the wrong port or path, a perfectly healthy app is never used. Removing the probe "works" but loses the protection: a broken pod would then receive traffic.',
-      real: `readinessProbe:
-  httpGet:
--   path: /healthz
--   port: 8080
+      real: `# How Kubernetes checks the app is ready for customers:
+readinessProbe:
+  httpGet:            # by visiting this page on the app
+-   path: /healthz    # wrong page…
+-   port: 8080        # …on the wrong port
 +   path: /health
 +   port: 3000
-  periodSeconds: 5`,
+  periodSeconds: 5    # check every 5 seconds`,
       realCaption: 'kubectl describe pod shows probe failures in Events. Always read Events first.',
     },
   },
@@ -177,12 +179,14 @@ export const HARBOR: LevelSpec[] = [
       before: { lines: ['requests.cpu: 4000m', 'node capacity: 2000m', 'real peak: 350m'], outcome: 'Pending: Insufficient cpu' },
       after: (x) => ({ lines: [`requests.cpu: ${num(x.cpu)}m`, 'node capacity: 2000m', 'real peak: 350m'], outcome: 'all 3 scheduled ✓' }),
       why: 'The scheduler places pods by their requests, not their real usage. A request bigger than any node means Pending forever; an inflated request wastes capacity. Size requests from measured peak usage plus headroom.',
-      real: `$ kubectl describe pod ship-5
+      real: `# Why can't this pod start anywhere?
+$ kubectl describe pod ship-5
   0/3 nodes are available: 3 Insufficient cpu.
+# It asked for 4 whole CPUs, and no machine has that much free:
 resources:
   requests:
 -   cpu: "4"
-+   cpu: "500m"`,
++   cpu: "500m"     # 500m = half a CPU, what it really uses`,
       realCaption: 'Tools like VPA recommendations or Goldilocks suggest requests from real usage.',
     },
   },
@@ -224,23 +228,23 @@ spec:
       },
       vars: { applied: '' },
       commands: [
-        { match: /^kubectl top nodes$/, usage: 'kubectl top nodes', help: 'CPU per node', run: (_m, s) => ({ out: limitOf(String(s.vars.applied)) ? 'node-1  42%\nnode-2  55%\nnode-3  38%' : 'node-1  42%\nnode-2  100%  ⚠\nnode-3  38%' }) },
+        { match: /^kubectl top nodes$/, usage: 'kubectl top nodes', help: 'show how busy each machine (node) is', run: (_m, s) => ({ out: limitOf(String(s.vars.applied)) ? 'node-1  42%\nnode-2  55%\nnode-3  38%' : 'node-1  42%\nnode-2  100%  ⚠\nnode-3  38%' }) },
         {
-          match: /^kubectl top pods$/, usage: 'kubectl top pods', help: 'CPU per pod', run: (_m, s) => {
+          match: /^kubectl top pods$/, usage: 'kubectl top pods', help: 'show how busy each running app copy (pod) is', run: (_m, s) => {
             const lim = limitOf(String(s.vars.applied));
             return { out: `NAME                NODE    CPU\nbakery-app-7d9      node-2  180m  (throttled, slow)\nbakery-app-2k1      node-1  170m\nbatch-report-x1     node-2  ${lim ? `${lim}m` : '1920m ⚠ no limit'}\nmenu-svc-p0         node-2  90m`.replace('(throttled, slow)', lim ? '' : '(starved, slow)'), evidence: !lim, verify: true };
           },
         },
-        { match: /^kubectl describe deploy batch-report$/, usage: 'kubectl describe deploy batch-report', help: 'details', run: () => ({ out: 'Requests: cpu 200m\nLimits:   <none>\nRuns: nightly report… started 3 days ago and never finished (loops over all orders)', evidence: true }) },
+        { match: /^kubectl describe deploy batch-report$/, usage: 'kubectl describe deploy batch-report', help: 'show the full settings of the batch-report app', run: () => ({ out: 'Requests: cpu 200m\nLimits:   <none>\nRuns: nightly report… started 3 days ago and never finished (loops over all orders)', evidence: true }) },
         {
-          match: /^kubectl apply -f batch-report\.yaml$/, usage: 'kubectl apply -f batch-report.yaml', help: 'apply changes',
+          match: /^kubectl apply -f batch-report\.yaml$/, usage: 'kubectl apply -f batch-report.yaml', help: 'apply the changes you saved in the file',
           run: (_m, s) => {
             s.vars.applied = s.files['batch-report.yaml'];
             const lim = limitOf(s.files['batch-report.yaml']);
             return { out: `deployment.apps/batch-report configured${lim ? ` (cpu limit ${lim}m)` : ' (no limit set)'}`, changed: true };
           },
         },
-        { match: /^kubectl delete deploy batch-report$/, usage: 'kubectl delete deploy batch-report', help: 'delete it (careful!)', run: () => ({ out: 'deployment "batch-report" deleted\n⚠ finance: "where are tonight\'s sales reports?!"', changed: true, bad: true }) },
+        { match: /^kubectl delete deploy batch-report$/, usage: 'kubectl delete deploy batch-report', help: 'delete the app completely (careful: hard to undo!)', run: () => ({ out: 'deployment "batch-report" deleted\n⚠ finance: "where are tonight\'s sales reports?!"', changed: true, bad: true }) },
       ],
     },
     check: (s) => {
@@ -266,10 +270,10 @@ spec:
       why: 'Requests decide where pods go and guarantee each pod its share when the node is busy; limits cap how far a pod can burst above that. With no limit, batch-report soaked up all the spare CPU, and bakery-app had requested too little to be protected. Cap the burster, and give important apps honest requests. Cap it, don\'t delete it: the report is still needed, and the loop bug goes into the backlog.',
       real: `resources:
   requests:
-    cpu: 200m
+    cpu: 200m    # what it normally needs (used to pick a machine for it)
   limits:
-    cpu: 500m
-# Namespace-wide safety net: a LimitRange with default limits.`,
+    cpu: 500m    # the most it may use, so it can't starve its neighbours
+# Safety net: a LimitRange gives every app a default limit, even if someone forgets`,
       realCaption: 'A LimitRange gives every container a default limit, so one missing line can\'t hurt a whole node.',
     },
   },
@@ -313,11 +317,11 @@ spec:
       },
       vars: { applied: '', undone: false },
       commands: [
-        { match: /^kubectl rollout status deploy\/bakery-app$/, usage: 'kubectl rollout status deploy/bakery-app', help: 'progress', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'deployment "bakery-app" successfully rolled out (3/3 v3)' : s.vars.undone ? 'rolled back: 3/3 v2' : 'Waiting for deployment "bakery-app" rollout to finish: 1 out of 3 new replicas have been updated...\n(stuck: the new replica never becomes ready)', verify: true }) },
-        { match: /^kubectl get pods$/, usage: 'kubectl get pods', help: 'list pods', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'bakery-app-v3-0  1/1 Running\nbakery-app-v3-1  1/1 Running\nbakery-app-v3-2  1/1 Running' : 'bakery-app-v2-a  1/1 Running\nbakery-app-v2-b  1/1 Running\nbakery-app-v3-0  0/1 CrashLoopBackOff (restarts 9)' }) },
-        { match: /^kubectl logs bakery-app-v3-0$/, usage: 'kubectl logs bakery-app-v3-0', help: 'new pod\'s logs', run: () => ({ out: 'starting bakery-app v3.0.0\nFATAL: environment variable DB_HOST is not set\nexit 1', evidence: true }) },
-        { match: /^kubectl apply -f deploy\.yaml$/, usage: 'kubectl apply -f deploy.yaml', help: 'apply changes', run: (_m, s) => { s.vars.applied = s.files['deploy.yaml']; return { out: `deployment.apps/bakery-app configured${dbHostSet(s.files['deploy.yaml']) ? '' : '\n(new pods still failing)'}`, changed: true }; } },
-        { match: /^kubectl rollout undo deploy\/bakery-app$/, usage: 'kubectl rollout undo deploy/bakery-app', help: 'go back to v2', run: (_m, s) => { s.vars.undone = true; return { out: 'rolled back to v2. Customers are fine, but v3 still isn\'t shipped.', changed: true }; } },
+        { match: /^kubectl rollout status deploy\/bakery-app$/, usage: 'kubectl rollout status deploy/bakery-app', help: 'show how far the update has got', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'deployment "bakery-app" successfully rolled out (3/3 v3)' : s.vars.undone ? 'rolled back: 3/3 v2' : 'Waiting for deployment "bakery-app" rollout to finish: 1 out of 3 new replicas have been updated...\n(stuck: the new replica never becomes ready)', verify: true }) },
+        { match: /^kubectl get pods$/, usage: 'kubectl get pods', help: 'list the running app copies (pods) and their state', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'bakery-app-v3-0  1/1 Running\nbakery-app-v3-1  1/1 Running\nbakery-app-v3-2  1/1 Running' : 'bakery-app-v2-a  1/1 Running\nbakery-app-v2-b  1/1 Running\nbakery-app-v3-0  0/1 CrashLoopBackOff (restarts 9)' }) },
+        { match: /^kubectl logs bakery-app-v3-0$/, usage: 'kubectl logs bakery-app-v3-0', help: 'show what the new app copy (pod) printed before it crashed', run: () => ({ out: 'starting bakery-app v3.0.0\nFATAL: environment variable DB_HOST is not set\nexit 1', evidence: true }) },
+        { match: /^kubectl apply -f deploy\.yaml$/, usage: 'kubectl apply -f deploy.yaml', help: 'apply the changes you saved in the file', run: (_m, s) => { s.vars.applied = s.files['deploy.yaml']; return { out: `deployment.apps/bakery-app configured${dbHostSet(s.files['deploy.yaml']) ? '' : '\n(new pods still failing)'}`, changed: true }; } },
+        { match: /^kubectl rollout undo deploy\/bakery-app$/, usage: 'kubectl rollout undo deploy/bakery-app', help: 'undo the update and go back to v2', run: (_m, s) => { s.vars.undone = true; return { out: 'rolled back to v2. Customers are fine, but v3 still isn\'t shipped.', changed: true }; } },
       ],
     },
     check: (s) => ({
@@ -336,12 +340,13 @@ spec:
       before: { lines: ['env: MENU_URL', '(no DB_HOST)'], outcome: 'v3 pods: FATAL DB_HOST not set' },
       after: () => ({ lines: ['env: MENU_URL', '     DB_HOST=granary-db.town'], outcome: 'rollout complete 3/3 ✓' }),
       why: 'Rolling updates protect you: they stop when new pods aren\'t ready, and old pods keep serving. The fix is usually in the new pod\'s logs. Rollback is the safe fallback, but fixing forward ships what you meant to ship.',
-      real: `$ kubectl logs bakery-app-v3-0
+      real: `# Read what the new version printed before it crashed:
+$ kubectl logs bakery-app-v3-0
 FATAL: environment variable DB_HOST is not set
-# deploy.yaml
+# deploy.yaml: give it the setting it's missing
           env:
 +           - name: DB_HOST
-+             value: granary-db.town`,
++             value: granary-db.town    # where the database lives`,
       realCaption: 'Settings that new versions need should ship in the same change as the code that needs them.',
     },
   },

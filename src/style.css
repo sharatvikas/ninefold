@@ -149,6 +149,8 @@ button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100
 .sc-msg { font-family: system-ui, sans-serif; font-size: 1.1cqw; color: #5a4a3a; min-height: 1.4em; }
 .sc-msg.bad { color: var(--red); }
 .btn.armed { background: var(--red); border-color: #7a1a10; box-shadow: 0 0.3cqw 0 #7a1a10; color: #fff; }
+.code .cmt { color: #8a8f80; font-style: italic; }
+.code-legend { font-family: system-ui, sans-serif; font-size: 1cqw; color: #7a6a5a; margin-top: 0.3cqw; }
 .feedback-link { display: block; margin-top: 0.8cqw; font-family: system-ui, sans-serif; font-size: 1.05cqw; color: #7a6a5a; text-align: right; }
 .feedback-link:hover { color: var(--wood-dark); }
 .reset-btn { background: #8a5a5a; border-color: #5a3a3a; box-shadow: 0 0.3cqw 0 #5a3a3a; font-size: 0.9cqw; }
@@ -185,13 +187,15 @@ button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100
 .slot:hover { transform: translateY(-0.4cqw); }
 .slot.sel { outline: 0.45cqw solid #ff4d4d; outline-offset: -0.2cqw; }
 .slot .icon { font-size: 2.6cqw; line-height: 1; }
-.slot small { font-size: 0.8cqw; overflow-wrap: anywhere; color: var(--ink); margin-top: 0.5cqw; text-align: center; line-height: 1.3; }
+.slot small { font-size: 0.8cqw; overflow-wrap: normal; color: var(--ink); margin-top: 0.5cqw; text-align: center; line-height: 1.3; }
+.slot small.long { font-size: 0.62cqw; } /* one long word (WATCHTOWER) must fit without breaking */
 .slot .key { position: absolute; top: 0.2cqw; left: 0.5cqw; font-size: 0.8cqw; color: var(--wood-dark); }
 .slot.locked { opacity: 0.45; cursor: not-allowed; }
 
 .notes { flex: 1; padding: 1cqw 1.4cqw; font-size: 1.15cqw; display: flex; flex-direction: column; min-width: 0; }
 .pbody { flex: 1; overflow: auto; min-height: 0; }
 .notes .t { color: var(--wood); margin-bottom: 0.4cqw; }
+.coach { font-family: system-ui, sans-serif; font-size: 1.2cqw; line-height: 1.35; background: #fff4c8; border: 1px solid #e8cf80; color: #5a4520; border-radius: 0.4cqw; padding: 0.35cqw 0.7cqw; margin-bottom: 0.5cqw; }
 .notes .body { font-family: system-ui, sans-serif; font-size: 1.45cqw; line-height: 1.5; }
 .note { font-family: var(--px); font-size: 1.1cqw; margin-top: 0.6cqw; }
 .note.good { color: var(--green); }
@@ -386,6 +390,7 @@ ol.order .otext { flex: 1; background: #fff8e8; border: 0.2cqw solid var(--wood-
 .term-out .cmd { color: #f0c674; }
 .term-out .ok { color: #b5bd68; }
 .term-out .err { color: #cc6666; }
+.term-out .explain { color: #8fa88f; font-style: italic; font-family: ui-monospace, Menlo, monospace; }
 .term-in { display: flex; gap: 0.6cqw; align-items: center; border-top: 0.15cqw solid #373b41; padding-top: 0.4cqw; }
 .prompt { font-family: ui-monospace, Menlo, monospace; font-size: 1.3cqw; color: #b5bd68; }
 .term-input { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font-family: ui-monospace, Menlo, monospace; font-size: 1.35cqw; }
@@ -411,6 +416,9 @@ pre.mini { margin: 0; font-family: ui-monospace, Menlo, monospace; font-size: 1.
 
 /* ---------- avatar creator ---------- */
 .avatar-btn { position: absolute; top: 16.5cqh; right: 1.2cqw; }
+.feedback-btn { position: absolute; top: 23.5cqh; right: 1.2cqw; text-decoration: none; }
+.level-btns { display: flex; gap: 0.6cqw; }
+.level-btns a.btn { text-decoration: none; padding: 0.6cqw 1cqw; }
 .avatar-card { width: 88cqw; max-height: 94cqh; overflow: auto; padding: 1.4cqw 2cqw; display: flex; flex-direction: column; gap: 0.8cqw; animation: pop2 0.3s ease-out; }
 .avatar-card .title { color: var(--wood); font-size: 1.8cqw; }
 .avatar-body { display: grid; grid-template-columns: 26cqw 1fr; gap: 2.4cqw; align-items: start; }
@@ -453,3 +461,5 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 /* ---------- iris wipe between town and tickets ---------- */
 .iris { position: absolute; inset: 0; z-index: 60; overflow: hidden; pointer-events: auto; }
 .iris i { position: absolute; display: block; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 300cqw #14101c; }
+
+.ql-curios { color: var(--wood); }

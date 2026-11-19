@@ -52,12 +52,13 @@ export const LOCK: LevelSpec[] = [
       before: { lines: ['bakery, flour (read), ledger (write)', 'vault, archive, library'], outcome: 'lost keyring = whole town exposed' },
       after: (x) => ({ lines: [arr(x.keys).join(', ')], outcome: 'lost keyring = one bakery ✓' }),
       why: 'Grant only what\'s needed for the job, based on what is actually used. Access logs make it evidence-based. Unused permissions are pure risk: they help no one until the day they help an attacker.',
-      real: `{
+      real: `// A permission rule (IAM policy): allow only what's needed
+{
   "Effect": "Allow",
-  "Action": ["s3:GetObject"],
-  "Resource": "arn:aws:s3:::granary-flour/*"
+  "Action": ["s3:GetObject"],                  // read files, nothing else
+  "Resource": "arn:aws:s3:::granary-flour/*"   // and only in this one bucket
 }
-# + IAM Access Analyzer → "unused permissions" findings`,
+// Tip: IAM Access Analyzer lists permissions nobody has used, so you can remove them`,
       realCaption: 'Review access regularly; cloud providers can generate policies from real usage.',
     },
   },
@@ -111,8 +112,11 @@ export const LOCK: LevelSpec[] = [
       before: { lines: ['key #1: under doormat', 'used Wed 03:12 by ???'], outcome: 'leaked key opens the vault' },
       after: (x) => ({ lines: ['lock changed → key #2', `holders: ${arr(x.holders).join(', ')}`], outcome: 'key #1 rejected ✓' }),
       why: 'A leaked secret can\'t be un-leaked. Rotation (new secret, old one revoked) is the only real fix. Hiding it better does nothing about copies. Hand the new secret only to those who need it.',
-      real: `$ aws iam create-access-key --user-name vault-ops
+      real: `# 1. Make a new access key (a password for programs):
+$ aws iam create-access-key --user-name vault-ops
+# 2. Once the apps use the new key, switch the old one off…
 $ aws iam update-access-key --access-key-id AKIA…OLD --status Inactive
+# 3. …and when nothing breaks, delete it for good
 $ aws iam delete-access-key --access-key-id AKIA…OLD`,
       realCaption: 'Rotate on any suspicion of exposure, and on a schedule anyway.',
     },
@@ -171,12 +175,12 @@ $ aws iam delete-access-key --access-key-id AKIA…OLD`,
       before: { lines: ['valid until: yesterday', 'names: library.town, www…', 'renewal: manual'], outcome: '"Your connection is not private"' },
       after: (x) => ({ lines: [`names: ${arr(x.names).join(', ')}`, `issuer: ${str(x.issuer) === 'ca' ? 'Town CA' : 'self'}`, `renewal: ${x.auto ? 'automatic' : 'manual'}`], outcome: 'padlock ✓, renews itself' }),
       why: 'Certificate outages are almost always forgotten renewals. Automate renewal (ACME / Let\'s Encrypt / cert-manager), cover exactly the names you serve, and monitor expiry dates as a backstop.',
-      real: `# cert-manager Certificate
+      real: `# cert-manager Certificate: renews the site's certificate automatically
 spec:
-  secretName: library-tls
-  dnsNames: [library.town, www.library.town]
-  issuerRef: { name: town-ca, kind: ClusterIssuer }
-  renewBefore: 720h   # 30 days`,
+  secretName: library-tls                       # where the certificate is stored
+  dnsNames: [library.town, www.library.town]    # the names it covers
+  issuerRef: { name: town-ca, kind: ClusterIssuer }   # who signs it
+  renewBefore: 720h   # renew 30 days before it expires`,
       realCaption: 'Alert when any cert is under 14 days from expiry: cheap insurance.',
     },
   },
@@ -226,10 +230,12 @@ spec:
       before: { lines: ['Ada\'s login (shared)', 'expires: never', 'perms: everything incl. vault'], outcome: 'untraceable, over-powered' },
       after: (x) => ({ lines: ['role session per contractor', `expires: ${num(x.hours)}h`, `perms: ${arr(x.perms).join(', ')}`], outcome: 'gone by tomorrow ✓' }),
       why: 'Temporary credentials expire on their own, so there\'s nothing to remember to revoke. Scope them to the task and issue them per person so the audit log stays meaningful.',
-      real: `$ aws sts assume-role \\
+      real: `# Give a contractor temporary access by borrowing a role, not a permanent account:
+$ aws sts assume-role \\
     --role-arn arn:aws:iam::123:role/blueprint-reviewer \\
     --role-session-name contractor-jane \\
-    --duration-seconds 28800`,
+    --duration-seconds 28800
+# 28800 seconds = 8 hours; after that the access simply stops working`,
       realCaption: 'Short-lived credentials beat long-lived keys almost every time.',
     },
   },
@@ -256,26 +262,26 @@ spec:
       files: {},
       vars: { offBKP: false, offLEAK: false, deleted: false },
       commands: [
-        { match: /^audit search vault$/, usage: 'audit search vault', help: 'vault events', run: () => ({ out: '02:00:04  vault.open  svc-backup  key AKIA7BKP  from 10.0.3.40   (nightly backup)\n03:07:51  vault.open  svc-backup  key AKIA2LEAK from 185.220.101.4  ⚠ outside town\n03:08:30  vault.list  svc-backup  key AKIA2LEAK from 185.220.101.4', evidence: true }) },
-        { match: /^audit search key (\w+)$/, usage: 'audit search key AKIA2LEAK', help: 'events for one key', run: (m) => ({ out: m[1] === 'AKIA2LEAK' ? 'key AKIA2LEAK: created 2021 for "old backup script", last rotated: never\n03:07 vault.open from 185.220.101.4\n03:08 vault.list from 185.220.101.4' : m[1] === 'AKIA7BKP' ? 'key AKIA7BKP: created last month, used nightly at 02:00 from 10.0.3.40' : 'no events', evidence: m[1] === 'AKIA2LEAK' }) },
-        { match: /^iam list-keys svc-backup$/, usage: 'iam list-keys svc-backup', help: 'keys for the backup account', run: (_m, s) => s.vars.deleted ? { out: 'error: user svc-backup does not exist' } : ({ out: `AKIA7BKP   ${s.vars.offBKP ? 'Inactive' : 'Active'}  created 32 days ago\nAKIA2LEAK  ${s.vars.offLEAK ? 'Inactive' : 'Active'}  created 2021 (old script)` }) },
-        { match: /^iam disable-key (\w+)$/, usage: 'iam disable-key <KEYID>', help: 'deactivate a key', run: (m, s) => {
+        { match: /^audit search vault$/, usage: 'audit search vault', help: 'search the audit log (the record of who did what) for the vault', run: () => ({ out: '02:00:04  vault.open  svc-backup  key AKIA7BKP  from 10.0.3.40   (nightly backup)\n03:07:51  vault.open  svc-backup  key AKIA2LEAK from 185.220.101.4  ⚠ outside town\n03:08:30  vault.list  svc-backup  key AKIA2LEAK from 185.220.101.4', evidence: true }) },
+        { match: /^audit search key (\w+)$/, usage: 'audit search key AKIA2LEAK', help: 'search the audit log for everything one access key did', run: (m) => ({ out: m[1] === 'AKIA2LEAK' ? 'key AKIA2LEAK: created 2021 for "old backup script", last rotated: never\n03:07 vault.open from 185.220.101.4\n03:08 vault.list from 185.220.101.4' : m[1] === 'AKIA7BKP' ? 'key AKIA7BKP: created last month, used nightly at 02:00 from 10.0.3.40' : 'no events', evidence: m[1] === 'AKIA2LEAK' }) },
+        { match: /^iam list-keys svc-backup$/, usage: 'iam list-keys svc-backup', help: 'list the access keys (like passwords for programs) of the backup account', run: (_m, s) => s.vars.deleted ? { out: 'error: user svc-backup does not exist' } : ({ out: `AKIA7BKP   ${s.vars.offBKP ? 'Inactive' : 'Active'}  created 32 days ago\nAKIA2LEAK  ${s.vars.offLEAK ? 'Inactive' : 'Active'}  created 2021 (old script)` }) },
+        { match: /^iam disable-key (\w+)$/, usage: 'iam disable-key <KEYID>', help: 'switch off one access key so it stops working', run: (m, s) => {
           if (s.vars.deleted) return { out: 'error: user svc-backup does not exist (iam restore-user svc-backup to undo)' };
           if (m[1] === 'AKIA7BKP') s.vars.offBKP = true;
           else if (m[1] === 'AKIA2LEAK') s.vars.offLEAK = true;
           else return { out: `error: no key ${m[1]}` };
           return { out: `key ${m[1]} → Inactive`, changed: true, bad: m[1] === 'AKIA7BKP' };
         } },
-        { match: /^iam enable-key (\w+)$/, usage: 'iam enable-key <KEYID>', help: 'reactivate a key (undo)', run: (m, s) => {
+        { match: /^iam enable-key (\w+)$/, usage: 'iam enable-key <KEYID>', help: 'switch an access key back on (undo)', run: (m, s) => {
           if (s.vars.deleted) return { out: 'error: user svc-backup does not exist' };
           if (m[1] === 'AKIA7BKP') s.vars.offBKP = false;
           else if (m[1] === 'AKIA2LEAK') s.vars.offLEAK = false;
           else return { out: `error: no key ${m[1]}` };
           return { out: `key ${m[1]} → Active`, changed: true };
         } },
-        { match: /^iam delete-user svc-backup$/, usage: 'iam delete-user svc-backup', help: 'delete the whole account', run: (_m, s) => { s.vars.deleted = true; return { out: 'user svc-backup deleted\n⚠ tonight\'s backup will fail (iam restore-user svc-backup to undo)', changed: true, bad: true }; } },
-        { match: /^iam restore-user svc-backup$/, usage: 'iam restore-user svc-backup', help: 'undo a deletion', run: (_m, s) => { s.vars.deleted = false; return { out: 'user svc-backup restored with its keys', changed: true }; } },
-        { match: /^backup test$/, usage: 'backup test', help: 'run the backup job now', run: (_m, s) => ({ out: s.vars.deleted || s.vars.offBKP ? 'backup FAILED: access denied' : 'backup OK (key AKIA7BKP)', verify: true }) },
+        { match: /^iam delete-user svc-backup$/, usage: 'iam delete-user svc-backup', help: 'delete the whole backup account (big and risky!)', run: (_m, s) => { s.vars.deleted = true; return { out: 'user svc-backup deleted\n⚠ tonight\'s backup will fail (iam restore-user svc-backup to undo)', changed: true, bad: true }; } },
+        { match: /^iam restore-user svc-backup$/, usage: 'iam restore-user svc-backup', help: 'bring a deleted account back', run: (_m, s) => { s.vars.deleted = false; return { out: 'user svc-backup restored with its keys', changed: true }; } },
+        { match: /^backup test$/, usage: 'backup test', help: 'run the backup now to check it still works', run: (_m, s) => ({ out: s.vars.deleted || s.vars.offBKP ? 'backup FAILED: access denied' : 'backup OK (key AKIA7BKP)', verify: true }) },
       ],
     },
     check: (s) => ({
@@ -291,8 +297,10 @@ spec:
       before: { lines: ['svc-backup: AKIA7BKP (current)', '            AKIA2LEAK (2021, never rotated)'], outcome: 'vault opened from 185.220.101.4' },
       after: () => ({ lines: ['AKIA7BKP   Active', 'AKIA2LEAK  Inactive'], outcome: 'attacker locked out, backups OK ✓' }),
       why: 'Audit logs answer who, what, when and from where. Same account, two keys: the source address and history told them apart. Disable precisely the compromised credential, then verify the legitimate job still works. Next step: find out how the old key leaked.',
-      real: `$ aws cloudtrail lookup-events \\
+      real: `# Search the audit log for everything the leaked key did:
+$ aws cloudtrail lookup-events \\
     --lookup-attributes AttributeKey=AccessKeyId,AttributeValue=AKIA2LEAK
+# Switch off just that key (not the whole account, which the backups need):
 $ aws iam update-access-key --user-name svc-backup \\
     --access-key-id AKIA2LEAK --status Inactive`,
       realCaption: 'Alert on access keys used from unusual locations, and on keys older than 90 days.',
@@ -321,13 +329,13 @@ $ aws iam update-access-key --user-name svc-backup \\
       files: {},
       vars: { inContractors: true, denyPolicy: true },
       commands: [
-        { match: /^iam simulate kit read granary-ledger$/, usage: 'iam simulate kit read granary-ledger', help: 'evaluate permissions', run: (_m, s) => (s.vars.inContractors && s.vars.denyPolicy ? { out: 'Allow: kit-granary-read (attached to user)\nDeny:  deny-contractors-granary (via group contractors)\nResult: DENIED (explicit deny wins)', evidence: true, verify: true } : { out: 'Allow: kit-granary-read\nResult: ALLOWED', verify: true }) },
-        { match: /^iam groups kit$/, usage: 'iam groups kit', help: 'Kit\'s groups', run: (_m, s) => ({ out: `staff\nlocksmiths${s.vars.inContractors ? '\ncontractors   (added 2 days ago by onboarding script, "temp")' : ''}`, evidence: !!s.vars.inContractors }) },
-        { match: /^iam policy (\S+)$/, usage: 'iam policy deny-contractors-granary', help: 'show a policy', run: (m) => ({ out: m[1] === 'deny-contractors-granary' ? 'Deny  granary:*  for group contractors\n(protects the ledger from outside contractors)' : m[1] === 'kit-granary-read' ? 'Allow granary:read on granary-ledger' : 'no such policy' }) },
-        { match: /^iam remove-from-group kit contractors$/, usage: 'iam remove-from-group kit contractors', help: 'take Kit out of contractors', run: (_m, s) => { s.vars.inContractors = false; return { out: 'kit removed from group contractors', changed: true }; } },
-        { match: /^iam delete-policy deny-contractors-granary$/, usage: 'iam delete-policy deny-contractors-granary', help: 'delete the deny policy', run: (_m, s) => { s.vars.denyPolicy = false; return { out: 'policy deleted\n⚠ all 12 contractors can now read and write the granary ledger\n(undo: iam restore-policy deny-contractors-granary)', changed: true, bad: true }; } },
-        { match: /^iam restore-policy deny-contractors-granary$/, usage: 'iam restore-policy deny-contractors-granary', help: 'put the deny policy back', run: (_m, s) => { s.vars.denyPolicy = true; return { out: 'policy deny-contractors-granary restored and re-attached to contractors', changed: true }; } },
-        { match: /^iam add-to-group kit contractors$/, usage: 'iam add-to-group kit contractors', help: 'undo removing Kit', run: (_m, s) => { s.vars.inContractors = true; return { out: 'kit added to group contractors', changed: true }; } },
+        { match: /^iam simulate kit read granary-ledger$/, usage: 'iam simulate kit read granary-ledger', help: 'check whether Kit is allowed to read the granary ledger, and why', run: (_m, s) => (s.vars.inContractors && s.vars.denyPolicy ? { out: 'Allow: kit-granary-read (attached to user)\nDeny:  deny-contractors-granary (via group contractors)\nResult: DENIED (explicit deny wins)', evidence: true, verify: true } : { out: 'Allow: kit-granary-read\nResult: ALLOWED', verify: true }) },
+        { match: /^iam groups kit$/, usage: 'iam groups kit', help: 'list the groups Kit belongs to', run: (_m, s) => ({ out: `staff\nlocksmiths${s.vars.inContractors ? '\ncontractors   (added 2 days ago by onboarding script, "temp")' : ''}`, evidence: !!s.vars.inContractors }) },
+        { match: /^iam policy (\S+)$/, usage: 'iam policy deny-contractors-granary', help: 'show the rule that blocks contractors from the granary', run: (m) => ({ out: m[1] === 'deny-contractors-granary' ? 'Deny  granary:*  for group contractors\n(protects the ledger from outside contractors)' : m[1] === 'kit-granary-read' ? 'Allow granary:read on granary-ledger' : 'no such policy' }) },
+        { match: /^iam remove-from-group kit contractors$/, usage: 'iam remove-from-group kit contractors', help: 'remove Kit from the contractors group', run: (_m, s) => { s.vars.inContractors = false; return { out: 'kit removed from group contractors', changed: true }; } },
+        { match: /^iam delete-policy deny-contractors-granary$/, usage: 'iam delete-policy deny-contractors-granary', help: 'delete the blocking rule (risky: it protects everyone)', run: (_m, s) => { s.vars.denyPolicy = false; return { out: 'policy deleted\n⚠ all 12 contractors can now read and write the granary ledger\n(undo: iam restore-policy deny-contractors-granary)', changed: true, bad: true }; } },
+        { match: /^iam restore-policy deny-contractors-granary$/, usage: 'iam restore-policy deny-contractors-granary', help: 'bring the blocking rule back', run: (_m, s) => { s.vars.denyPolicy = true; return { out: 'policy deny-contractors-granary restored and re-attached to contractors', changed: true }; } },
+        { match: /^iam add-to-group kit contractors$/, usage: 'iam add-to-group kit contractors', help: 'put Kit back in the contractors group', run: (_m, s) => { s.vars.inContractors = true; return { out: 'kit added to group contractors', changed: true }; } },
       ],
     },
     check: (s) => ({
@@ -340,10 +348,12 @@ $ aws iam update-access-key --user-name svc-backup \\
       before: { lines: ['allow: kit-granary-read', 'deny:  contractors → granary:*', 'kit ∈ contractors (by mistake)'], outcome: 'AccessDenied' },
       after: () => ({ lines: ['allow: kit-granary-read', 'deny still protects contractors', 'kit ∉ contractors'], outcome: 'Allowed ✓, protection intact' }),
       why: 'Policy evaluation: explicit Deny > Allow > implicit deny. When an Allow "doesn\'t work", look for a Deny. The simulator shows which policy decided. Fix the wrong membership instead of deleting a guardrail that protects everyone else.',
-      real: `$ aws iam simulate-principal-policy \\
+      real: `# Ask AWS: can Kit read the ledger, and if not, why?
+$ aws iam simulate-principal-policy \\
     --policy-source-arn arn:aws:iam::123:user/kit \\
     --action-names s3:GetObject --resource-arns arn:aws:s3:::granary-ledger/*
-  EvalDecision: explicitDeny
+  EvalDecision: explicitDeny    # a "deny" rule always beats an "allow"
+# Kit was in the contractors group by mistake, so take Kit out:
 $ aws iam remove-user-from-group --user-name kit --group-name contractors`,
       realCaption: 'Explicit denies are guardrails. Fix the input, not the guardrail.',
     },

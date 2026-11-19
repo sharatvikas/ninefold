@@ -104,18 +104,23 @@ export class AvatarCreator {
       r.append(h('span', 'k', label), ctrl);
       right.append(r);
     };
-    const swatches = (cols: string[], key: keyof Look) => {
+    const swatches = (cols: string[], key: keyof Look, name: string) => {
       const box = h('div', 'swatches');
-      for (const col of cols) {
+      cols.forEach((col, i) => {
         const b = h('button', `swatch ${this.look[key] === col ? 'on' : ''}`);
         b.style.background = col;
-        b.title = col;
+        b.title = `${name} ${i + 1}`;
+        b.setAttribute('aria-label', b.title);
+        b.setAttribute('aria-pressed', String(this.look[key] === col));
         b.addEventListener('click', () => {
           (this.look as unknown as Record<string, string>)[key] = col;
-          box.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
+          box.querySelectorAll('.swatch').forEach((x) => {
+            x.classList.toggle('on', x === b);
+            x.setAttribute('aria-pressed', String(x === b));
+          });
         });
         box.append(b);
-      }
+      });
       return box;
     };
     const choices = <T extends string>(opts: [T, string][], key: 'hairStyle' | 'hat') => {
@@ -130,13 +135,13 @@ export class AvatarCreator {
       }
       return box;
     };
-    row('SKIN', swatches(SKINS, 'skin'));
+    row('SKIN', swatches(SKINS, 'skin', 'Skin colour'));
     row('HAIR', choices(STYLES, 'hairStyle'));
-    row('HAIR COLOUR', swatches(HAIR_COLORS, 'hair'));
+    row('HAIR COLOUR', swatches(HAIR_COLORS, 'hair', 'Hair colour'));
     row('HAT', choices(HATS, 'hat'));
-    row('HAT COLOUR', swatches(CLOTHES, 'hatColor'));
-    row('TOP', swatches(CLOTHES, 'shirt'));
-    row('TROUSERS', swatches(PANTS, 'pants'));
+    row('HAT COLOUR', swatches(CLOTHES, 'hatColor', 'Hat colour'));
+    row('TOP', swatches(CLOTHES, 'shirt', 'Top colour'));
+    row('TROUSERS', swatches(PANTS, 'pants', 'Trousers colour'));
 
     const actions = h('div', 'avatar-actions');
     if (this.cancellable) {

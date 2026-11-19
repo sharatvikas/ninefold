@@ -1,5 +1,6 @@
 import type { Look } from '../art/characters';
 import { LEVELS, levelsIn, type DistrictId, type LevelMeta } from '../levels/catalog';
+import { CURIO_IDS } from '../world/curios';
 
 export interface Avatar {
   name: string;
@@ -11,6 +12,8 @@ export interface Progress {
   trust: number;
   completed: Record<string, { trust: number }>;
   avatar?: Avatar;
+  /** Curios found around town (side quest). */
+  found?: string[];
 }
 
 export const STORAGE_KEY = 'ninefold.save.v1';
@@ -25,6 +28,11 @@ export function resetProgress(p: Progress): Progress {
 }
 
 export const clampTrust = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
+
+/** Record a curio found around town. Finding one twice changes nothing. */
+export function findCurio(p: Progress, id: string): Progress {
+  return p.found?.includes(id) ? p : { ...p, found: [...(p.found ?? []), id] };
+}
 
 /** Record a finished level. Replaying a level never earns its Trust twice. */
 export function completeLevel(p: Progress, levelId: string, trustDelta: number): Progress {
@@ -81,7 +89,8 @@ export function parseProgress(raw: unknown): Progress | undefined {
     if (known.has(id) && typeof t === 'number' && Number.isFinite(t)) completed[id] = { trust: Math.round(t) };
   }
   const avatar = validAvatar(data.avatar);
-  return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}) };
+  const found = Array.isArray(data.found) ? [...new Set(data.found.filter((id): id is string => typeof id === 'string' && CURIO_IDS.has(id)))] : [];
+  return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}), ...(found.length ? { found } : {}) };
 }
 
 const CODE_PREFIX = 'NF1-';

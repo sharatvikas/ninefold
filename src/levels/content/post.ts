@@ -65,11 +65,12 @@ export const POST: LevelSpec[] = [
       before: { lines: ['bakery  168h  → No.12', '(move day)', 'old maps trusted for 7 days'], outcome: 'Customers at the old shop for a week' },
       after: (x) => ({ lines: [`bakery  ${num(x.ttl)}h  → No.${num(x.house)}`, '(changed at the move)', `old maps expire in ≤ ${num(x.ttl)}h`], outcome: `Right door within ${num(x.ttl)} hour(s)` }),
       why: 'Changing the wall only helps people who ask it. Everyone else trusts their copy until it expires. Short-lived copies mean changes spread fast, but too short floods the counter. Lower the time-to-live ahead of a planned change, at least one OLD time-to-live ahead (here a week), because copies made just before you lower it are still trusted for the old 168 hours. Raise it again afterwards.',
-      real: (x) => `# town.zone, TODAY: at least one old TTL (7 days) before the move
+      real: (x) => `; town.zone, TODAY: at least one old TTL (7 days) before the move
+; TTL = how long other computers may remember the answer
 - bakery  604800  IN  A  10.0.3.12   ; TTL 7 days
-+ bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.12
++ bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.12   ; shorter TTL, same address
 
-# move day
+; move day: now only the address changes
 - bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.12
 + bakery  ${num(x.ttl) * 3600}  IN  A  10.0.3.15`,
       realCaption: 'Pocket maps = DNS caches, "good for" = TTL. Lower the TTL at least one old-TTL before a migration, then raise it again afterwards.',
@@ -134,11 +135,12 @@ export const POST: LevelSpec[] = [
       before: { lines: ['bread.town  CNAME  bakery-old.town', 'bakery-old.town  (deleted)'], outcome: 'NXDOMAIN: no such address' },
       after: (x) => ({ lines: [`bread.town  ${str(x.type)}  ${str(x.target)}`, 'bakery.town  A  10.0.3.15'], outcome: 'bread.town → 10.0.3.15 ✓' }),
       why: 'An alias is only as good as its target. When the bakery was renamed, the old name was deleted, and every alias pointing at it broke silently. Pointing the alias at the current name fixes it, and keeps working if the address changes later.',
-      real: `$ dig bread.town
-bread.town.  CNAME  bakery-old.town.
-;; status: NXDOMAIN
+      real: `# Ask DNS where bread.town points:
+$ dig bread.town
+bread.town.  CNAME  bakery-old.town.   ; a nickname for another name…
+;; status: NXDOMAIN                    ; …that no longer exists
 
-# town.zone
+; town.zone: point the nickname at the bakery's real name
 - bread   IN  CNAME  bakery-old.town.
 + bread   IN  CNAME  bakery.town.`,
       realCaption: 'Tip: when you rename or delete a record, search for CNAMEs that point at it.',
@@ -217,10 +219,12 @@ bread.town.  CNAME  bakery-old.town.
       before: { lines: ['allow 80   from 0.0.0.0/0', 'allow 443  from 0.0.0.0/0', 'allow 22   from 10.0.0.0/8', '(no rule for 8080)'], outcome: 'Visitors time out' },
       after: (x) => ({ lines: arr(x.rules).map((r) => ({ '80-any': 'allow 80   from 0.0.0.0/0', '443-any': 'allow 443  from 0.0.0.0/0', '22-town': 'allow 22   from 10.0.0.0/8', '8080-gate': 'allow 8080 from 10.0.1.5/32', '8080-any': 'allow 8080 from 0.0.0.0/0', '22-any': 'allow 22   from 0.0.0.0/0', 'all-any': 'allow ALL  from 0.0.0.0/0' })[r] ?? r), outcome: 'Visitors reach the Reading Room ✓' }),
       why: 'Firewalls deny by default: a new port is closed until a rule opens it. The safest fix opens exactly the port that\'s needed, only to the source that needs it (the load balancer), and leaves everything else as it was. A timeout rather than an error is a classic sign of a firewall drop.',
-      real: `$ aws ec2 authorize-security-group-ingress \\
+      real: `# Firewall rule (security group): let the town gate reach the library on port 8080
+$ aws ec2 authorize-security-group-ingress \\
     --group-id sg-library \\
     --protocol tcp --port 8080 \\
-    --source-group sg-town-gate`,
+    --source-group sg-town-gate
+# Only traffic from the gate gets in, not the whole internet`,
       realCaption: 'Guard list = security group / firewall rules. Prefer referencing the load balancer\'s group over opening to 0.0.0.0/0.',
     },
   },
@@ -258,14 +262,14 @@ bread.town.  CNAME  bakery-old.town.
       vars: { reloaded: false, conf: '' },
       commands: [
         {
-          match: /^lb status$/, usage: 'lb status', help: 'show backends and what the LB thinks of them',
+          match: /^lb status$/, usage: 'lb status', help: 'list the servers behind the load balancer and whether it thinks each is healthy',
           run: (_m, s) => {
             const hc = healthConf(s.vars.conf ? String(s.vars.conf) : '');
             return { out: hc.enabled && hc.path === '/health' ? 'bakery-a  UP\nbakery-b  UP\nbakery-c  DOWN (health check failing, removed from pool)' : `bakery-a  in pool\nbakery-b  in pool\nbakery-c  in pool\nhealth checks: ${hc.enabled ? `on, path ${hc.path}` : 'OFF'}`, evidence: !hc.enabled };
           },
         },
         {
-          match: /^curl\s+(?:-s\s+)?(?:https?:\/\/)?bakery-([abc])(?::3000)?(\/\S*)?$/, usage: 'curl http://bakery-a:3000/health', help: 'call one backend directly',
+          match: /^curl\s+(?:-s\s+)?(?:https?:\/\/)?bakery-([abc])(?::3000)?(\/\S*)?$/, usage: 'curl http://bakery-a:3000/health', help: 'ask one server directly if it is healthy, skipping the load balancer',
           run: (m) => {
             const path = m[2] ?? '/';
             if (m[1] === 'c') return { out: path === '/health' ? 'HTTP 503 {"status":"down","reason":"oven offline"}' : 'HTTP 502 upstream oven offline', evidence: true };
@@ -275,7 +279,7 @@ bread.town.  CNAME  bakery-old.town.
           },
         },
         {
-          match: /^curl\s+(?:-s\s+)?(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'visit the site through the LB (10 tries)',
+          match: /^curl\s+(?:-s\s+)?(?:https?:\/\/)?bakery\.town\/?$/, usage: 'curl http://bakery.town', help: 'visit the site 10 times through the load balancer and count the results',
           run: (_m, s) => {
             const hc = healthConf(s.vars.conf ? String(s.vars.conf) : '');
             const good = hc.enabled && hc.path === '/health';
@@ -284,7 +288,7 @@ bread.town.  CNAME  bakery-old.town.
           },
         },
         {
-          match: /^lb reload$/, usage: 'lb reload', help: 'apply lb.conf',
+          match: /^lb reload$/, usage: 'lb reload', help: 'load your edited lb.conf so the load balancer uses it',
           run: (_m, s) => {
             const hc = healthConf(s.files['lb.conf']);
             s.vars.conf = s.files['lb.conf'];
@@ -319,13 +323,14 @@ bread.town.  CNAME  bakery-old.town.
       before: { lines: ['health_check {', '  enabled = false', '  path    = "/healthz"  # 404!', '}'], outcome: '1 in 3 requests → 502' },
       after: () => ({ lines: ['health_check {', '  enabled = true', '  path    = "/health"', '}'], outcome: 'bakery-c removed · 0 errors ✓' }),
       why: 'A load balancer only avoids broken servers if it checks them, and the check has to hit an endpoint that really exists. Turning it on with a wrong path is even worse: every server fails the check and the whole site goes down.',
-      real: `upstream bakery {
+      real: `# nginx load balancer: shares visitors between the three bakery servers
+upstream bakery {
   server bakery-a:3000;
   server bakery-b:3000;
   server bakery-c:3000;
 }
-# + active health checks on GET /health every 10s
-# AWS ALB: target group → health check path: /health`,
+# Plus a health check: visit /health every 10s, and stop sending visitors to a server that fails
+# (on AWS, set the load balancer's health check path to /health)`,
       realCaption: 'Always curl the health endpoint yourself before pointing a load balancer at it.',
     },
   },
@@ -358,7 +363,7 @@ default     via 10.0.6.1`,
       vars: { active: '' },
       commands: [
         {
-          match: /^traceroute\s+10\.0\.9\.\d+$/, usage: 'traceroute 10.0.9.5', help: 'trace the path to an east-side house',
+          match: /^traceroute\s+10\.0\.9\.\d+$/, usage: 'traceroute 10.0.9.5', help: 'show each hop a message takes on its way to 10.0.9.5',
           run: (_m, s) => {
             const ok = eastRoute(String(s.vars.active || s.files['routes.conf'])) === '10.0.7.1' && !!s.vars.active;
             return ok
@@ -367,15 +372,15 @@ default     via 10.0.6.1`,
           },
         },
         {
-          match: /^ip route$/, usage: 'ip route', help: 'show active routes',
+          match: /^ip route$/, usage: 'ip route', help: 'show the routing table: which road each address range takes',
           run: (_m, s) => ({ out: String(s.vars.active || s.files['routes.conf']).split('\n').filter((l) => !l.startsWith('#')).join('\n') + '\n\nlink 10.0.8.0/24: DOWN (decommissioned)\nlink 10.0.7.0/24: UP (r3)', evidence: true }),
         },
         {
-          match: /^ping\s+(10\.0\.\d+\.\d+)$/, usage: 'ping 10.0.7.1', help: 'check a neighbour is alive',
+          match: /^ping\s+(10\.0\.\d+\.\d+)$/, usage: 'ping 10.0.7.1', help: 'send a tiny message to 10.0.7.1 and wait for a reply',
           run: (m) => ({ out: m[1] === '10.0.7.1' ? '64 bytes from 10.0.7.1: time=1 ms  (r3 is up)' : m[1] === '10.0.8.1' ? 'Request timeout (10.0.8.1 is the old, removed link)' : '64 bytes: time=2 ms' }),
         },
         {
-          match: /^route reload$/, usage: 'route reload', help: 'apply routes.conf',
+          match: /^route reload$/, usage: 'route reload', help: 'load your edited routes.conf so the network uses it',
           run: (_m, s) => {
             s.vars.active = s.files['routes.conf'];
             const via = eastRoute(s.files['routes.conf']);
@@ -405,10 +410,13 @@ default     via 10.0.6.1`,
       before: { lines: ['10.0.9.0/24 via 10.0.8.1', '(10.0.8.x link: DOWN)'], outcome: 'traceroute dies after r2' },
       after: () => ({ lines: ['10.0.9.0/24 via 10.0.7.1', '(r3, link UP)'], outcome: 'traceroute reaches 10.0.9.5 ✓' }),
       why: 'When new hardware replaces old, every router that pointed at the old path needs updating. traceroute showed exactly where packets stopped (after r2), and the routing table showed why (next hop on a dead link).',
-      real: `$ traceroute 10.0.9.5
- 3  * * *
+      real: `# Follow the path to 10.0.9.5, one hop at a time:
+$ traceroute 10.0.9.5
+ 3  * * *                             # hop 3 never answers: the road breaks there
+# Which road does traffic for 10.0.9.x take?
 $ ip route | grep 10.0.9
-10.0.9.0/24 via 10.0.8.1 dev eth2
+10.0.9.0/24 via 10.0.8.1 dev eth2     # through a router that is down
+# Send it through the working router instead:
 $ sudo ip route replace 10.0.9.0/24 via 10.0.7.1 dev eth1`,
       realCaption: 'In the cloud the same thing happens in VPC route tables after a gateway or peering change.',
     },
