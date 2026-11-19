@@ -128,8 +128,10 @@ export class TownScene implements Scene {
   /** Load progress from a save code pasted in from another browser or device. */
   private importSave = (p: Progress): void => {
     const ui = this.game.ui;
-    this.game.replaceProgress(p);
-    this.playerSheet.setLook(p.avatar?.look ?? LOOKS.player);
+    // A code with no character in it keeps the one this browser already has.
+    const avatar = p.avatar ?? this.game.progress.avatar;
+    this.game.replaceProgress({ ...p, ...(avatar ? { avatar } : {}) });
+    this.playerSheet.setLook(avatar?.look ?? LOOKS.player);
     ui.hud.setTrust(p.trust);
     const n = Object.keys(p.completed).length;
     ui.toast(`SAVE LOADED · ${n} TICKET${n === 1 ? '' : 'S'} CLOSED`, 'good');

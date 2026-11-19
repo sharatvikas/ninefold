@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { newTermState, run } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
 import { PRESETS } from '../ui/avatar';
 import { resetProgress, completeLevel, levelStatus, loadProgress, newProgress, nextLevelIn, saveProgress, STORAGE_KEY } from '../state/progress';
@@ -87,5 +88,17 @@ describe('progress', () => {
     expect(loadProgress(storage).avatar).toBeUndefined();
     mem.set(STORAGE_KEY, JSON.stringify({ ...newProgress(), avatar: { name: 'x', look: { ...avatar.look, skin: 'red;}' } } }));
     expect(loadProgress(storage).avatar).toBeUndefined();
+  });
+});
+
+describe('terminal', () => {
+  it('treats built-in object names as missing files', () => {
+    const spec = { host: 'h', motd: '', files: { 'a.txt': 'hi' }, commands: [] };
+    const s = newTermState(spec);
+    expect(run(spec, s, 'cat a.txt')).toEqual({ kind: 'output', result: { out: 'hi' } });
+    for (const name of ['constructor', 'toString', '__proto__']) {
+      expect(run(spec, s, `cat ${name}`)).toEqual({ kind: 'output', result: { out: `cat: ${name}: No such file` } });
+      expect(run(spec, s, `edit ${name}`).kind).toBe('output');
+    }
   });
 });

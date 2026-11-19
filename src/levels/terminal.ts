@@ -73,14 +73,14 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
       return { kind: 'output', result: { out: Object.keys(s.files).sort().join('\n') || '(no files)' } };
     case 'cat': {
       if (!arg) return out('usage: cat <file>');
-      const f = s.files[arg];
+      const f = fileAt(s, arg);
       return out(f === undefined ? `cat: ${arg}: No such file` : f);
     }
     case 'grep': {
       const m = arg.match(/^(?:-i\s+)?("[^"]+"|'[^']+'|\S+)\s+(\S+)$/);
       if (!m) return out('usage: grep <text> <file>');
       const needle = m[1].replace(/^["']|["']$/g, '').toLowerCase();
-      const f = s.files[m[2]];
+      const f = fileAt(s, m[2]);
       if (f === undefined) return out(`grep: ${m[2]}: No such file`);
       const hits = f.split('\n').filter((l) => l.toLowerCase().includes(needle));
       return out(hits.join('\n') || '(no matches)');
@@ -90,7 +90,7 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
     case 'nano':
     case 'vi': {
       if (!arg) return out(`usage: ${name} <file>`);
-      if (s.files[arg] === undefined) return out(`${name}: ${arg}: No such file (use ls to see files)`);
+      if (fileAt(s, arg) === undefined) return out(`${name}: ${arg}: No such file (use ls to see files)`);
       return { kind: 'edit', path: arg };
     }
     case 'clear':
@@ -99,6 +99,9 @@ export function run(spec: TermSpec, s: TermState, raw: string): Outcome {
       return out(`${name}: command not found. Type "help" to see what you can use here.`);
   }
 }
+
+/** Only the level's own files: names like "toString" must not reach JavaScript's built-ins. */
+const fileAt = (s: TermState, path: string): string | undefined => (Object.hasOwn(s.files, path) ? s.files[path] : undefined);
 
 const out = (text: string): Outcome => ({ kind: 'output', result: { out: text } });
 
