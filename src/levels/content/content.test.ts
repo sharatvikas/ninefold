@@ -104,3 +104,17 @@ describe('harbor-5 one-line limit', () => {
     expect(passed(spec.check(s))).toBe(false);
   });
 });
+
+describe('harbor-6 one-line env', () => {
+  it('is solved by kubectl set env with the right database, not any value', () => {
+    const spec = ALL_SPECS.find((s) => s.id === 'harbor-6');
+    if (spec?.type !== 'terminal') throw new Error('harbor-6 should be a terminal level');
+    const s = newTermState(spec.term);
+    run(spec.term, s, 'kubectl set env deploy/bakery-app DB_HOST=localhost');
+    const wrong = spec.check(s);
+    expect(passed(wrong)).toBe(false);
+    expect(wrong.hint).toMatch(/config-notes/);
+    run(spec.term, s, 'kubectl set env deploy/bakery-app DB_HOST=granary-db.town');
+    expect(passed(spec.check(s))).toBe(true);
+  });
+});

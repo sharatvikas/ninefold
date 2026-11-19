@@ -307,7 +307,7 @@ resources:
       ],
       goal: 'Find out why v3 isn\'t ready, fix the deployment, apply it, and see the rollout finish.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See how the update is going:\n   kubectl rollout status deploy/bakery-app\n2. List the app copies (pods) and their state:\n   kubectl get pods\n3. Read what the new copy printed before it crashed:\n   kubectl logs bakery-app-v3-0\n4. Read the notes and the app\'s settings, then change the settings:\n   cat config-notes.md\n   cat deploy.yaml\n   edit deploy.yaml\n5. Apply your saved change:\n   kubectl apply -f deploy.yaml\n\nLast resort only (it ships nothing new): go back to the old version:\n   kubectl rollout undo deploy/bakery-app' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See how the update is going:\n   kubectl rollout status deploy/bakery-app\n2. List the app copies (pods) and their state:\n   kubectl get pods\n3. Read what the new copy printed before it crashed:\n   kubectl logs bakery-app-v3-0\n4. Read the notes on what v3 needs:\n   cat config-notes.md\n5. Give v3 the setting it needs. Type the value over <value>:\n   kubectl set env deploy/bakery-app DB_HOST=<value>\n6. Check the update finishes:\n   kubectl rollout status deploy/bakery-app\n\nPrefer editing files? cat deploy.yaml, edit deploy.yaml to add the setting under env, then kubectl apply -f deploy.yaml.\n\nLast resort only (it ships nothing new): go back to the old version:\n   kubectl rollout undo deploy/bakery-app' }],
     term: {
       host: 'kubectl',
       motd: 'Context: ninefold-prod · namespace: town',
@@ -335,6 +335,17 @@ spec:
         { match: /^kubectl get pods$/, usage: 'kubectl get pods', help: 'list the running app copies (pods) and their state', run: (_m, s) => ({ out: dbHostSet(String(s.vars.applied)) ? 'bakery-app-v3-0  1/1 Running\nbakery-app-v3-1  1/1 Running\nbakery-app-v3-2  1/1 Running' : 'bakery-app-v2-a  1/1 Running\nbakery-app-v2-b  1/1 Running\nbakery-app-v3-0  0/1 CrashLoopBackOff (restarts 9)' }) },
         { match: /^kubectl logs bakery-app-v3-0$/, usage: 'kubectl logs bakery-app-v3-0', help: 'show what the new app copy (pod) printed before it crashed', run: () => ({ out: 'starting bakery-app v3.0.0\nFATAL: environment variable DB_HOST is not set\nexit 1', evidence: true }) },
         { match: /^kubectl apply -f deploy\.yaml$/, usage: 'kubectl apply -f deploy.yaml', help: 'apply the changes you saved in the file', run: (_m, s) => { s.vars.applied = s.files['deploy.yaml']; return { out: `deployment.apps/bakery-app configured${dbHostSet(s.files['deploy.yaml']) ? '' : '\n(new pods still failing)'}`, changed: true }; } },
+        {
+          // The one-line way: real kubectl can set an environment variable without hand-editing YAML.
+          match: /^kubectl set env deploy(?:ment)?[ /]bakery-app\s+DB_HOST=(\S+)$/,
+          usage: 'kubectl set env deploy/bakery-app DB_HOST=<value>',
+          help: 'set the DB_HOST setting for every new copy of the app, in one line',
+          run: (m, s) => {
+            s.files['deploy.yaml'] = withDbHost(s.files['deploy.yaml'], m[1]);
+            s.vars.applied = s.files['deploy.yaml'];
+            return { out: `deployment.apps/bakery-app env updated (DB_HOST=${m[1]})`, changed: true };
+          },
+        },
         { match: /^kubectl rollout undo deploy\/bakery-app$/, usage: 'kubectl rollout undo deploy/bakery-app', help: 'undo the update and go back to v2', run: (_m, s) => { s.vars.undone = true; return { out: 'rolled back to v2. Customers are fine, but v3 still isn\'t shipped.', changed: true }; } },
       ],
     },
@@ -343,7 +354,9 @@ spec:
         c('new v3 pods start (DB_HOST provided)', dbHostSet(String(s.vars.applied))),
         c('rollout completes: 3/3 on v3', dbHostSet(String(s.vars.applied))),
       ],
-      hint: s.vars.undone ? 'Rolling back stopped the bleeding, but v3 is still not shipped. What does v3 need to start?' : 'Read the new pod\'s logs. Then add what it needs to the env list and apply.',
+      hint: dbHostOf(String(s.vars.applied)) && !dbHostSet(String(s.vars.applied))
+        ? 'DB_HOST is set, but not to where the database lives. config-notes.md says where.'
+        : s.vars.undone ? 'Rolling back stopped the bleeding, but v3 is still not shipped. What does v3 need to start?' : 'Read the new pod\'s logs. Then give it the setting it needs (kubectl set env, or edit deploy.yaml and apply).',
     }),
     solve: (s) => {
       s.files['deploy.yaml'] += '\n            - name: DB_HOST\n              value: granary-db.town';
@@ -357,7 +370,9 @@ spec:
       real: `# Read what the new version printed before it crashed:
 $ kubectl logs bakery-app-v3-0
 FATAL: environment variable DB_HOST is not set
-# deploy.yaml: give it the setting it's missing
+# The one-line way (what the handbook showed):
+$ kubectl set env deploy/bakery-app DB_HOST=granary-db.town
+# Teams also write it in deploy.yaml, so the next deploy doesn't undo it:
           env:
 +           - name: DB_HOST
 +             value: granary-db.town    # where the database lives`,
@@ -378,7 +393,18 @@ function limitOf(yaml: string): number {
   return m[2] === 'm' ? Number(m[1]) : Number(m[1]) * 1000;
 }
 
+/** The DB_HOST value set in the YAML's env list, if any. */
+function dbHostOf(yaml: string): string | undefined {
+  return squash(yaml).match(/- name: db_host value: (\S+)/)?.[1];
+}
+
+/** v3 starts only when DB_HOST points at the granary database. */
 function dbHostSet(yaml: string): boolean {
-  const q = squash(yaml);
-  return /- name: db_host value: \S+/.test(q);
+  return dbHostOf(yaml) === 'granary-db.town';
+}
+
+/** Set DB_HOST in the env list, replacing an existing value. */
+function withDbHost(yaml: string, value: string): string {
+  if (dbHostOf(yaml) !== undefined) return yaml.replace(/(name:\s*["']?DB_HOST["']?\s*\n\s*value:\s*)\S+/, `$1${value}`);
+  return `${yaml.replace(/\s+$/, '')}\n            - name: DB_HOST\n              value: ${value}`;
 }
