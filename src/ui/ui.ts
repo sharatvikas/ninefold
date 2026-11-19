@@ -93,6 +93,7 @@ class Hud {
   private clock = h('div', 'clock panel');
   readonly ticketsBtn = h('button', 'btn tickets', 'Q · TICKETS');
   readonly avatarBtn = h('button', 'btn avatar-btn', '👤 AVATAR');
+  readonly feedbackBtn = feedbackLink('Town', '💬 FEEDBACK', 'btn feedback-btn');
   private minutes = 9 * 60;
   /** Jump the clock (used by dev tools). */
   setTime(minute: number): void {
@@ -112,7 +113,7 @@ class Hud {
     const bar = h('span', 'bar');
     bar.append(this.trustFill);
     trust.append(h('span', 'label', 'TRUST'), bar, this.trustNum);
-    this.el.append(trust, this.clock, this.ticketsBtn, this.avatarBtn);
+    this.el.append(trust, this.clock, this.ticketsBtn, this.avatarBtn, this.feedbackBtn);
     this.renderClock();
   }
 
@@ -444,4 +445,38 @@ export class UI {
     wrap.append(pad, a);
     return wrap;
   }
+}
+
+const REPO = 'https://github.com/sharatvikas/ninefold';
+
+/**
+ * A pre-filled GitHub issue, so players can report bugs and confusing moments straight to the repo.
+ * Only where they were in the game goes in; nothing about the player.
+ */
+export function feedbackUrl(where: string): string {
+  const body = [
+    `**Where:** ${where}`,
+    '',
+    '**Is it a bug, something confusing, or an idea?**',
+    '',
+    '',
+    '**What happened?**',
+    '',
+    '',
+    '**What did you expect instead?**',
+    '',
+  ].join('\n');
+  const q = new URLSearchParams({ title: `Feedback: ${where}`, body });
+  return `${REPO}/issues/new?${q}`;
+}
+
+/** A link that opens the feedback form in a new tab. */
+export function feedbackLink(where: string, label: string, cls = 'btn'): HTMLAnchorElement {
+  const a = h('a', cls, label) as HTMLAnchorElement;
+  a.href = feedbackUrl(where);
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = 'Report a bug or something confusing (opens GitHub)';
+  a.setAttribute('aria-label', a.title);
+  return a;
 }

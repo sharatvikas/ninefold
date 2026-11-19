@@ -1,7 +1,7 @@
 import { analytics, secsSince, type Step } from '../analytics/analytics';
 import type { Ctx } from '../art/pixels';
 import type { Game, Scene } from '../engine/game';
-import { h } from '../ui/ui';
+import { feedbackLink, feedbackUrl, h } from '../ui/ui';
 import type { LevelResult } from '../world/TownScene';
 import type { LevelMeta } from './catalog';
 import { newAttempts, trustFor, type Attempts } from './sims/score';
@@ -104,7 +104,9 @@ export abstract class IncidentScene implements Scene {
     const leave = h('button', 'btn leave', '✕');
     leave.title = 'Leave (Esc)';
     leave.addEventListener('click', () => this.leaveLevel());
-    top.append(title, steps, leave);
+    const right = h('div', 'level-btns');
+    right.append(feedbackLink(`${this.meta.id} · ${this.meta.title}`, '💬'), leave);
+    top.append(title, steps, right);
 
     const tray = h('div', 'tray');
     const bar = h('div', 'hotbar');
@@ -323,7 +325,7 @@ export abstract class IncidentScene implements Scene {
     btn.addEventListener('click', () => this.exit({ levelId: this.meta.id, trust, completed: true, gained: this.gained }));
     const foot = h('div', 'recap-foot');
     const fb = h('a', 'feedback-link', '💬 Was this ticket confusing or wrong? Tell me') as HTMLAnchorElement;
-    fb.href = feedbackUrl(this.meta.id, this.meta.title);
+    fb.href = feedbackUrl(`${this.meta.id} · ${this.meta.title}`);
     fb.target = '_blank';
     fb.rel = 'noopener';
     foot.append(h('div', 'score', notes.length ? `Trust: ${notes.join(', ')}.` : 'Clean fix: evidence first, one change, verified. Full Trust!'), btn);
@@ -332,19 +334,4 @@ export abstract class IncidentScene implements Scene {
     this.root.append(wrap);
     btn.focus();
   }
-}
-
-/** A pre-filled GitHub issue for one ticket. Only the ticket's id and title go in; nothing about the player. */
-export function feedbackUrl(id: string, title: string): string {
-  const body = [
-    `**Ticket:** ${id} · ${title}`,
-    '',
-    '**What was confusing, wrong or broken?**',
-    '',
-    '',
-    '**What did you expect instead?**',
-    '',
-  ].join('\n');
-  const q = new URLSearchParams({ title: `Ticket feedback: ${id} · ${title}`, body });
-  return `https://github.com/sharatvikas/ninefold/issues/new?${q}`;
 }

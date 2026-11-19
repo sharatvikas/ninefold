@@ -133,7 +133,9 @@ export function station(c: Ctx, x: number, y: number, w: number, h: number): voi
   rect(c, x + 2, y + rh, w - 4, h - rh, OUT);
   rect(c, x + 2.5, y + rh, w - 5, h - rh - 0.5, '#e6d6b6');
   for (let yy = y + rh + 3; yy < y + h - 2; yy += 3) rect(c, x + 2.5, yy, w - 5, 0.5, '#d4c29e');
+  const doorX = x + w / 2;
   for (let px = x + 4; px < x + w - 4; px += 14) {
+    if (Math.abs(px + 1.5 - doorX) < 12) continue; // leave room for the entrance
     rect(c, px - 0.5, y + rh, 4, h - rh, OUT);
     rect(c, px, y + rh, 3, h - rh - 0.5, '#8a6a42');
     rect(c, px, y + rh, 1, h - rh - 0.5, '#a88a5a');
@@ -153,7 +155,35 @@ export function station(c: Ctx, x: number, y: number, w: number, h: number): voi
   rect(c, x + w - 22.5, y + h - 11.5, 11, 8, OUT);
   rect(c, x + w - 22, y + h - 11, 10, 7, '#2b6cb0');
   rect(c, x + w - 22, y + h - 8, 10, 0.5, '#1a4a80');
+  stationDoor(c, doorX, y + h - 2);
   sign(c, x + w / 2, y + rh + 1, 'RAILYARD');
+}
+
+/** The station's entrance: framed double doors with a glass transom and a clock above. */
+function stationDoor(c: Ctx, cx: number, base: number): void {
+  const dw = 16;
+  const dx = cx - dw / 2;
+  const top = base - 17;
+  rect(c, dx - 2.5, top - 0.5, dw + 5, 17.5, OUT);
+  rect(c, dx - 2, top, dw + 4, 17, '#8a6a42');
+  rect(c, dx - 2, top, 1, 17, '#a88a5a');
+  rect(c, dx, top + 1.5, dw, 3.5, '#7fbfe8');
+  rect(c, dx, top + 1.5, dw, 1, '#a8d8f4');
+  rect(c, cx - 0.25, top + 1.5, 0.5, 3.5, '#8a6a42');
+  for (const lx of [dx, cx + 0.5]) {
+    rect(c, lx, top + 5.5, dw / 2 - 0.5, 11.5, '#5a3418');
+    rect(c, lx + 1, top + 6.5, dw / 2 - 2.5, 4, '#6e4424');
+    rect(c, lx + 1, top + 11.5, dw / 2 - 2.5, 4.5, '#6e4424');
+  }
+  rect(c, cx - 2, top + 11, 1, 1.5, '#ffd866');
+  rect(c, cx + 1, top + 11, 1, 1.5, '#ffd866');
+  // clock
+  rect(c, cx - 3.5, top - 8, 7, 7, OUT);
+  rect(c, cx - 3, top - 7.5, 6, 6, '#f8ecd0');
+  rect(c, cx - 0.25, top - 6.5, 0.5, 2.75, OUT);
+  rect(c, cx, top - 4.25, 2, 0.5, OUT);
+  // doormat
+  rect(c, dx + 1, base, dw - 2, 1.5, '#b04a3a');
 }
 
 /** Barn for the Granary (storage & databases). */
@@ -186,35 +216,85 @@ export function barn(c: Ctx, x: number, y: number, w: number, h: number): void {
   sign(c, x + w / 2, y + rh + 1, 'GRANARY');
 }
 
-/** Watchtower for observability: braced wooden legs, a lookout cabin and a ladder. */
+/**
+ * Watchtower for observability: a stone base you walk into, braced timber legs,
+ * a lookout cabin with windows and a telescope, and a pennant on the roof.
+ * Draws a little wider than its two tiles, like the other landmarks.
+ */
 export function watchtower(c: Ctx, x: number, y: number, w: number, h: number): void {
-  const tx = x + Math.floor(w / 2) - 7;
-  rect(c, tx + 1, y + h - 1, 14, 3, 'rgba(0,0,0,0.2)');
-  // legs
-  for (const lx of [tx, tx + 12]) {
-    rect(c, lx - 0.5, y + 14, 3, h - 14, OUT);
-    rect(c, lx, y + 14, 2, h - 14.5, '#8a6a42');
-    rect(c, lx, y + 14, 0.5, h - 14.5, '#a88a5a');
+  const cx = x + w / 2;
+  rect(c, cx - 15, y + h - 1, 32, 3, 'rgba(0,0,0,0.2)');
+  // stone base
+  const bh = 24;
+  const by = y + h - bh;
+  rect(c, cx - 14.5, by - 0.5, 29, bh + 0.5, OUT);
+  rect(c, cx - 14, by, 28, bh, '#9a9488');
+  for (let row = 0; row < bh; row += 4) {
+    const off = (row / 4) % 2 ? 0 : 3;
+    rect(c, cx - 14, by + row, 28, 0.5, '#6e6a60');
+    for (let k = cx - 14 + off; k < cx + 14; k += 6) rect(c, k, by + row, 0.5, 4, '#6e6a60');
+    rect(c, cx - 14, by + row + 0.5, 28, 0.5, '#b4aea0');
   }
-  // cross braces
-  for (let yy = y + 17; yy < y + h - 4; yy += 9) {
-    for (let i = 0; i < 10; i++) {
-      rect(c, tx + 2 + i, yy + i * 0.7, 1, 0.5, '#6a4a2a');
-      rect(c, tx + 11 - i, yy + i * 0.7, 1, 0.5, '#6a4a2a');
-    }
+  rect(c, cx - 15, by - 1.5, 30, 2, '#6e6a60');
+  // arched door
+  rect(c, cx - 5.5, y + h - 14.5, 11, 14.5, OUT);
+  rect(c, cx - 3.5, y + h - 16.5, 7, 2, OUT);
+  rect(c, cx - 5, y + h - 14, 10, 14, '#6a4024');
+  rect(c, cx - 3, y + h - 16, 6, 2, '#6a4024');
+  rect(c, cx - 0.25, y + h - 16, 0.5, 16, '#4a2a14');
+  for (let k = 0; k < 3; k++) rect(c, cx - 5, y + h - 12 + k * 4, 10, 0.5, '#4a2a14');
+  rect(c, cx + 2, y + h - 7, 1, 1.5, '#ffd866');
+  rect(c, cx - 6, y + h, 12, 1.5, '#b8a890');
+  // lantern beside the door
+  rect(c, cx + 8, y + h - 15, 3, 4, OUT);
+  rect(c, cx + 8.5, y + h - 14.5, 2, 3, '#ffd866');
+  // timber legs with X braces
+  const legTop = y + 21;
+  for (const lx of [cx - 12, cx + 9]) {
+    rect(c, lx - 0.5, legTop, 4, by - legTop, OUT);
+    rect(c, lx, legTop, 3, by - legTop, '#8a6a42');
+    rect(c, lx, legTop, 1, by - legTop, '#a88a5a');
   }
-  // ladder
-  rect(c, tx + 5, y + 14, 0.5, h - 14, '#5a3418');
-  rect(c, tx + 8.5, y + 14, 0.5, h - 14, '#5a3418');
-  for (let yy = y + 16; yy < y + h; yy += 2.5) rect(c, tx + 5, yy, 4, 0.5, '#7a5030');
-  // cabin + railing
-  rect(c, tx - 3.5, y + 7.5, 21, 8, OUT);
-  rect(c, tx - 3, y + 8, 20, 7, '#7a5030');
-  for (let px = tx - 2; px < tx + 17; px += 2) rect(c, px, y + 8, 0.5, 7, '#5a3418');
-  rect(c, tx - 3, y + 8, 20, 0.5, '#a88a5a');
-  // roof
-  for (let j = 0; j < 8; j++) rect(c, tx + 7 - j * 1.5 - 1, y + j, j * 3 + 2, 1, j % 2 ? '#4a3a2a' : '#5a4a3a');
-  rect(c, tx - 4, y + 7, 22, 1, OUT);
+  const span = by - legTop;
+  for (let i = 0; i < 24; i++) {
+    const t = i / 23;
+    rect(c, cx - 9 + t * 18, legTop + 2 + t * (span - 4), 1, 1, '#6a4a2a');
+    rect(c, cx + 9 - t * 18, legTop + 2 + t * (span - 4), 1, 1, '#6a4a2a');
+  }
+  // ladder up the middle
+  rect(c, cx - 3, legTop, 0.5, span, '#5a3418');
+  rect(c, cx + 2.5, legTop, 0.5, span, '#5a3418');
+  for (let yy = legTop + 2; yy < by; yy += 3) rect(c, cx - 3, yy, 6, 0.5, '#7a5030');
+  // balcony + cabin
+  rect(c, cx - 17.5, legTop - 1.5, 35, 3, OUT);
+  rect(c, cx - 17, legTop - 1, 34, 2, '#7a5030');
+  for (let px = cx - 16; px < cx + 17; px += 3) rect(c, px, legTop - 5, 0.5, 4, '#5a3418');
+  rect(c, cx - 17, legTop - 5, 34, 0.75, '#5a3418');
+  const cy = y + 8;
+  rect(c, cx - 13.5, cy - 0.5, 27, legTop - 5 - cy + 1, OUT);
+  rect(c, cx - 13, cy, 26, legTop - 5 - cy, '#a07a4a');
+  for (let px = cx - 13; px < cx + 13; px += 3) rect(c, px, cy, 0.5, legTop - 5 - cy, '#8a6a3a');
+  for (const wx of [cx - 10, cx + 3]) {
+    rect(c, wx - 0.5, cy + 2.5, 8, 6, OUT);
+    rect(c, wx, cy + 3, 7, 5, '#7fbfe8');
+    rect(c, wx, cy + 3, 7, 1.5, '#a8d8f4');
+    rect(c, wx + 3.25, cy + 3, 0.5, 5, OUT);
+  }
+  // telescope poking out of the right window
+  rect(c, cx + 9, cy + 4, 8, 2, OUT);
+  rect(c, cx + 9.5, cy + 4.5, 7, 1, '#d8b040');
+  rect(c, cx + 16, cy + 3.5, 1.5, 3, '#8a7020');
+  // pointed roof with overhang
+  for (let j = 0; j < 10; j++) {
+    const half = 3 + j * 1.6;
+    rect(c, cx - half - 0.5, y - 2 + j, half * 2 + 1, 1, OUT);
+    rect(c, cx - half, y - 2 + j, half * 2, 1, j % 2 ? '#4a3a2a' : '#5e4a36');
+  }
+  rect(c, cx - 18, y + 7.5, 36, 1.5, '#3a2a1a');
+  // flagpole and pennant
+  rect(c, cx - 0.25, y - 9, 0.75, 7, OUT);
+  rect(c, cx + 0.5, y - 9, 5, 1.5, '#e04040');
+  rect(c, cx + 0.5, y - 7.5, 3, 1, '#e04040');
 }
 
 /** Town fountain: stone ring, rippling water, central column and basin. */

@@ -411,6 +411,9 @@ pre.mini { margin: 0; font-family: ui-monospace, Menlo, monospace; font-size: 1.
 
 /* ---------- avatar creator ---------- */
 .avatar-btn { position: absolute; top: 16.5cqh; right: 1.2cqw; }
+.feedback-btn { position: absolute; top: 23.5cqh; right: 1.2cqw; text-decoration: none; }
+.level-btns { display: flex; gap: 0.6cqw; }
+.level-btns a.btn { text-decoration: none; padding: 0.6cqw 1cqw; }
 .avatar-card { width: 88cqw; max-height: 94cqh; overflow: auto; padding: 1.4cqw 2cqw; display: flex; flex-direction: column; gap: 0.8cqw; animation: pop2 0.3s ease-out; }
 .avatar-card .title { color: var(--wood); font-size: 1.8cqw; }
 .avatar-body { display: grid; grid-template-columns: 26cqw 1fr; gap: 2.4cqw; align-items: start; }

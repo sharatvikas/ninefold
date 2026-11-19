@@ -523,6 +523,15 @@ export class TownScene implements Scene {
           glow(c, wx + 5.5, wy + 8, 16, '255,200,110', 0.32 * n * flicker(wx));
         }
       }
+      if (b.kind === 'tower') {
+        // Lookout windows and the door lantern light up at night.
+        c.globalAlpha = Math.min(1, n * 1.2);
+        for (const wx of [x + w / 2 - 10, x + w / 2 + 3]) rect(c, wx, y + 11, 7, 5, '#ffd877');
+        c.globalAlpha = 1;
+        glow(c, x + w / 2, y + 14, 22, '255,200,110', 0.3 * n * flicker(x));
+        glow(c, x + w / 2 + 9.5, y + h - 13, 10, '255,200,110', 0.35 * n * flicker(y));
+      }
+      if (b.kind === 'station') glow(c, x + w / 2, y + h - 10, 16, '255,200,110', 0.3 * n * flicker(y));
       glow(c, x + w / 2, y + h + 2, 14, '255,190,100', 0.22 * n * flicker(x));
     }
     for (const [lx, ly] of LAMPS) {
