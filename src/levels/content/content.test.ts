@@ -64,11 +64,14 @@ describe.each(ALL_SPECS.map((s) => [s.id, s] as const))('%s', (_id, spec) => {
       for (const d of docs) if (d.kind === 'doc' && d.label === 'HANDBOOK') expect(d.text.split('\n').some((l) => runnableIn(spec.term, l)), d.id).toBe(true);
     });
     it('only lists handbook steps that really run', () => {
-      // A step's command line is indented 3 spaces; guidance lines end in ":" or "." instead.
+      // A step's command line is indented 3 spaces; indented guidance ends in ":" or a word and "." (not " ." as in grep … .).
       for (const d of spec.evidence) {
         if (d.kind !== 'doc' || d.label !== 'HANDBOOK') continue;
-        const steps = d.text.split('\n').filter((l) => /^ {3}\S/.test(l) && !/[:.]$/.test(l.trim()));
+        const lines = d.text.split('\n');
+        const steps = lines.filter((l) => /^ {3}\S/.test(l) && !/(:|\S\.)$/.test(l.trim()));
         expect(steps.filter((l) => !runnableIn(spec.term, l))).toEqual([]);
+        // and nothing else in the handbook turns into a button by accident
+        expect(lines.filter((l) => !/^ {3}\S/.test(l) && runnableIn(spec.term, l))).toEqual([]);
       }
     });
     it('runs every documented command without crashing', () => {

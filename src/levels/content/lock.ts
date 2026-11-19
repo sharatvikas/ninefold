@@ -322,7 +322,7 @@ $ aws iam update-access-key --user-name svc-backup \\
       ],
       goal: 'Find what\'s denying Kit, fix the real cause without weakening anyone else\'s protections, and confirm.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Ask: can Kit read the ledger, and if not, why?\n   iam simulate kit read granary-ledger\n2. See which groups Kit belongs to:\n   iam groups kit\n3. Read a rule (policy). Type the rule\'s name over <name>:\n   iam policy <name>\n4. Fix it, either by taking someone out of a group or by deleting a rule.\n   Type over the <parts>:\n   iam remove-from-group <user> <group>\n   iam delete-policy <name>\n5. Ask again to check (step 1).' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Ask: can Kit read the ledger, and if not, why?\n   iam simulate kit read granary-ledger\n2. See which groups Kit belongs to:\n   iam groups kit\n3. Read a rule (policy). Type the rule\'s name over <name>:\n   iam policy <name>\n4. Fix it for Kit only. Take someone out of a group (type over the <parts>):\n   iam remove-from-group <user> <group>\n   Deleting a rule removes its protection for everyone, so it is risky:\n   iam delete-policy <name>\n5. Ask again to check (step 1).' }],
     term: {
       host: 'security',
       motd: 'Security console',
