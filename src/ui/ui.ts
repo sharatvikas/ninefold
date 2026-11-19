@@ -1,3 +1,4 @@
+import { CURIOS } from '../world/curios';
 import type { Input } from '../engine/input';
 import { DISTRICTS, levelsIn } from '../levels/catalog';
 import { decodeSave, encodeSave, levelStatus, type Progress } from '../state/progress';
@@ -188,6 +189,8 @@ class QuestLog {
     }
     const foot = h('div', 'ql-foot');
     foot.append(h('span', '', '! ready   ✓ done (click to replay)   · finish the previous ticket first'));
+    const curios = p.found?.length ?? 0;
+    foot.append(h('span', 'ql-curios', `✦ CURIOS ${curios}/${CURIOS.length}${curios < CURIOS.length ? ' · walk around town and look for sparkles' : ' · all found!'}`));
     const btns = h('div', 'ql-btns');
     const codeBtn = h('button', 'btn', '⇄ SAVE CODE');
     codeBtn.title = 'Move your progress to another browser or device';

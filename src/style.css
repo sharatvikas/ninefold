@@ -461,3 +461,5 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 /* ---------- iris wipe between town and tickets ---------- */
 .iris { position: absolute; inset: 0; z-index: 60; overflow: hidden; pointer-events: auto; }
 .iris i { position: absolute; display: block; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 300cqw #14101c; }
+
+.ql-curios { color: var(--wood); }

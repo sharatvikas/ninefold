@@ -6,6 +6,7 @@ import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
 import { bigIncidentBlockers, levelStatus, nextLevelIn, type Progress } from '../state/progress';
 import { moveBox, type Box } from './collision';
+import { CURIOS, curioAt, type Curio } from './curios';
 import { Interior } from './Interior';
 import { ROOMS } from './rooms';
 import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, buildingAtDoor, doorOf, isSolidTile, tileAt, type Building, type NpcSpawn } from './townMap';
@@ -204,6 +205,8 @@ export class TownScene implements Scene {
 
       this.nearby = this.findNearby();
       this.atDoor = this.nearby ? undefined : this.doorUnderPlayer();
+      const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
+      if (curio) this.collect(curio);
       if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
       else if (this.atDoor && (input.wasPressed('e', ' ', 'enter') || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
       else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
@@ -358,6 +361,38 @@ export class TownScene implements Scene {
     return false;
   };
 
+  /** Pick up a curio: save it, celebrate, and tell its story. */
+  private collect(k: Curio): void {
+    const ui = this.game.ui;
+    this.game.foundCurio(k.id);
+    const n = this.game.progress.found?.length ?? 0;
+    if (!this.reduced) this.sparks.firework((k.x + 0.5) * TILE, k.y * TILE - 4, '#ffd23f');
+    ui.toast(`FOUND: ${k.name.toUpperCase()} · ${n}/${CURIOS.length} CURIOS`, 'good');
+    const done = n === CURIOS.length ? ["That's every curio in Ninefold. You know this town inside out!"] : [];
+    ui.dialog.show(`✦ ${k.name}`, [k.story, ...done]);
+  }
+
+  /** Unfound curios glint on the ground, so exploring is rewarded. */
+  private drawCurios(c: Ctx, t: number, night = 0): void {
+    const found = this.game.progress.found ?? [];
+    for (const k of CURIOS) {
+      if (found.includes(k.id)) continue;
+      const x = Math.round((k.x + 0.5) * TILE);
+      const y = Math.round((k.y + 0.5) * TILE);
+      if (night) {
+        glow(c, x, y - 1, 9, '255,230,140', 0.45 * night);
+        continue;
+      }
+      const bob = this.reduced ? 0 : Math.round(Math.sin(t * 3 + k.x) * 1.5);
+      rect(c, x - 2, y + 4, 5, 1, 'rgba(0,0,0,0.18)');
+      rect(c, x, y - 4 + bob, 1, 7, '#fff3b0');
+      rect(c, x - 3, y - 1 + bob, 7, 1, '#fff3b0');
+      rect(c, x - 1, y - 2 + bob, 3, 3, '#ffd23f');
+      rect(c, x, y - 1 + bob, 1, 1, '#ffffff');
+      if ((t * 1.5 + k.y) % 2 < 0.5) rect(c, x + 3, y - 5 + bob, 1, 1, '#ffffff');
+    }
+  }
+
   private findNearby(): Npc | undefined {
     const p = this.player.box;
     const px = p.x + p.w / 2;
@@ -423,6 +458,8 @@ export class TownScene implements Scene {
     this.drawHarborBoat(c, t);
     this.drawDockTop(c);
 
+    this.drawCurios(c, t);
+
     type D = { y: number; draw: () => void };
     const ds: D[] = [];
     const vis = (x: number, y: number) => x > this.cam.x - 32 && x < this.cam.x + VIEW_W + 16 && y > this.cam.y - 32 && y < this.cam.y + VIEW_H + 32;
@@ -458,6 +495,7 @@ export class TownScene implements Scene {
     applySky(c, this.sky, this.cam.x - 1, this.cam.y - 1, VIEW_W + 2, VIEW_H + 2);
     this.drawLights(c, t);
     this.drawLamp(c, t);
+    this.drawCurios(c, t, this.sky.night);
     this.flies.draw(c, t, this.sky.night, { x: this.cam.x, y: this.cam.y, w: VIEW_W, h: VIEW_H });
     this.sparks.draw(c);
 
@@ -715,6 +753,7 @@ export class TownScene implements Scene {
 const MAYOR_INTRO = [
   'Ah, our new on-call! I\'m Mayor Bo. Every shop and service in Ninefold runs on trust.',
   'Fix things well and Trust goes up. Guess wildly and it goes down. Look before you leap!',
+  'And keep an eye out for little sparkles around town. Curious things turn up in Ninefold.',
 ];
 
 const THANKS: Record<string, string> = {
