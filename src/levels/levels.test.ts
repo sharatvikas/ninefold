@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { applySnippet } from './spec';
 import { commentStart } from './incident';
 import { explain, newTermState, run, runnableIn } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
@@ -135,5 +136,16 @@ describe('handbook commands', () => {
     expect(runnableIn(spec, 'kubectl top pods (last resort)')).toBe('kubectl top pods');
     expect(runnableIn(spec, 'edit missing.yaml')).toBeUndefined();
     expect(runnableIn(spec, 'Limits look like:')).toBeUndefined();
+  });
+});
+
+describe('editor snippets', () => {
+  it('only write into their own spot, once', () => {
+    expect(applySnippet('a\nOLD\nc', { label: '', text: 'NEW', replace: 'OLD' })?.text).toBe('a\nNEW\nc');
+    expect(applySnippet('a\n// here\nc', { label: '', text: '  x();', after: '// here' })?.text).toBe('a\n// here\n  x();\nc');
+    // spot gone (already used, or the player rewrote it): nothing happens
+    expect(applySnippet('abc', { label: '', text: 'X', replace: 'zzz' })).toBeUndefined();
+    // already there: no duplicate
+    expect(applySnippet('a\n// here\n  x();\nc', { label: '', text: '  x();', after: '// here' })).toBeUndefined();
   });
 });

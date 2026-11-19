@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../catalog';
-import { passed, type LevelSpec } from '../spec';
+import { applySnippet, passed, type LevelSpec } from '../spec';
 import { newTermState, run, runnableIn } from '../terminal';
 import { ALL_SPECS } from './index';
 import { VIGNETTES } from './vignettes';
@@ -102,5 +102,69 @@ describe('harbor-5 one-line limit', () => {
     expect(passed(spec.check(s))).toBe(true);
     run(spec.term, s, 'kubectl set resources deploy batch-report --limits=cpu=2');
     expect(passed(spec.check(s))).toBe(false);
+  });
+});
+
+describe('harbor-6 one-line env', () => {
+  it('is solved by kubectl set env with the right database, not any value', () => {
+    const spec = ALL_SPECS.find((s) => s.id === 'harbor-6');
+    if (spec?.type !== 'terminal') throw new Error('harbor-6 should be a terminal level');
+    const s = newTermState(spec.term);
+    run(spec.term, s, 'kubectl set env deploy/bakery-app DB_HOST=localhost');
+    const wrong = spec.check(s);
+    expect(passed(wrong)).toBe(false);
+    expect(wrong.hint).toMatch(/config-notes/);
+    run(spec.term, s, 'kubectl set env deploy/bakery-app DB_HOST=granary-db.town');
+    expect(passed(spec.check(s))).toBe(true);
+  });
+});
+
+describe('editor insert buttons', () => {
+  const terminal = ALL_SPECS.filter((s) => s.type === 'terminal');
+  const clickAll = (id: string, order?: number[]) => {
+    const spec = ALL_SPECS.find((s) => s.id === id);
+    if (spec?.type !== 'terminal' || !spec.snippets) throw new Error(`${id} has no snippets`);
+    const s = newTermState(spec.term);
+    for (const [path, list] of Object.entries(spec.snippets)) for (const i of order ?? list.map((_, k) => k)) s.files[path] = applySnippet(s.files[path], list[i])?.text ?? s.files[path];
+    return { spec, s };
+  };
+
+  it('always find their spot in the starting file', () => {
+    for (const spec of terminal) {
+      if (spec.type !== 'terminal') continue;
+      for (const [path, list] of Object.entries(spec.snippets ?? {}))
+        for (const sn of list) expect(spec.term.files[path].includes(sn.replace ?? sn.after ?? ''), `${spec.id} ${sn.label}`).toBe(true);
+    }
+  });
+
+  it('turn every house into a module (arch-5)', () => {
+    const { spec, s } = clickAll('arch-5');
+    expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+  });
+
+  it('instrument the app, which then works after npm start (watch-5)', () => {
+    const { spec, s } = clickAll('watch-5');
+    run(spec.term, s, 'npm start');
+    expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+  });
+
+  it('fill each dashboard panel with its own query, in any order (watch-6)', () => {
+    for (const order of [[0, 1], [1, 0]]) {
+      const { spec, s } = clickAll('watch-6', order);
+      run(spec.term, s, 'dashboard load');
+      expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+    }
+  });
+
+  it('do nothing the second time, so no ticket passes with duplicated code', () => {
+    for (const id of ['arch-5', 'watch-5', 'watch-6']) {
+      const spec = ALL_SPECS.find((x) => x.id === id);
+      if (spec?.type !== 'terminal') continue;
+      for (const [path, list] of Object.entries(spec.snippets ?? {})) {
+        let text = spec.term.files[path];
+        for (const sn of list) text = applySnippet(text, sn)?.text ?? text;
+        for (const sn of list) expect(applySnippet(text, sn), `${id} ${sn.label}`).toBeUndefined();
+      }
+    }
   });
 });

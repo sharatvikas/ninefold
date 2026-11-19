@@ -333,7 +333,9 @@ $ aws ce get-cost-and-usage --group-by Type=TAG,Key=env
       host: 'cache-1',
       motd: 'menu cache (redis-like) · 8 GB RAM',
       files: { 'cache.conf': `port 6379
-# memory
+# memory: a size like 512mb or 2gb (0 = unlimited)
+# policy when full: noeviction (refuse new data), allkeys-lru / allkeys-lfu (drop the least recently / least often used),
+#   volatile-lru / volatile-ttl (drop only keys that have an expiry time)
 maxmemory 0            # 0 = unlimited
 maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
       vars: { running: '' },
@@ -351,7 +353,7 @@ maxmemory-policy noeviction`, crontab: '# m h dom mon dow command' },
         hint: /cache restart/.test(s.files.crontab) ? 'Automating the restart makes the toil invisible but keeps the bug. Fix why it grows.' : /^volatile-/.test(cacheConf(s.files['cache.conf']).policy) ? 'volatile-* policies only evict keys that have an expiry, and this cache sets none. Use allkeys-lru.' : 'Set maxmemory (e.g. 2gb) and an eviction policy like allkeys-lru, then restart.',
       };
     },
-    solve: (s) => { s.files['cache.conf'] = s.files['cache.conf'].replace('maxmemory 0            # 0 = unlimited', 'maxmemory 2gb').replace('noeviction', 'allkeys-lru'); s.vars.running = s.files['cache.conf']; },
+    solve: (s) => { s.files['cache.conf'] = s.files['cache.conf'].replace('maxmemory 0            # 0 = unlimited', 'maxmemory 2gb').replace('maxmemory-policy noeviction', 'maxmemory-policy allkeys-lru'); s.vars.running = s.files['cache.conf']; },
     recap: {
       headline: 'The cache never forgot anything, so it filled memory every night.',
       before: { lines: ['maxmemory 0 (unlimited)', 'policy noeviction', 'fix: human restarts at 2am'], outcome: '47 pages, 47 nights' },

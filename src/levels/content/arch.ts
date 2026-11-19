@@ -280,7 +280,7 @@ terraform {
       ],
       goal: 'Replace the three copies in houses.tf with three uses of the module, plan, and check that every house gets an alarm.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See which files there are:\n   ls\n2. Read the town\'s code and the shared house building block (module):\n   cat houses.tf\n   cat modules/house/main.tf\n3. Change the town\'s code:\n   edit houses.tf\n4. Preview what Terraform would do. Watch out for anything it wants to destroy!\n   terraform plan\n\nUsing a module looks like this:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. See which files there are:\n   ls\n2. Read the town\'s code and the shared house building block (module):\n   cat houses.tf\n   cat modules/house/main.tf\n3. Change the town\'s code. In the editor, the ＋ buttons turn each copied house into a module:\n   edit houses.tf\n4. Preview what Terraform would do. Watch out for anything it wants to destroy!\n   terraform plan\n\nUsing a module looks like this:\nmodule "library" {\n  source = "./modules/house"\n  name   = "library"\n}' }],
     term: {
       host: 'blueprints',
       motd: 'Repo: town-blueprints (main)',
@@ -319,6 +319,14 @@ resource "house" "this" {
           },
         },
         { match: /^grep -r smoke_alarm \.?$/, usage: 'grep -r smoke_alarm .', help: 'search every file for the word smoke_alarm', run: (_m, s) => ({ out: s.files['houses.tf'].split('\n').filter((l) => l.includes('smoke_alarm')).map((l) => `houses.tf: ${l.trim()}`).join('\n') + '\nmodules/house/main.tf: smoke_alarm = true\n(school has none)', evidence: true }) },
+      ],
+    },
+    snippets: {
+      // One click swaps a copy-pasted house for a module block.
+      'houses.tf': [
+        { label: 'turn library into a module', text: moduleBlock('library'), replace: 'resource "house" "library" {\n  name        = "library"\n  walls       = "stone"\n  smoke_alarm = true\n}' },
+        { label: 'turn bakery into a module', text: moduleBlock('bakery'), replace: 'resource "house" "bakery" {\n  name        = "bakery"\n  walls       = "stone"\n  smoke_alarm = true\n}' },
+        { label: 'turn school into a module', text: moduleBlock('school'), replace: 'resource "house" "school" {\n  name  = "school"\n  walls = "stone"\n}' },
       ],
     },
     check: (s) => {
@@ -428,6 +436,11 @@ $ aws secretsmanager rotate-secret --secret-id town/vault
     },
   },
 ];
+
+/** A house built from the shared module, as the editor's insert button writes it. */
+function moduleBlock(name: string): string {
+  return `module "${name}" {\n  source = "./modules/house"\n  name   = "${name}"\n}`;
+}
 
 function analyseHouses(tf: string): { modules: string[]; resources: string[]; alarmed: string[] } {
   const modules: string[] = [];
