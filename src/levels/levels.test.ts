@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { applySnippet } from './spec';
 import { commentStart } from './incident';
 import { explain, newTermState, run, runnableIn } from './terminal';
 import { DISTRICTS, LEVELS, getLevel, levelsIn } from './catalog';
@@ -135,5 +136,16 @@ describe('handbook commands', () => {
     expect(runnableIn(spec, 'kubectl top pods (last resort)')).toBe('kubectl top pods');
     expect(runnableIn(spec, 'edit missing.yaml')).toBeUndefined();
     expect(runnableIn(spec, 'Limits look like:')).toBeUndefined();
+  });
+});
+
+describe('editor snippets', () => {
+  it('replaces, inserts after a marker line, or inserts at the cursor', () => {
+    expect(applySnippet('a\nOLD\nc', { label: '', text: 'NEW', replace: 'OLD' }).text).toBe('a\nNEW\nc');
+    expect(applySnippet('a\n// here\nc', { label: '', text: '  x();', after: '// here' }).text).toBe('a\n// here\n  x();\nc');
+    expect(applySnippet('ab', { label: '', text: 'X' }, 1).text).toBe('aXb');
+    // replace target already gone (player edited it): falls back to the cursor
+    const r = applySnippet('abc', { label: '', text: 'X', replace: 'zzz' }, 3);
+    expect(r).toEqual({ text: 'abcX', at: 3, end: 4 });
   });
 });

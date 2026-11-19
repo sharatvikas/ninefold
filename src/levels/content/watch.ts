@@ -276,7 +276,7 @@ GET /menu ─────────────────────── 
       ],
       goal: 'Count every order the service handles, expose /metrics, and confirm the Watchtower can read it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Read the app\'s code:\n   cat app.js\n2. Start the app and see the numbers (metrics) it reports:\n   npm start\n   curl localhost:3000/metrics\n3. Change the code so it counts orders:\n   edit app.js\n4. Start it again and check the metrics (step 2).\n\nUsing the metrics library looks like this:\nconst orders = metrics.counter("orders_total");\norders.inc();   // inside the handler\napp.get("/metrics", metrics.handler);' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Read the app\'s code:\n   cat app.js\n2. Start the app and see the numbers (metrics) it reports:\n   npm start\n   curl localhost:3000/metrics\n3. Change the code so it counts orders. The comments in the file show where; the ＋ buttons write each line for you:\n   edit app.js\n4. Start it again and check the metrics (step 2).\n\nUsing the metrics library looks like this:\nconst orders = metrics.counter("orders_total");\norders.inc();   // inside the handler\napp.get("/metrics", metrics.handler);' }],
     term: {
       host: 'granary-svc',
       motd: 'Repo: granary-svc · node app',
@@ -284,12 +284,15 @@ GET /menu ─────────────────────── 
         'app.js': `const express = require("express");
 const metrics = require("metrics");
 const app = express();
+// 1. make an orders counter here
 
 app.post("/orders", (req, res) => {
   saveOrder(req.body);
+  // 2. count each order here
   res.send("ok");
 });
 
+// 3. let the Watchtower read the numbers here
 app.listen(3000);`,
       },
       vars: { started: '' },
@@ -304,6 +307,14 @@ app.listen(3000);`,
           },
         },
         { match: /^grep -r metrics \.?$/, usage: 'grep -r metrics .', help: 'search every file for the word metrics', run: (_m, s) => ({ out: s.files['app.js'].split('\n').filter((l) => l.includes('metrics')).join('\n') + '\n(imported, never used)', evidence: true }) },
+      ],
+    },
+    snippets: {
+      // Each button puts one line under its numbered guide comment.
+      'app.js': [
+        { label: '1. make an orders counter', text: 'const orders = metrics.counter("orders_total");', after: '// 1.' },
+        { label: '2. count each order', text: '  orders.inc();', after: '// 2.' },
+        { label: '3. let the Watchtower read /metrics', text: 'app.get("/metrics", metrics.handler);', after: '// 3.' },
       ],
     },
     check: (s) => {
@@ -354,7 +365,7 @@ app.get('/metrics', async (_req, res) => res.send(await client.register.metrics(
       ],
       goal: 'Write the two queries (availability and p95 latency) into dashboard.yaml and load it.',
     },
-    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Try a query on the metrics database:\n   promql "sum(rate(http_requests_total[5m]))"\n2. Read the dashboard, then change it:\n   cat dashboard.yaml\n   edit dashboard.yaml\n3. Load your dashboard to check it:\n   dashboard load\n\nUseful query pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
+    evidence: [{ kind: 'doc', id: 'tips', icon: '📘', label: 'HANDBOOK', text: 'Work through these in order. Click a ▶ command to put it in the ⌨️ TERMINAL, then press Enter. You can also type them yourself.\n\n1. Try a query on the metrics database:\n   promql "sum(rate(http_requests_total[5m]))"\n2. Read the dashboard, then fill in its two queries. Each ＋ button in the editor fills the next empty query, so match each one to its panel\'s title:\n   cat dashboard.yaml\n   edit dashboard.yaml\n3. Load your dashboard to check it:\n   dashboard load\n\nUseful query pieces:\nrate(x[5m]): per-second rate over 5 minutes\nsum(...): add up across servers\ncode!~"5..": codes that are NOT 5xx\nhistogram_quantile(0.95, sum by (le) (rate(..._bucket[5m])))' }],
     term: {
       host: 'grafana',
       motd: 'Dashboard repo · datasource: town-prometheus',
@@ -381,11 +392,18 @@ panels:
         { match: /^dashboard load$/, usage: 'dashboard load', help: 'load your edited dashboard.yaml onto the screen', run: (_m, s) => { s.vars.loaded = s.files['dashboard.yaml']; const p = panels(s.files['dashboard.yaml']); return { out: `Availability: ${isAvail(p[0]) ? '99.7% ✓' : 'invalid / empty'}\np95 latency: ${isP95(p[1]) ? '0.31s ✓' : 'invalid / empty'}`, changed: true, verify: true }; } },
       ],
     },
+    snippets: {
+      // Each button fills the next empty query. Match each one to its panel's title.
+      'dashboard.yaml': [
+        { label: 'good requests ÷ all requests', text: 'query: sum(rate(http_requests_total{code!~"5.."}[5m])) / sum(rate(http_requests_total[5m]))', replace: 'query: ""' },
+        { label: 'slowest 5% of requests (p95)', text: 'query: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))', replace: 'query: ""' },
+      ],
+    },
     check: (s) => {
       const p = panels(String(s.vars.loaded));
       return {
         cases: [c('availability = good requests ÷ all requests', isAvail(p[0])), c('p95 latency from the duration histogram', isP95(p[1])), c('dashboard loaded', !!s.vars.loaded)],
-        hint: 'Test each query with promql first, then paste it into dashboard.yaml and run dashboard load.',
+        hint: 'Each panel needs the query that matches its title: availability is good requests ÷ all requests, and p95 comes from the duration histogram. Edit dashboard.yaml, then dashboard load.',
       };
     },
     solve: (s) => {

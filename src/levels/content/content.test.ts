@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../catalog';
-import { passed, type LevelSpec } from '../spec';
+import { applySnippet, passed, type LevelSpec } from '../spec';
 import { newTermState, run, runnableIn } from '../terminal';
 import { ALL_SPECS } from './index';
 import { VIGNETTES } from './vignettes';
@@ -116,5 +116,44 @@ describe('harbor-6 one-line env', () => {
     expect(wrong.hint).toMatch(/config-notes/);
     run(spec.term, s, 'kubectl set env deploy/bakery-app DB_HOST=granary-db.town');
     expect(passed(spec.check(s))).toBe(true);
+  });
+});
+
+describe('editor insert buttons', () => {
+  const terminal = ALL_SPECS.filter((s) => s.type === 'terminal');
+  const clickAll = (id: string, order?: number[]) => {
+    const spec = ALL_SPECS.find((s) => s.id === id);
+    if (spec?.type !== 'terminal' || !spec.snippets) throw new Error(`${id} has no snippets`);
+    const s = newTermState(spec.term);
+    for (const [path, list] of Object.entries(spec.snippets)) for (const i of order ?? list.map((_, k) => k)) s.files[path] = applySnippet(s.files[path], list[i]).text;
+    return { spec, s };
+  };
+
+  it('always find their spot in the starting file', () => {
+    for (const spec of terminal) {
+      if (spec.type !== 'terminal') continue;
+      for (const [path, list] of Object.entries(spec.snippets ?? {}))
+        for (const sn of list) expect(spec.term.files[path].includes(sn.replace ?? sn.after ?? ''), `${spec.id} ${sn.label}`).toBe(true);
+    }
+  });
+
+  it('turn every house into a module (arch-5)', () => {
+    const { spec, s } = clickAll('arch-5');
+    expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+  });
+
+  it('instrument the app, which then works after npm start (watch-5)', () => {
+    const { spec, s } = clickAll('watch-5');
+    run(spec.term, s, 'npm start');
+    expect(spec.check(s).cases.filter((c) => !c.pass)).toEqual([]);
+  });
+
+  it('fill each dashboard panel, and the wrong order fails (watch-6)', () => {
+    const right = clickAll('watch-6');
+    run(right.spec.term, right.s, 'dashboard load');
+    expect(right.spec.check(right.s).cases.filter((c) => !c.pass)).toEqual([]);
+    const wrong = clickAll('watch-6', [1, 0]);
+    run(wrong.spec.term, wrong.s, 'dashboard load');
+    expect(passed(wrong.spec.check(wrong.s))).toBe(false);
   });
 });

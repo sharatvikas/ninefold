@@ -104,10 +104,24 @@ export interface ConfigLevel extends Base {
   recap: RecapSpec<Cfg>;
 }
 
+/**
+ * A ready-made block the file editor can insert, so beginners never hand-type code or indentation.
+ * `replace`: swap this exact text if the file still has it. `after`: insert below the line containing this.
+ * Otherwise it goes in at the cursor.
+ */
+export interface Snippet {
+  label: string;
+  text: string;
+  replace?: string;
+  after?: string;
+}
+
 /** Act 3: a simulated terminal with real-looking commands and files. */
 export interface TerminalLevel extends Base {
   type: 'terminal';
   term: TermSpec;
+  /** Insert buttons shown in the file editor, per file. */
+  snippets?: Record<string, Snippet[]>;
   /** Applies the intended fix to a state (used by tests). */
   solve: (s: TermState) => void;
   check: (s: TermState) => Verdict;
@@ -122,3 +136,22 @@ export const arr = (v: Value | undefined): string[] => (Array.isArray(v) ? v : [
 export const num = (v: Value | undefined): number => (typeof v === 'number' ? v : Number(v) || 0);
 export const str = (v: Value | undefined): string => (typeof v === 'string' ? v : String(v ?? ''));
 export const has = (v: Value | undefined, x: string): boolean => arr(v).includes(x);
+
+/** Put a snippet into a file. Returns the new text and where the inserted text sits. */
+export function applySnippet(content: string, sn: Snippet, cursor = content.length): { text: string; at: number; end: number } {
+  if (sn.replace && content.includes(sn.replace)) {
+    const at = content.indexOf(sn.replace);
+    return { text: content.slice(0, at) + sn.text + content.slice(at + sn.replace.length), at, end: at + sn.text.length };
+  }
+  if (sn.after) {
+    const i = content.indexOf(sn.after);
+    if (i >= 0) {
+      const eol = content.indexOf('\n', i);
+      const cut = eol < 0 ? content.length : eol;
+      const at = cut + 1;
+      return { text: `${content.slice(0, cut)}\n${sn.text}${content.slice(cut)}`, at, end: at + sn.text.length };
+    }
+  }
+  const at = Math.max(0, Math.min(cursor, content.length));
+  return { text: content.slice(0, at) + sn.text + content.slice(at), at, end: at + sn.text.length };
+}

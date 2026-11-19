@@ -4,7 +4,7 @@ import type { Game } from '../engine/game';
 import { h } from '../ui/ui';
 import { getLevel } from './catalog';
 import { IncidentScene, type Exit, type Intro, type Recap, type Tab } from './incident';
-import { passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
+import { applySnippet, passed, type Cfg, type ConfigLevel, type Evidence, type Field, type LevelSpec, type RecapSpec, type Side, type TerminalLevel, type Value, type Verdict } from './spec';
 import { explain, newTermState, run, runnableIn, saveFile, type TermState } from './terminal';
 import { VIGNETTES } from './content/vignettes';
 
@@ -538,10 +538,31 @@ export class SpecScene extends IncidentScene {
     });
     const bar = h('div', 'editor-bar');
     bar.append(h('span', '', `✎ ${path}   (Ctrl/⌘+S to save, Esc to cancel)`), cancel, save);
-    box.append(bar, ta);
+    box.append(bar);
+    const snippets = spec.snippets?.[path];
+    if (snippets?.length) {
+      // Ready-made blocks: no hand-typed code or indentation for beginners.
+      const tools = h('div', 'snippets');
+      tools.append(h('span', 'snip-k', 'INSERT:'));
+      for (const sn of snippets) {
+        const b = h('button', 'btn sm snip', `＋ ${sn.label}`);
+        b.addEventListener('click', () => {
+          const r = applySnippet(ta.value, sn, ta.selectionStart);
+          ta.value = r.text;
+          b.disabled = true; // used once: a second copy would be a duplicate
+          ta.focus();
+          // Select a <blank> in what was inserted, so typing fills it; otherwise put the cursor after it.
+          const hole = r.text.slice(r.at, r.end).match(/<[^<>]+>/);
+          if (hole?.index !== undefined) ta.setSelectionRange(r.at + hole.index, r.at + hole.index + hole[0].length);
+          else ta.setSelectionRange(r.end, r.end);
+        });
+        tools.append(b);
+      }
+      box.append(tools);
+    }
+    box.append(ta);
     wrap.append(box);
     closeOverlay = this.openOverlay(wrap);
-    void spec;
     setTimeout(() => ta.focus(), 0);
   }
 
