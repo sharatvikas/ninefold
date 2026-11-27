@@ -241,8 +241,10 @@ export class TownScene implements Scene {
       const w = this.walkTo;
       if (w && !dx && !dy) {
         const d = Math.hypot(w.x - fx, w.y - fy);
-        if (d < 2.5) this.walkTo = undefined;
-        else {
+        // Arrived. A target with something to do waits for the check below.
+        if (d < 2.5) {
+          if (!w.act) this.walkTo = undefined;
+        } else {
           dx = (w.x - fx) / d;
           dy = (w.y - fy) / d;
         }
@@ -274,18 +276,23 @@ export class TownScene implements Scene {
         this.prompt = this.nearby || this.atDoor ? undefined : this.play.prompt();
         // Tapped something from afar: walk there, then do it.
         const w = this.walkTo;
-        if (w?.act && Math.hypot(w.x - (p.box.x + p.box.w / 2), w.y - (p.box.y + p.box.h / 2)) < 22) {
-          // You tapped the fountain or the cat, not the person standing beside it.
-          const thing = w.thing ? this.play.prompt() : undefined;
-          if (thing) {
-            this.nearby = undefined;
-            this.atDoor = undefined;
-            this.prompt = thing;
-          }
-          if (this.nearby || this.atDoor || this.prompt) {
+        if (w?.act) {
+          const d = Math.hypot(w.x - (p.box.x + p.box.w / 2), w.y - (p.box.y + p.box.h / 2));
+          if (w.thing) {
+            // You tapped the fountain or the cat, not the person standing beside it:
+            // wait until that thing is in reach, whoever else is close by.
+            const thing = this.play.prompt();
+            if (thing) {
+              this.nearby = undefined;
+              this.atDoor = undefined;
+              this.prompt = thing;
+              this.walkTo = undefined;
+              e = true;
+            } else if (d < 2.5) this.walkTo = undefined;
+          } else if (d < 22 && (this.nearby || this.atDoor || this.prompt)) {
             this.walkTo = undefined;
             e = true;
-          }
+          } else if (d < 2.5) this.walkTo = undefined;
         }
         const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
         if (curio) this.collect(curio);
@@ -441,7 +448,7 @@ export class TownScene implements Scene {
         const y = at.y - ROOM_Y;
         const atCounter = !!room.resident && Math.hypot(x - NPC_SPOT.x, y - (NPC_SPOT.y - 10)) < 22;
         // Tapping anywhere around the doorway means "leave": walk right on through it.
-        const atDoorway = x >= (DOOR_COLS[0] - 1) * TILE && x < (DOOR_COLS[DOOR_COLS.length - 1] + 2) * TILE && y >= (ROOM_H - 2) * TILE;
+        const atDoorway = x >= (DOOR_COLS[0] - 1) * TILE && x < (DOOR_COLS[DOOR_COLS.length - 1] + 2) * TILE && y >= (ROOM_H - 1) * TILE - 2;
         if (atCounter && room.canTalk() && input.tapAt) e = true;
         else if (atDoorway) this.walkTo = { x: ((DOOR_COLS[0] + DOOR_COLS[DOOR_COLS.length - 1] + 1) / 2) * TILE, y: ROOM_H * TILE + 10, act: false };
         else this.walkTo = atCounter ? { x: NPC_SPOT.x, y: NPC_SPOT.y + 12, act: true } : { x, y, act: false };
@@ -946,28 +953,26 @@ export class TownScene implements Scene {
 
   // ---------------------------------------------------------------- static ground
   private buildGround(): HTMLCanvasElement {
-    const W = MAP_W * TILE;
-    const H = MAP_H * TILE;
-    const [cv, c] = makeCanvas(W, H);
+    const [cv, c] = makeCanvas(MAP_W * TILE, MAP_H * TILE);
     const R = rng(7);
-    rect(c, 0, 0, W, H, '#5fae4a');
+    rect(c, 0, 0, cv.width, cv.height, '#5fae4a');
     // Soft lighter and darker patches so the grass doesn't read as one flat sheet.
     for (let i = 0; i < 90; i++) {
-      const x = R() * W;
-      const y = R() * H;
+      const x = R() * cv.width;
+      const y = R() * cv.height;
       ellipse(c, x, y, 10 + R() * 22, 5 + R() * 10, R() < 0.5 ? 'rgba(120,200,90,0.18)' : 'rgba(40,110,40,0.14)');
     }
-    for (let i = 0; i < 4500; i++) rect(c, (R() * W) | 0, (R() * H) | 0, 1, 1, R() < 0.5 ? '#55a042' : '#6dbd55');
+    for (let i = 0; i < 4500; i++) rect(c, (R() * cv.width) | 0, (R() * cv.height) | 0, 1, 1, R() < 0.5 ? '#55a042' : '#6dbd55');
     // Pebbles.
     for (let i = 0; i < 70; i++) {
-      const x = (R() * W) | 0;
-      const y = (R() * H) | 0;
+      const x = (R() * cv.width) | 0;
+      const y = (R() * cv.height) | 0;
       rect(c, x, y, 2, 1, '#c8c0a8');
       rect(c, x, y + 1, 2, 1, '#8a8270');
     }
     for (let i = 0; i < 260; i++) {
-      const x = (R() * W) | 0;
-      const y = (R() * H) | 0;
+      const x = (R() * cv.width) | 0;
+      const y = (R() * cv.height) | 0;
       rect(c, x, y, 1, 2, '#3f8a36');
       rect(c, x + 2, y, 1, 2, '#3f8a36');
       rect(c, x + 1, y - 1, 1, 2, '#4a9a3e');
