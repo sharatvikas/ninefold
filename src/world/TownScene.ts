@@ -235,7 +235,7 @@ export class TownScene implements Scene {
       let e = input.wasPressed('e', ' ', 'enter');
       if (dx || dy) this.walkTo = undefined;
       else if (input.tapAt) e = this.onTap(this.cam.x + input.tapAt.x, this.cam.y + input.tapAt.y) || e;
-      else if (input.holdAt) this.walkTo = { x: this.cam.x + input.holdAt.x, y: this.cam.y + input.holdAt.y, act: false };
+      else if (input.holdAt && !this.play.wantsAnyTap) this.walkTo = { x: this.cam.x + input.holdAt.x, y: this.cam.y + input.holdAt.y, act: false };
       const fx = p.box.x + p.box.w / 2;
       const fy = p.box.y + p.box.h / 2;
       const w = this.walkTo;
@@ -282,7 +282,8 @@ export class TownScene implements Scene {
             // You tapped the fountain or the cat, not the person standing beside it:
             // wait until that thing is in reach, whoever else is close by.
             const thing = this.play.prompt();
-            if (thing) {
+            // Tapped the water: cast from the shore spot you were heading for, not the first bit of bank.
+            if (thing && (thing.label !== 'FISH' || d < 12)) {
               this.nearby = undefined;
               this.atDoor = undefined;
               this.prompt = thing;
@@ -671,9 +672,11 @@ export class TownScene implements Scene {
     const py = p.y + p.h / 2;
     const onMe = Math.hypot(x - px, y - (py - 8)) < 14;
     const f = this.play.bobber;
-    // While fishing, tapping near you or the bobber reels; tapping further away walks off.
+    // While a fish bites or you reel, a tap anywhere counts. Before that, a tap near you or the
+    // bobber strikes (too soon!), and a tap further away puts the rod down and walks off.
     if (f) {
-      if (onMe || Math.hypot(x - f.x, y - f.y) < 40) return true;
+      if (this.play.wantsAnyTap) return true;
+      if (Math.hypot(x - px, y - py) < 32 || Math.hypot(x - f.x, y - f.y) < 40) return true;
       this.walkTo = { x, y, act: false };
       return false;
     }

@@ -101,6 +101,29 @@ interface Bug {
 /** Where the town cat likes to wander (world px): the square below Town Hall. */
 const CAT_AREA = { x0: 21 * TILE + 2, y0: 13 * TILE + 4, x1: 29 * TILE - 2, y1: 14 * TILE + 10 };
 
+export type CastSpot = { dir: Dir; where: FishWhere; bx: number; by: number };
+
+/**
+ * Where the bobber lands if you cast from (px, py): any walkable spot with open water
+ * a short cast away counts, from the jetty, the dock, the grass or the reeds.
+ */
+export function castSpotAt(px: number, py: number, facing?: Dir): CastSpot | undefined {
+  if (isSolidTile(Math.floor(px / TILE), Math.floor(py / TILE))) return undefined;
+  const dirs: Dir[] = facing ? [facing, 'up', 'down', 'left', 'right'] : ['up', 'down', 'left', 'right'];
+  for (const d of dirs) {
+    const [sx, sy] = STEP[d];
+    for (const reach of [28, 22, 34]) {
+      const bx = px + sx * reach + (sy ? 3 : 0);
+      const by = py + sy * (reach + 2) + (sx ? 2 : 0);
+      const tx = Math.floor(bx / TILE);
+      const ty = Math.floor(by / TILE);
+      if (tileAt(tx, ty) === 'w') return { dir: d, where: isPondTile(tx, ty) ? 'pond' : 'sea', bx, by };
+    }
+  }
+  return undefined;
+}
+
+
 export class Pastimes {
   fishing: Fishing | undefined;
   private bugs: Bug[] = [];
@@ -132,11 +155,9 @@ export class Pastimes {
     const { box } = this.host.player();
     const px = box.x + box.w / 2;
     const py = box.y + box.h / 2;
-    const tx = Math.floor(px / TILE);
-    const ty = Math.floor(py / TILE);
 
-    const water = this.waterBeside(tx, ty);
-    if (tileAt(tx, ty) === 'd' && water) return { label: 'FISH', x: box.x, y: box.y - 30, act: () => this.cast(water.dir, water.where) };
+    const spot = this.castSpot(px, py, this.host.player().dir);
+    if (spot) return { label: 'FISH', x: box.x, y: box.y - 30, act: () => this.cast(spot) };
 
     const near = (x: number, y: number, r: number) => Math.hypot(px - x, py - y) < r;
     if (near((POSTBOX.x + 0.5) * TILE, (POSTBOX.y + 0.5) * TILE, 20)) return { label: 'LETTER RUN', x: box.x, y: box.y - 30, act: () => this.startRun() };
@@ -154,6 +175,8 @@ export class Pastimes {
     if (near(this.cat.x, this.cat.y - 4, 12)) return true;
     if (near(FOUNTAIN.x * TILE, FOUNTAIN.y * TILE, 18)) return true;
     if (tileAt(Math.floor(x / TILE), Math.floor(y / TILE)) === 'd' && this.waterBesideAny(Math.floor(x / TILE), Math.floor(y / TILE))) return true;
+    // Tapping the water itself: walk to the nearest bit of shore and cast.
+    if (tileAt(Math.floor(x / TILE), Math.floor(y / TILE)) === 'w' && this.shoreNear(x, y)) return true;
     return this.bugs.some((b) => !b.freed && near(b.x, b.y - 4, 12));
   }
 
@@ -161,7 +184,38 @@ export class Pastimes {
   standFor(x: number, y: number): { x: number; y: number } {
     if (Math.hypot(x - (POSTBOX.x + 0.5) * TILE, y - (POSTBOX.y + 0.5) * TILE) < 14) return { x: (POSTBOX.x + 0.5) * TILE, y: (POSTBOX.y + 1.4) * TILE };
     if (Math.hypot(x - FOUNTAIN.x * TILE, y - FOUNTAIN.y * TILE) < 18) return { x: FOUNTAIN.x * TILE, y: (FOUNTAIN.y + 1.5) * TILE };
+    if (tileAt(Math.floor(x / TILE), Math.floor(y / TILE)) === 'w') return this.shoreNear(x, y) ?? { x, y };
     return { x, y };
+  }
+
+  castSpot(px: number, py: number, facing?: Dir): CastSpot | undefined {
+    return castSpotAt(px, py, facing);
+  }
+
+  /** The nearest walkable spot you can fish from, within a few tiles of (x, y). */
+  private shoreNear(x: number, y: number): { x: number; y: number } | undefined {
+    const cx = Math.floor(x / TILE);
+    const cy = Math.floor(y / TILE);
+    let best: { x: number; y: number } | undefined;
+    let bestD = Infinity;
+    for (let ty = cy - 3; ty <= cy + 3; ty++)
+      for (let tx = cx - 3; tx <= cx + 3; tx++) {
+        const sx = (tx + 0.5) * TILE;
+        const sy = (ty + 0.5) * TILE;
+        if (!this.castSpot(sx, sy)) continue;
+        const d = Math.hypot(sx - x, sy - y);
+        if (d < bestD) {
+          bestD = d;
+          best = { x: sx, y: sy };
+        }
+      }
+    return best;
+  }
+
+  /** While a fish bites or you reel it in, a tap anywhere on screen counts as pressing E. */
+  get wantsAnyTap(): boolean {
+    const k = this.fishing?.s.k;
+    return k === 'bite' || k === 'reel' || k === 'landed';
   }
 
   private waterBesideAny(tx: number, ty: number): boolean {
@@ -180,27 +234,11 @@ export class Pastimes {
     return x > MEADOW.x0 - 24 && x < MEADOW.x1 + 24 && y > MEADOW.y0 - 24 && y < MEADOW.y1 + 24;
   }
 
-  /** Open water next to a dock tile, preferring the way the player faces. */
-  private waterBeside(tx: number, ty: number): { dir: Dir; where: FishWhere } | undefined {
-    const facing = this.host.player().dir;
-    const dirs: Dir[] = [facing, 'up', 'down', 'left', 'right'];
-    for (const d of dirs) {
-      const [sx, sy] = STEP[d];
-      if (tileAt(tx + sx, ty + sy) === 'w' && tileAt(tx + sx * 2, ty + sy * 2) === 'w')
-        return { dir: d, where: isPondTile(tx + sx, ty + sy) ? 'pond' : 'sea' };
-    }
-    return undefined;
-  }
-
   // ---------------------------------------------------------------- fishing
 
-  private cast(dir: Dir, where: FishWhere): void {
-    const { box } = this.host.player();
-    this.host.face(dir);
-    const [sx, sy] = STEP[dir];
-    const cx = box.x + box.w / 2;
-    const cy = box.y + box.h / 2;
-    this.fishing = { where, dir, bx: cx + sx * 28 + (sy ? 3 : 0), by: cy + sy * 30 + (sx ? 2 : 0), s: { k: 'cast', t: 0 } };
+  private cast(spot: CastSpot): void {
+    this.host.face(spot.dir);
+    this.fishing = { where: spot.where, dir: spot.dir, bx: spot.bx, by: spot.by, s: { k: 'cast', t: 0 } };
   }
 
   /** Stop fishing (walked away, or a menu opened). */
@@ -776,7 +814,7 @@ export class Pastimes {
       const y = VIEW_H - 46;
       rect(c, x - 6, y - 14, w + 12, 26, OUT);
       rect(c, x - 5, y - 13, w + 10, 24, '#f8ecd0');
-      pixelText(c, `${this.touch ? 'TAP' : 'PRESS E'} IN THE GREEN${s.tries > 1 ? ' · 2 TRIES' : ''}`, x - 2, y - 5, '#5a3a1a', 4);
+      pixelText(c, `${this.touch ? 'TAP' : 'CLICK OR E'} IN THE GREEN${s.tries > 1 ? ' · 2 TRIES' : ''}`, x - 2, y - 5, '#5a3a1a', 4);
       rect(c, x, y, w, 7, '#5a3a1a');
       const win = reelWindow(s.fish);
       rect(c, x + (s.centre - win / 2) * w, y, win * w, 7, '#5ee08a');
@@ -785,9 +823,9 @@ export class Pastimes {
       rect(c, x + n * w - 1, y - 2, 2, 11, '#ffffff');
       rect(c, x + n * w - 0.5, y - 2, 1, 11, OUT);
     } else if (f && (f.s.k === 'wait' || f.s.k === 'cast')) {
-      this.hint(c, this.touch ? 'WAIT FOR THE BOBBER TO DIP · TAP AWAY TO STOP' : 'WAIT FOR THE BOBBER TO DIP · ARROWS TO STOP');
+      this.hint(c, this.touch ? 'WAIT FOR THE BOBBER TO DIP · TAP FAR AWAY TO STOP' : 'WAIT FOR THE BOBBER TO DIP · ARROWS TO STOP');
     } else if (f && f.s.k === 'bite') {
-      this.hint(c, this.touch ? 'A BITE! TAP NOW!' : 'A BITE! PRESS E NOW!', '#ffd23f');
+      this.hint(c, this.touch ? 'A BITE! TAP ANYWHERE NOW!' : 'A BITE! PRESS E OR CLICK NOW!', '#ffd23f');
     }
     const r = this.run;
     if (r) {

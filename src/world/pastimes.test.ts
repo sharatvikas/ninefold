@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave, newProgress, parseProgress, recordRun, resetProgress, tally } from '../state/progress';
 import { BUGS, FISH, RUN_DOORS, RUN_LETTERS, formatTime, inWindow, medalFor, needleAt, pickCatch, pickRoute, reelWindow } from './pastimes';
+import { castSpotAt } from './PastimeRuntime';
 import { BENCH, BUILDINGS, MAP_H, MAP_W, PLAYER_START, POSTBOX, isPondTile, isSolidTile, tileAt } from './townMap';
 
 function reachable(): Set<string> {
@@ -54,6 +55,24 @@ describe('Lantern Meadow and the town map', () => {
 });
 
 describe('fishing', () => {
+  it('lets you cast from any walkable spot beside open water, not just the jetty', () => {
+    const spots = { pond: 0, sea: 0, offDock: 0 };
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const s = castSpotAt((x + 0.5) * 16, (y + 0.5) * 16);
+        if (!s) continue;
+        expect(isSolidTile(x, y)).toBe(false);
+        expect(tileAt(Math.floor(s.bx / 16), Math.floor(s.by / 16))).toBe('w');
+        spots[s.where]++;
+        if (tileAt(x, y) !== 'd') spots.offDock++;
+      }
+    expect(spots.pond).toBeGreaterThan(10);
+    expect(spots.sea).toBeGreaterThan(10);
+    expect(spots.offDock).toBeGreaterThan(10);
+    // Far from any water: no fishing.
+    expect(castSpotAt((PLAYER_START.x + 0.5) * 16, (PLAYER_START.y + 0.5) * 16)).toBeUndefined();
+  });
+
   it('only lands fish from the right water, and night fish only at night', () => {
     for (let i = 0; i < 200; i++) {
       const r = i / 200;
