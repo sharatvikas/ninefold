@@ -14,6 +14,10 @@ export class Input {
   private pressed = new Set<string>();
   /** When false (e.g. a menu is open) movement keys are ignored by the world. */
   enabled = true;
+  /** A tap or press on the game picture this frame, in view pixels. */
+  tapAt: { x: number; y: number } | undefined;
+  /** Where a finger or mouse is held down on the game picture, in view pixels (follow it while held). */
+  holdAt: { x: number; y: number } | undefined;
 
   constructor(target: Window = window) {
     target.addEventListener('keydown', (e) => {
@@ -49,5 +53,39 @@ export class Input {
 
   endFrame(): void {
     this.pressed.clear();
+    this.tapAt = undefined;
+  }
+
+  /**
+   * Tap-to-move: listen for taps, clicks and drags on the game picture.
+   * `toView` turns a pointer event into view pixels.
+   */
+  watchPointer(el: HTMLElement, toView: (e: PointerEvent) => { x: number; y: number }): void {
+    let id: number | undefined;
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button > 0) return;
+      e.preventDefault();
+      id = e.pointerId;
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      this.tapAt = toView(e);
+      this.holdAt = undefined;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id) return;
+      this.holdAt = toView(e);
+    });
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== id) return;
+      id = undefined;
+      this.holdAt = undefined;
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    // A long press must not pop up the phone's own menu or start selecting text.
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 }

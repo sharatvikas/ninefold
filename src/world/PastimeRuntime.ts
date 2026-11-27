@@ -147,6 +147,35 @@ export class Pastimes {
     return undefined;
   }
 
+  /** Is there something to do at this spot (for tap-to-move: walk there, then do it)? */
+  interactiveAt(x: number, y: number): boolean {
+    const near = (ax: number, ay: number, r: number) => Math.hypot(x - ax, y - ay) < r;
+    if (near((POSTBOX.x + 0.5) * TILE, (POSTBOX.y + 0.5) * TILE, 14)) return true;
+    if (near(this.cat.x, this.cat.y - 4, 12)) return true;
+    if (near(FOUNTAIN.x * TILE, FOUNTAIN.y * TILE, 18)) return true;
+    if (tileAt(Math.floor(x / TILE), Math.floor(y / TILE)) === 'd' && this.waterBesideAny(Math.floor(x / TILE), Math.floor(y / TILE))) return true;
+    return this.bugs.some((b) => !b.freed && near(b.x, b.y - 4, 12));
+  }
+
+  /** Where to stand to use the thing at (x, y): beside the postbox and fountain, not on them. */
+  standFor(x: number, y: number): { x: number; y: number } {
+    if (Math.hypot(x - (POSTBOX.x + 0.5) * TILE, y - (POSTBOX.y + 0.5) * TILE) < 14) return { x: (POSTBOX.x + 0.5) * TILE, y: (POSTBOX.y + 1.4) * TILE };
+    if (Math.hypot(x - FOUNTAIN.x * TILE, y - FOUNTAIN.y * TILE) < 18) return { x: FOUNTAIN.x * TILE, y: (FOUNTAIN.y + 1.5) * TILE };
+    return { x, y };
+  }
+
+  private waterBesideAny(tx: number, ty: number): boolean {
+    return (['up', 'down', 'left', 'right'] as Dir[]).some((d) => {
+      const [sx, sy] = STEP[d];
+      return tileAt(tx + sx, ty + sy) === 'w' && tileAt(tx + sx * 2, ty + sy * 2) === 'w';
+    });
+  }
+
+  /** Where the bobber is, so a tap near it reels. */
+  get bobber(): { x: number; y: number } | undefined {
+    return this.fishing ? { x: this.fishing.bx, y: this.fishing.by } : undefined;
+  }
+
   private inMeadow(x: number, y: number): boolean {
     return x > MEADOW.x0 - 24 && x < MEADOW.x1 + 24 && y > MEADOW.y0 - 24 && y < MEADOW.y1 + 24;
   }
@@ -746,7 +775,7 @@ export class Pastimes {
       const y = VIEW_H - 46;
       rect(c, x - 6, y - 14, w + 12, 26, OUT);
       rect(c, x - 5, y - 13, w + 10, 24, '#f8ecd0');
-      pixelText(c, `REEL IT IN! PRESS E ${s.tries > 1 ? '(2 TRIES)' : ''}`, x - 2, y - 5, '#5a3a1a', 4);
+      pixelText(c, `${this.touch ? 'TAP' : 'PRESS E'} IN THE GREEN${s.tries > 1 ? ' · 2 TRIES' : ''}`, x - 2, y - 5, '#5a3a1a', 4);
       rect(c, x, y, w, 7, '#5a3a1a');
       const win = reelWindow(s.fish);
       rect(c, x + (s.centre - win / 2) * w, y, win * w, 7, '#5ee08a');
@@ -755,9 +784,9 @@ export class Pastimes {
       rect(c, x + n * w - 1, y - 2, 2, 11, '#ffffff');
       rect(c, x + n * w - 0.5, y - 2, 1, 11, OUT);
     } else if (f && (f.s.k === 'wait' || f.s.k === 'cast')) {
-      this.hint(c, 'WAIT FOR THE BOBBER TO DIP · ARROWS TO STOP');
+      this.hint(c, this.touch ? 'WAIT FOR THE BOBBER TO DIP · TAP AWAY TO STOP' : 'WAIT FOR THE BOBBER TO DIP · ARROWS TO STOP');
     } else if (f && f.s.k === 'bite') {
-      this.hint(c, 'A BITE! PRESS E NOW!', '#ffd23f');
+      this.hint(c, this.touch ? 'A BITE! TAP NOW!' : 'A BITE! PRESS E NOW!', '#ffd23f');
     }
     const r = this.run;
     if (r) {
@@ -806,6 +835,9 @@ export class Pastimes {
     }
     rect(c, ax + Math.cos(a) * (4 + pulse) - 1, ay + Math.sin(a) * (4 + pulse) - 1, 2.5, 2.5, '#5a3a1a');
   }
+
+  /** True on touch screens, so hints say "tap" instead of "press E". */
+  touch = false;
 
   /** The camera (set by TownScene each frame), for screen-edge arrows. */
   cam = { x: 0, y: 0 };

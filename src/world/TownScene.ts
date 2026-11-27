@@ -8,7 +8,7 @@ import { bigIncidentBlockers, levelStatus, nextLevelIn, type Progress } from '..
 import { moveBox, type Box } from './collision';
 import { CURIOS, curioAt, type Curio } from './curios';
 import { Interior } from './Interior';
-import { ROOMS } from './rooms';
+import { NPC_SPOT, ROOMS, ROOM_Y } from './rooms';
 import { BENCH, BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, POSTBOX, TILE, buildingAtDoor, doorOf, isPondTile, isSolidTile, tileAt, type Building, type NpcSpawn } from './townMap';
 import { Pastimes, type Prompt } from './PastimeRuntime';
 
@@ -72,6 +72,11 @@ export class TownScene implements Scene {
   private play: Pastimes;
   /** The pastime the player could start right here. */
   private prompt: Prompt | undefined;
+  /** Tap-to-move: where the player is walking to, and whether to act on arrival. */
+  private walkTo: { x: number; y: number; act: boolean } | undefined;
+  private stuck = 0;
+  /** True on touch screens: tap to walk, and hints say "tap". */
+  private touch = matchMedia?.('(pointer: coarse)').matches ?? false;
 
   constructor(
     private game: Game,
@@ -106,6 +111,7 @@ export class TownScene implements Scene {
       sparks: this.sparks,
     });
     this.play.cam = this.cam;
+    this.play.touch = this.touch;
   }
 
   enter(): void {
@@ -123,7 +129,9 @@ export class TownScene implements Scene {
         first
           ? [
               `Welcome to Ninefold, ${this.game.progress.avatar?.name ?? 'our new on-call engineer'}! You're our new on-call engineer.`,
-              'Walk with the arrow keys or WASD. Walk up to a door to go inside, and talk to people with E.',
+              this.touch
+                ? 'Tap where you want to walk, and hold to keep walking. Tap a door to go inside, and tap people to talk.'
+                : 'Walk with the arrow keys or WASD, or click where to go. Walk up to a door to go inside, and talk to people with E.',
               'A "!" over a person or a door means someone has a ticket for you. Press Q any time to see every ticket in town.',
               'Every district has six tickets, from friendly puzzles to real terminals. Start with anyone showing a "!"…',
             ]
@@ -224,13 +232,35 @@ export class TownScene implements Scene {
       if (input.isDown('arrowright', 'd')) dx += 1;
       if (input.isDown('arrowup', 'w')) dy -= 1;
       if (input.isDown('arrowdown', 's')) dy += 1;
-      const e = input.wasPressed('e', ' ', 'enter');
+      let e = input.wasPressed('e', ' ', 'enter');
+      if (dx || dy) this.walkTo = undefined;
+      else if (input.tapAt) e = this.onTap(this.cam.x + input.tapAt.x, this.cam.y + input.tapAt.y) || e;
+      else if (input.holdAt && this.walkTo) this.walkTo = { x: this.cam.x + input.holdAt.x, y: this.cam.y + input.holdAt.y, act: false };
+      const fx = p.box.x + p.box.w / 2;
+      const fy = p.box.y + p.box.h / 2;
+      const w = this.walkTo;
+      if (w && !dx && !dy) {
+        const d = Math.hypot(w.x - fx, w.y - fy);
+        if (d < 2.5) this.walkTo = undefined;
+        else {
+          dx = (w.x - fx) / d;
+          dy = (w.y - fy) / d;
+        }
+      }
       // Walking away puts the rod down.
       if ((dx || dy) && this.play.fishing) this.play.reelIn();
       if ((dx || dy) && !this.play.holdsPlayer) {
         const len = Math.hypot(dx, dy);
+        const before = p.box;
         p.box = moveBox(p.box, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, this.solidAt);
         this.stepPlayer(dx, dy, dt, (x, y) => this.fx.dust(x, y));
+        // Walking into a wall: give up after a moment rather than pushing forever.
+        const moved = Math.hypot(p.box.x - before.x, p.box.y - before.y);
+        this.stuck = moved < SPEED * dt * 0.25 ? this.stuck + dt : 0;
+        if (this.walkTo && this.stuck > 0.25) {
+          this.walkTo = undefined;
+          this.stuck = 0;
+        }
       } else this.walkStep = -1;
 
       if (this.play.fishing) {
@@ -242,10 +272,18 @@ export class TownScene implements Scene {
         // During the Letter Run, doors take letters instead of letting you in.
         this.atDoor = this.nearby || this.play.running ? undefined : this.doorUnderPlayer();
         this.prompt = this.nearby || this.atDoor ? undefined : this.play.prompt();
+        // Tapped something from afar: walk there, then do it.
+        if (this.walkTo?.act && (this.nearby || this.atDoor || this.prompt)) {
+          const w = this.walkTo;
+          if (Math.hypot(w.x - (p.box.x + p.box.w / 2), w.y - (p.box.y + p.box.h / 2)) < 22) {
+            this.walkTo = undefined;
+            e = true;
+          }
+        }
         const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
         if (curio) this.collect(curio);
         else if (this.nearby && e) this.talk(this.nearby);
-        else if (this.atDoor && (e || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
+        else if (this.atDoor && (e || (dy < 0 && dx === 0 && !this.walkTo))) this.goIn(this.atDoor);
         else if (this.prompt && e) this.prompt.act();
         else if (input.wasPressed('q')) {
           this.play.cancelRun();
@@ -335,6 +373,7 @@ export class TownScene implements Scene {
       () => {
         if (this.inside) return;
         this.inside = new Interior(ROOMS[b.id], this.npcs.find((n) => n.home === b.id));
+        this.walkTo = undefined;
         this.player.dir = 'up';
         this.player.moving = false;
         this.atDoor = undefined;
@@ -351,6 +390,7 @@ export class TownScene implements Scene {
       () => {
         if (this.inside !== room) return;
         this.inside = undefined;
+        this.walkTo = undefined;
         const b = BUILDINGS.find((x) => x.id === room.room.id)!;
         const d = doorOf(b);
         this.player.box = { ...this.player.box, x: d.x * TILE + 3, y: d.y * TILE + 5 };
@@ -380,13 +420,46 @@ export class TownScene implements Scene {
       if (input.isDown('arrowright', 'd')) dx += 1;
       if (input.isDown('arrowup', 'w')) dy -= 1;
       if (input.isDown('arrowdown', 's')) dy += 1;
+      let e = input.wasPressed('e', ' ', 'enter');
+      const b = room.box;
+      const fx = b.x + b.w / 2;
+      const fy = b.y + b.h / 2;
+      if (dx || dy) this.walkTo = undefined;
+      else if (input.tapAt || (input.holdAt && this.walkTo)) {
+        const at = (input.tapAt ?? input.holdAt)!;
+        const x = at.x;
+        const y = at.y - ROOM_Y;
+        const atCounter = !!room.resident && Math.hypot(x - NPC_SPOT.x, y - (NPC_SPOT.y - 10)) < 22;
+        if (atCounter && room.canTalk() && input.tapAt) e = true;
+        else this.walkTo = atCounter ? { x: NPC_SPOT.x, y: NPC_SPOT.y + 12, act: true } : { x, y, act: false };
+      }
+      const w = this.walkTo;
+      if (w && !dx && !dy) {
+        const d = Math.hypot(w.x - fx, w.y - fy);
+        if (d < 2.5) this.walkTo = undefined;
+        else {
+          dx = (w.x - fx) / d;
+          dy = (w.y - fy) / d;
+        }
+      }
       if (dx || dy) {
         const len = Math.hypot(dx, dy);
+        const before = room.box;
         room.move((dx / len) * SPEED * dt, (dy / len) * SPEED * dt);
         this.stepPlayer(dx, dy, dt, (x, y) => room.fx.dust(x, y));
+        const moved = Math.hypot(room.box.x - before.x, room.box.y - before.y);
+        this.stuck = moved < SPEED * dt * 0.25 ? this.stuck + dt : 0;
+        if (this.walkTo && this.stuck > 0.25) {
+          this.walkTo = undefined;
+          this.stuck = 0;
+        }
       } else this.walkStep = -1;
+      if (this.walkTo?.act && room.canTalk()) {
+        this.walkTo = undefined;
+        e = true;
+      }
       const r = room.resident as Npc | undefined;
-      if (r && room.canTalk() && input.wasPressed('e', ' ', 'enter')) {
+      if (r && room.canTalk() && e) {
         r.dir = 'down';
         this.talk(r);
       } else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
@@ -501,6 +574,7 @@ export class TownScene implements Scene {
     this.drawHarborBoat(c, t);
     this.drawDockTop(c);
     this.play.drawGround(c);
+    this.drawWalkMarker(c, t);
 
     this.drawCurios(c, t);
 
@@ -564,6 +638,71 @@ export class TownScene implements Scene {
     else if (this.prompt && !busy) this.bubble(c, this.prompt.x, this.prompt.y, 'E', '#2b6cb0', this.prompt.label);
     c.restore();
     this.play.drawScreen(c, t);
+  }
+
+  /**
+   * A tap or click on the town at world point (x, y). Tapping yourself does whatever "E" would;
+   * tapping a person, a door or a pastime walks you there and does it; anywhere else, you walk there.
+   * Returns true when the tap should count as pressing E right now.
+   */
+  private onTap(x: number, y: number): boolean {
+    const p = this.player.box;
+    const px = p.x + p.w / 2;
+    const py = p.y + p.h / 2;
+    const onMe = Math.hypot(x - px, y - (py - 8)) < 14;
+    const f = this.play.bobber;
+    // While fishing, tapping near you or the bobber reels; tapping further away walks off.
+    if (f) {
+      if (onMe || Math.hypot(x - f.x, y - f.y) < 40) return true;
+      this.walkTo = { x, y, act: false };
+      return false;
+    }
+    if (this.play.holdsPlayer) return false;
+    if (onMe && (this.nearby || this.atDoor || this.prompt)) return true;
+    // A person: walk up to them and talk.
+    for (const n of this.npcs) {
+      if (n.home) continue;
+      const cx = n.box.x + n.box.w / 2;
+      if (Math.abs(x - cx) < 10 && y > n.box.y - 22 && y < n.box.y + n.box.h + 2) {
+        if (this.nearby === n) return true;
+        this.walkTo = { x: cx, y: n.box.y + n.box.h + 6, act: true };
+        return false;
+      }
+    }
+    // A door with a room behind it: walk onto the doorstep and go in.
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor(y / TILE);
+    for (const b of BUILDINGS) {
+      if (!ROOMS[b.id]) continue;
+      const d = doorOf(b);
+      const onBuilding = tx >= b.x && tx < b.x + b.w && ty >= b.y && ty < b.y + b.h;
+      if ((tx === d.x && ty === d.y) || (onBuilding && Math.abs(tx - d.x) <= 1 && ty >= b.y + b.h - 2) || (onBuilding && !this.play.running)) {
+        if (this.play.running) break;
+        if (this.atDoor === b) return true;
+        this.walkTo = { x: (d.x + 0.5) * TILE, y: (d.y + 0.5) * TILE, act: true };
+        return false;
+      }
+    }
+    if (this.play.interactiveAt(x, y)) {
+      const s = this.play.standFor(x, y);
+      if (this.prompt && Math.hypot(s.x - px, s.y - py) < 22) return true;
+      this.walkTo = { x: s.x, y: s.y, act: true };
+      return false;
+    }
+    this.walkTo = { x, y, act: false };
+    return false;
+  }
+
+  /** A little ring where you tapped, so you can see where you're headed. */
+  private drawWalkMarker(c: Ctx, t: number): void {
+    const w = this.walkTo;
+    if (!w || this.reduced) return;
+    const r = 3 + Math.sin(t * 8) * 0.8;
+    c.globalAlpha = 0.7;
+    ellipse(c, w.x, w.y + 2, r + 1, (r + 1) * 0.5, '#2a1e1a');
+    ellipse(c, w.x, w.y + 2, r, r * 0.5, '#fff8d0');
+    ellipse(c, w.x, w.y + 2, r - 1.2, (r - 1.2) * 0.5, 'rgba(0,0,0,0)');
+    c.globalAlpha = 1;
   }
 
   /** Walking through the meadow's long grass, the blades close over your feet. */

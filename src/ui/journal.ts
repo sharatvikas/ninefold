@@ -62,7 +62,7 @@ export class Journal {
     run.append(
       h('div', 'jn-title', '✉ LETTER RUN'),
       h('div', 'jn-big', best ? `${MEDAL_ICON[medalFor(best)]} ${formatTime(best)}` : '—'),
-      h('div', 'jn-hint', best ? 'Your best time. Gold is under 0:38.' : 'Press E at the red postbox by the Post office.'),
+      h('div', 'jn-hint', best ? 'Your best time. Gold is under 0:38.' : 'Start one at the red postbox by the Post office.'),
     );
     const curios = p.found?.length ?? 0;
     const cur = h('div', 'jn-sec');

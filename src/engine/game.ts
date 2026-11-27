@@ -34,6 +34,12 @@ export class Game {
   ) {
     this.ui = new UI(uiRoot, this.input);
     this.progress = loadProgress(safeStorage());
+    const cv = ctx.canvas;
+    if (cv instanceof HTMLCanvasElement)
+      this.input.watchPointer(cv, (e) => {
+        const r = cv.getBoundingClientRect();
+        return { x: ((e.clientX - r.left) / r.width) * VIEW_W, y: ((e.clientY - r.top) / r.height) * VIEW_H };
+      });
   }
 
   get current(): Scene | undefined {

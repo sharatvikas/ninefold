@@ -26,6 +26,10 @@ body {
 }
 
 #stage {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   position: relative;
   container-type: size;
   border-radius: 6px;
@@ -35,6 +39,7 @@ body {
 }
 
 #game {
+  touch-action: none;
   display: block;
   width: 100%;
   height: 100%;
@@ -218,15 +223,10 @@ button.ql-level { background: none; border: 0; padding: 0; margin: 0; width: 100
 .touch { display: none; }
 @media (pointer: coarse) {
   .touch { display: block; position: absolute; inset: 0; pointer-events: none; }
-  .dpad { position: absolute; left: 2cqw; bottom: 22cqh; width: 18cqw; height: 18cqw; pointer-events: none; }
   .tbtn {
     position: absolute; width: 6cqw; height: 6cqw; border-radius: 1cqw; border: 0.3cqw solid rgba(255, 255, 255, 0.7);
     background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 2cqw; pointer-events: auto; touch-action: none;
   }
-  .tbtn.up { left: 6cqw; top: 0; }
-  .tbtn.down { left: 6cqw; bottom: 0; }
-  .tbtn.left { left: 0; top: 6cqw; }
-  .tbtn.right { right: 0; top: 6cqw; }
   .tbtn.act { right: 3cqw; bottom: 26cqh; width: 8cqw; height: 8cqw; border-radius: 50%; }
 }
 
@@ -494,3 +494,6 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 .jn-card .jn-meta { margin-left: auto; color: #9a8a7a; font-family: var(--px); font-size: 0.8cqw; }
 .jn-fish { position: relative; width: 2.2cqw; height: 1.1cqw; border-radius: 50%; background: var(--c); flex-shrink: 0; margin-right: 0.5cqw; }
 .jn-fish::after { content: ''; position: absolute; right: -0.7cqw; top: 0.1cqw; border: 0.45cqw solid transparent; border-left: 0.7cqw solid var(--f); }
+
+/* Text boxes (save codes, the avatar name) still need selecting and pasting. */
+#stage textarea, #stage input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }

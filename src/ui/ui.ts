@@ -51,7 +51,7 @@ class Dialog {
       this.render();
     }
     if (this.freshFrames > 0) this.freshFrames--;
-    else if (input.wasPressed(...ADVANCE_KEYS)) this.advance();
+    else if (input.wasPressed(...ADVANCE_KEYS) || input.tapAt) this.advance();
   }
 
   /** Close without running the finish callback (e.g. the scene changed underneath it). */
@@ -443,29 +443,17 @@ export class UI {
     }
   }
 
+  /** On touch screens you tap the world to walk; one round button does what E does. */
   private touchControls(): HTMLElement {
     const wrap = h('div', 'touch');
-    const pad = h('div', 'dpad');
-    const mk = (cls: string, key: string, label: string) => {
-      const b = h('button', `tbtn ${cls}`, label);
-      const on = (e: Event) => {
-        e.preventDefault();
-        this.input.hold(key, true);
-      };
-      const off = () => this.input.hold(key, false);
-      b.addEventListener('pointerdown', on);
-      b.addEventListener('pointerup', off);
-      b.addEventListener('pointerleave', off);
-      b.addEventListener('pointercancel', off);
-      return b;
-    };
-    pad.append(mk('up', 'arrowup', '▲'), mk('left', 'arrowleft', '◀'), mk('right', 'arrowright', '▶'), mk('down', 'arrowdown', '▼'));
     const a = h('button', 'tbtn act', 'E');
+    a.setAttribute('aria-label', 'Talk or use');
     a.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.input.tap('e');
     });
-    wrap.append(pad, a);
+    wrap.append(a);
     return wrap;
   }
 }
