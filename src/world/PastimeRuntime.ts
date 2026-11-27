@@ -535,8 +535,9 @@ export class Pastimes {
     c.petted = 1.6;
     c.wait = 3;
     c.purrs++;
-    for (let i = 0; i < 4; i++)
-      this.host.fx.add({ x: c.x + (Math.random() - 0.5) * 8, y: c.y - 8, vx: (Math.random() - 0.5) * 10, vy: -14 - Math.random() * 8, life: 1.2, max: 1.2, size: 1, col: '#ff6a8a' });
+    if (!this.host.reduced)
+      for (let i = 0; i < 4; i++)
+        this.host.fx.add({ x: c.x + (Math.random() - 0.5) * 8, y: c.y - 8, vx: (Math.random() - 0.5) * 10, vy: -14 - Math.random() * 8, life: 1.2, max: 1.2, size: 1, col: '#ff6a8a' });
     const lines = ['Purrrr…', 'Patch leans into your hand.', 'Patch slow-blinks at you. That means trust.', 'Patch flops over for belly rubs. It is a trap.'];
     this.host.game.ui.toast(lines[(c.purrs - 1) % lines.length].toUpperCase(), 'good');
   }

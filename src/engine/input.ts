@@ -62,6 +62,8 @@ export class Input {
    */
   watchPointer(el: HTMLElement, toView: (e: PointerEvent) => { x: number; y: number }): void {
     let id: number | undefined;
+    let down: { x: number; y: number } | undefined;
+    let dragging = false;
     el.addEventListener('pointerdown', (e) => {
       if (e.button > 0) return;
       e.preventDefault();
@@ -72,15 +74,23 @@ export class Input {
         /* ignore */
       }
       this.tapAt = toView(e);
+      down = this.tapAt;
+      dragging = false;
       this.holdAt = undefined;
     });
+    // Fingers wobble during a tap; only a real drag (8+ game pixels) turns into steering.
     el.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== id) return;
-      this.holdAt = toView(e);
+      if (e.pointerId !== id || !down) return;
+      const at = toView(e);
+      if (!dragging && Math.hypot(at.x - down.x, at.y - down.y) < 8) return;
+      dragging = true;
+      this.holdAt = at;
     });
     const up = (e: PointerEvent) => {
       if (e.pointerId !== id) return;
       id = undefined;
+      down = undefined;
+      dragging = false;
       this.holdAt = undefined;
     };
     el.addEventListener('pointerup', up);

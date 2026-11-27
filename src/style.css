@@ -497,3 +497,17 @@ input.text.avatar-name { width: 24cqw; text-align: center; font-family: var(--px
 
 /* Text boxes (save codes, the avatar name) still need selecting and pasting. */
 #stage textarea, #stage input { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
+
+/* Toasts are only for reading; taps pass through to the game. */
+#ui .toast { pointer-events: none; }
+
+/* Small phones: keep words readable and buttons big enough for a thumb. */
+@media (pointer: coarse) {
+  .hud-right .btn { font-size: max(9px, 1.05cqw); min-height: 32px; min-width: 32px; }
+  .hud-right .btn.icon { font-size: max(12px, 1.3cqw); }
+  .jn-title, .jn-card .jn-meta { font-size: max(9px, 1.05cqw); }
+  .jn-hint, .jn-card, .jn-card .jn-tip { font-size: max(11px, 1.05cqw); }
+  .jn-big { font-size: max(14px, 2cqw); }
+  .jn-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  .jn-body { grid-template-columns: 1fr; }
+}

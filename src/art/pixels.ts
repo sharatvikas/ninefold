@@ -17,12 +17,17 @@ export function snap(v: number): number {
 type ScaledCanvas = HTMLCanvasElement & { renderScale?: number };
 
 /** An offscreen canvas sized in logical pixels, drawn at the current render scale. */
+/** iOS Safari refuses canvases over 16,777,216 pixels; stay safely under that. */
+const MAX_CANVAS_PIXELS = 16_000_000;
+
 export function makeCanvas(w: number, h: number): [HTMLCanvasElement, Ctx] {
-  const k = RENDER.scale;
+  // Big layers (the whole town map) drop to a lower scale on very sharp screens rather than fail.
+  const k = Math.max(1, Math.min(RENDER.scale, Math.floor(Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, w * h)))));
   const cv = document.createElement('canvas') as ScaledCanvas;
   cv.width = Math.ceil(w * k);
   cv.height = Math.ceil(h * k);
-  cv.renderScale = k;
+  // Remember the scale that was asked for, so Layer doesn't rebuild every frame when capped.
+  cv.renderScale = RENDER.scale;
   const ctx = cv.getContext('2d');
   if (!ctx) throw new Error('2D canvas not supported');
   ctx.setTransform(k, 0, 0, k, 0, 0);
