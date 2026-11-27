@@ -1,7 +1,7 @@
 import type { Ctx } from '../art/pixels';
 import { Input } from './input';
 import { UI } from '../ui/ui';
-import { completeLevel, findCurio, loadProgress, resetProgress, saveProgress, type Avatar, type Progress } from '../state/progress';
+import { completeLevel, findCurio, loadProgress, recordRun, resetProgress, saveProgress, tally, type Avatar, type Progress } from '../state/progress';
 
 export const VIEW_W = 384;
 export const VIEW_H = 216;
@@ -71,6 +71,21 @@ export class Game {
   foundCurio(id: string): void {
     this.progress = findCurio(this.progress, id);
     saveProgress(safeStorage(), this.progress);
+  }
+
+  /** Save a fish landed or a bug caught. Returns how many of that kind you now have. */
+  caught(key: 'fish' | 'bugs', id: string): number {
+    this.progress = tally(this.progress, key, id);
+    saveProgress(safeStorage(), this.progress);
+    return this.progress[key]?.[id] ?? 0;
+  }
+
+  /** Save a Letter Run time. Returns true if it's a new best. */
+  finishRun(seconds: number): boolean {
+    const before = this.progress.runBest;
+    this.progress = recordRun(this.progress, seconds);
+    saveProgress(safeStorage(), this.progress);
+    return this.progress.runBest !== before;
   }
 
   /** Save a finished level and return the trust actually gained. */

@@ -3,6 +3,7 @@ import type { Input } from '../engine/input';
 import { DISTRICTS, levelsIn } from '../levels/catalog';
 import { decodeSave, encodeSave, levelStatus, type Progress } from '../state/progress';
 import { AvatarCreator } from './avatar';
+import { Journal } from './journal';
 
 export function h<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', text?: string): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
@@ -93,8 +94,9 @@ class Hud {
   private trustNum = h('span', 'num');
   private clock = h('div', 'clock panel');
   readonly ticketsBtn = h('button', 'btn tickets', 'Q · TICKETS');
-  readonly avatarBtn = h('button', 'btn avatar-btn', '👤 AVATAR');
-  readonly feedbackBtn = feedbackLink('Town', '💬 FEEDBACK', 'btn feedback-btn');
+  readonly journalBtn = h('button', 'btn journal-btn', 'J · JOURNAL');
+  readonly avatarBtn = h('button', 'btn icon avatar-btn', '👤');
+  readonly feedbackBtn = feedbackLink('Town', '💬', 'btn icon feedback-btn');
   private minutes = 9 * 60;
   /** Jump the clock (used by dev tools). */
   setTime(minute: number): void {
@@ -114,7 +116,12 @@ class Hud {
     const bar = h('span', 'bar');
     bar.append(this.trustFill);
     trust.append(h('span', 'label', 'TRUST'), bar, this.trustNum);
-    this.el.append(trust, this.clock, this.ticketsBtn, this.avatarBtn, this.feedbackBtn);
+    this.avatarBtn.title = 'Change your avatar';
+    this.avatarBtn.setAttribute('aria-label', this.avatarBtn.title);
+    this.journalBtn.title = 'Fish, bugs, Letter Run times and curios';
+    const right = h('div', 'hud-right');
+    right.append(this.clock, this.ticketsBtn, this.journalBtn, this.avatarBtn, this.feedbackBtn);
+    this.el.append(trust, right);
     this.renderClock();
   }
 
@@ -190,7 +197,7 @@ class QuestLog {
     const foot = h('div', 'ql-foot');
     foot.append(h('span', '', '! ready   ✓ done (click to replay)   · finish the previous ticket first'));
     const curios = p.found?.length ?? 0;
-    foot.append(h('span', 'ql-curios', `✦ CURIOS ${curios}/${CURIOS.length}${curios < CURIOS.length ? ' · walk around town and look for sparkles' : ' · all found!'}`));
+    foot.append(h('span', 'ql-curios', `✦ CURIOS ${curios}/${CURIOS.length}${curios < CURIOS.length ? ' · look for sparkles' : ' · all found!'} · J for your journal`));
     const btns = h('div', 'ql-btns');
     const codeBtn = h('button', 'btn', '⇄ SAVE CODE');
     codeBtn.title = 'Move your progress to another browser or device';
@@ -314,6 +321,7 @@ export class UI {
   readonly hud = new Hud();
   readonly dialog = new Dialog();
   readonly questLog: QuestLog;
+  readonly journal: Journal;
   readonly avatar = new AvatarCreator();
   /** Per-scene layer, emptied on every scene change. */
   readonly scene = h('div', 'scene-layer');
@@ -327,8 +335,9 @@ export class UI {
     private input: Input,
   ) {
     this.questLog = new QuestLog(() => (this.input.enabled = true));
+    this.journal = new Journal(() => (this.input.enabled = true));
     this.touch = this.touchControls();
-    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.avatar.el, this.touch);
+    root.append(this.scene, this.hud.el, this.dialog.el, this.toastEl, this.questLog.el, this.journal.el, this.avatar.el, this.touch);
   }
 
   private irisOn = false;
@@ -390,7 +399,7 @@ export class UI {
 
   /** True while something modal is on screen and the world should not move. */
   get busy(): boolean {
-    return this.dialog.open || this.questLog.open || this.avatar.open;
+    return this.dialog.open || this.questLog.open || this.journal.open || this.avatar.open;
   }
 
   clearScene(): void {
@@ -398,10 +407,17 @@ export class UI {
   }
 
   openQuestLog(p: Progress, onPlay?: (levelId: string) => void, onReset?: () => void, onImport?: (p: Progress) => void): void {
-    if (this.questLog.open || this.avatar.open) return;
+    if (this.questLog.open || this.journal.open || this.avatar.open) return;
     this.dialog.dismiss();
     this.input.enabled = false;
     this.questLog.show(p, onPlay, onReset, onImport);
+  }
+
+  openJournal(p: Progress): void {
+    if (this.questLog.open || this.journal.open || this.avatar.open) return;
+    this.dialog.dismiss();
+    this.input.enabled = false;
+    this.journal.show(p);
   }
 
   toast(msg: string, kind: 'good' | 'bad' | 'info' = 'info'): void {
@@ -416,6 +432,10 @@ export class UI {
     if (this.questLog.open) {
       if (this.questLog.fresh) this.questLog.fresh = false;
       else if (this.input.wasPressed('q', 'escape')) this.questLog.close();
+    }
+    if (this.journal.open) {
+      if (this.journal.fresh) this.journal.fresh = false;
+      else if (this.input.wasPressed('j', 'escape')) this.journal.close();
     }
     if (this.toastTimer > 0) {
       this.toastTimer -= dt;

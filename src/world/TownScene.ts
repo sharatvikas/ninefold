@@ -1,6 +1,6 @@
 import { CharacterSheet, LOOKS, type Dir, type Look } from '../art/characters';
 import { applySky, Birds, CloudShadows, Fireflies, glow, gust, Particles, prefersReducedMotion, skyAt, type Sky } from '../art/atmosphere';
-import { blit, Layer, makeCanvas, rect, rng, disc, snap, type Ctx } from '../art/pixels';
+import { blit, ellipse, Layer, makeCanvas, pixelText, rect, rng, disc, snap, type Ctx } from '../art/pixels';
 import { barn, boat, container, crane, flowers, fountain, house, lampPost, railCar, Smoke, station, tree, watchtower } from '../art/scenery';
 import { VIEW_H, VIEW_W, type Game, type Scene } from '../engine/game';
 import { getLevel } from '../levels/catalog';
@@ -9,7 +9,8 @@ import { moveBox, type Box } from './collision';
 import { CURIOS, curioAt, type Curio } from './curios';
 import { Interior } from './Interior';
 import { ROOMS } from './rooms';
-import { BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, TILE, buildingAtDoor, doorOf, isSolidTile, tileAt, type Building, type NpcSpawn } from './townMap';
+import { BENCH, BUILDINGS, CRANE, FOUNTAIN, GRID, MAP_H, MAP_W, NPCS, PLAYER_START, POSTBOX, TILE, buildingAtDoor, doorOf, isPondTile, isSolidTile, tileAt, type Building, type NpcSpawn } from './townMap';
+import { Pastimes, type Prompt } from './PastimeRuntime';
 
 const SPEED = 72; // px per second
 const TALK_RANGE = 22;
@@ -24,7 +25,9 @@ interface Npc extends NpcSpawn {
 }
 
 /** Where lamp posts stand (tile coords). Their heads glow after dark. */
-const LAMPS: [number, number][] = [[18, 13], [21, 13], [11, 14], [26, 14], [16, 25], [23, 25]];
+const LAMPS: [number, number][] = [[18, 13], [21, 13], [11, 14], [26, 14], [16, 25], [23, 25], [45, 12], [49, 12], [42, 16], [53, 16]];
+/** Lily pads on the meadow pond (tile coords). */
+const LILIES: [number, number][] = [[45, 6], [49, 8], [44, 9], [50, 5]];
 /** Walk cycle: step, stand, other step, stand. */
 const WALK = [1, 0, 2, 0];
 const FIREWORK_COLS = ['#ff6a8a', '#ffd23f', '#5ee08a', '#5ab4ff', '#c08aff'];
@@ -65,6 +68,10 @@ export class TownScene implements Scene {
   private inside: Interior | undefined;
   /** The building whose door the player is standing at, if any. */
   private atDoor: Building | undefined;
+  /** Fishing, bugs, the Letter Run, the cat and the fountain. */
+  private play: Pastimes;
+  /** The pastime the player could start right here. */
+  private prompt: Prompt | undefined;
 
   constructor(
     private game: Game,
@@ -87,6 +94,18 @@ export class TownScene implements Scene {
     const spots: [number, number][] = [];
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if ((GRID[y][x] === 'F' || GRID[y][x] === 'T') && (x * 7 + y * 13) % 3 === 0) spots.push([x * TILE, y * TILE]);
     this.flies = new Fireflies(spots);
+    this.play = new Pastimes({
+      game,
+      player: () => ({ box: this.player.box, dir: this.player.dir, moving: this.player.moving }),
+      face: (d) => {
+        this.player.dir = d;
+      },
+      night: () => this.sky.night,
+      reduced: this.reduced,
+      fx: this.fx,
+      sparks: this.sparks,
+    });
+    this.play.cam = this.cam;
   }
 
   enter(): void {
@@ -95,6 +114,7 @@ export class TownScene implements Scene {
     ui.hud.el.classList.remove('hidden');
     ui.hud.ticketsBtn.onclick = () => ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
     ui.hud.avatarBtn.onclick = () => this.editAvatar();
+    ui.hud.journalBtn.onclick = () => this.openJournal();
     if (!this.greeted) {
       this.greeted = true;
       const first = Object.keys(this.game.progress.completed).length === 0;
@@ -131,8 +151,12 @@ export class TownScene implements Scene {
     const ui = this.game.ui;
     // A code with no character in it keeps the one this browser already has.
     const avatar = p.avatar ?? this.game.progress.avatar;
-    const found = p.found ?? this.game.progress.found;
-    this.game.replaceProgress({ ...p, ...(avatar ? { avatar } : {}), ...(found ? { found } : {}) });
+    const cur = this.game.progress;
+    const found = p.found ?? cur.found;
+    const fish = p.fish ?? cur.fish;
+    const bugs = p.bugs ?? cur.bugs;
+    const runBest = p.runBest ?? cur.runBest;
+    this.game.replaceProgress({ ...p, ...(avatar ? { avatar } : {}), ...(found ? { found } : {}), ...(fish ? { fish } : {}), ...(bugs ? { bugs } : {}), ...(runBest !== undefined ? { runBest } : {}) });
     this.playerSheet.setLook(avatar?.look ?? LOOKS.player);
     ui.hud.setTrust(p.trust);
     const n = Object.keys(p.completed).length;
@@ -191,6 +215,8 @@ export class TownScene implements Scene {
     }
 
     p.moving = false;
+    let fishE = false;
+    this.prompt = undefined;
     if (!ui.busy && input.enabled) {
       let dx = 0;
       let dy = 0;
@@ -198,20 +224,36 @@ export class TownScene implements Scene {
       if (input.isDown('arrowright', 'd')) dx += 1;
       if (input.isDown('arrowup', 'w')) dy -= 1;
       if (input.isDown('arrowdown', 's')) dy += 1;
-      if (dx || dy) {
+      const e = input.wasPressed('e', ' ', 'enter');
+      // Walking away puts the rod down.
+      if ((dx || dy) && this.play.fishing) this.play.reelIn();
+      if ((dx || dy) && !this.play.holdsPlayer) {
         const len = Math.hypot(dx, dy);
         p.box = moveBox(p.box, (dx / len) * SPEED * dt, (dy / len) * SPEED * dt, this.solidAt);
         this.stepPlayer(dx, dy, dt, (x, y) => this.fx.dust(x, y));
       } else this.walkStep = -1;
 
-      this.nearby = this.findNearby();
-      this.atDoor = this.nearby ? undefined : this.doorUnderPlayer();
-      const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
-      if (curio) this.collect(curio);
-      else if (this.nearby && input.wasPressed('e', ' ', 'enter')) this.talk(this.nearby);
-      else if (this.atDoor && (input.wasPressed('e', ' ', 'enter') || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
-      else if (input.wasPressed('q')) ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
+      if (this.play.fishing) {
+        fishE = e;
+        this.nearby = undefined;
+        this.atDoor = undefined;
+      } else {
+        this.nearby = this.findNearby();
+        // During the Letter Run, doors take letters instead of letting you in.
+        this.atDoor = this.nearby || this.play.running ? undefined : this.doorUnderPlayer();
+        this.prompt = this.nearby || this.atDoor ? undefined : this.play.prompt();
+        const curio = curioAt(p.box.x + p.box.w / 2, p.box.y + p.box.h / 2, this.game.progress.found ?? [], TILE);
+        if (curio) this.collect(curio);
+        else if (this.nearby && e) this.talk(this.nearby);
+        else if (this.atDoor && (e || (dy < 0 && dx === 0))) this.goIn(this.atDoor);
+        else if (this.prompt && e) this.prompt.act();
+        else if (input.wasPressed('q')) {
+          this.play.cancelRun();
+          ui.openQuestLog(this.game.progress, this.startLevel, this.reset, this.importSave);
+        } else if (input.wasPressed('j')) this.openJournal();
+      }
     } else this.atDoor = undefined;
+    this.play.update(dt, t, fishE);
 
     this.smoke.step(dt);
     if (!this.game.progress.completed['harbor-1']) this.smoke.spawn(33 * TILE, 18 * TILE, 0.3);
@@ -458,6 +500,7 @@ export class TownScene implements Scene {
     this.drawWater(c, t);
     this.drawHarborBoat(c, t);
     this.drawDockTop(c);
+    this.play.drawGround(c);
 
     this.drawCurios(c, t);
 
@@ -482,7 +525,9 @@ export class TownScene implements Scene {
     }
     const p = this.player;
     ds.push({ y: p.box.y + p.box.h, draw: () => this.drawPlayer(c, t, p.box) });
+    for (const d of this.play.drawables(c, t)) if (vis(this.cam.x + 40, d.y)) ds.push(d);
     ds.sort((a, b) => a.y - b.y).forEach((d) => d.draw());
+    this.drawTallGrassOver(c, t);
 
     this.smoke.draw(c);
     this.drawTrain(c, t);
@@ -499,6 +544,7 @@ export class TownScene implements Scene {
     this.drawCurios(c, t, this.sky.night);
     this.flies.draw(c, t, this.sky.night, { x: this.cam.x, y: this.cam.y, w: VIEW_W, h: VIEW_H });
     this.sparks.draw(c);
+    this.play.drawOver(c, t);
 
     for (const n of this.npcs) {
       if (!this.hasTicket(n)) continue;
@@ -511,10 +557,32 @@ export class TownScene implements Scene {
       }
     }
     const pb = this.player.box;
-    if (this.nearby && !this.game.ui.busy) this.bubble(c, this.nearby.box.x + 6, this.nearby.box.y - (this.hasTicket(this.nearby) ? 36 : 22), 'E', '#2b6cb0');
+    const busy = this.game.ui.busy;
+    if (this.nearby && !busy) this.bubble(c, this.nearby.box.x + 6, this.nearby.box.y - (this.hasTicket(this.nearby) ? 36 : 22), 'E', '#2b6cb0', 'TALK');
     // At a door, the "E" floats over the player.
-    else if (this.atDoor && !this.game.ui.busy) this.bubble(c, pb.x, pb.y - 30, 'E', '#2b6cb0');
+    else if (this.atDoor && !busy) this.bubble(c, pb.x, pb.y - 30, 'E', '#2b6cb0', 'ENTER');
+    else if (this.prompt && !busy) this.bubble(c, this.prompt.x, this.prompt.y, 'E', '#2b6cb0', this.prompt.label);
     c.restore();
+    this.play.drawScreen(c, t);
+  }
+
+  /** Walking through the meadow's long grass, the blades close over your feet. */
+  private drawTallGrassOver(c: Ctx, t: number): void {
+    const b = this.player.box;
+    const cx = b.x + b.w / 2;
+    if (tileAt(Math.floor(cx / TILE), Math.floor((b.y + b.h) / TILE)) !== 'G') return;
+    const sway = this.reduced ? 0 : Math.round(Math.sin(t * 3) * 0.6);
+    for (let i = -3; i <= 3; i++) {
+      const x = Math.round(cx + i * 2 + (i % 2));
+      const hgt = 3 + ((i * 7 + 9) % 3);
+      rect(c, x + sway, b.y + b.h - hgt + 1, 1, hgt, i % 2 ? '#3f8a36' : '#4f9a3c');
+    }
+  }
+
+  /** The journal: what you've caught, your best Letter Run, curios found. */
+  private openJournal(): void {
+    this.play.cancelRun();
+    this.game.ui.openJournal(this.game.progress);
   }
 
   private drawPlayer(c: Ctx, t: number, box: Box): void {
@@ -585,7 +653,14 @@ export class TownScene implements Scene {
     glow(c, p.x + p.w / 2, p.y - 2, 30, '255,236,200', 0.14 * n);
   }
 
-  private bubble(c: Ctx, x: number, y: number, ch: string, col: string): void {
+  private bubble(c: Ctx, x: number, y: number, ch: string, col: string, label?: string): void {
+    if (label) {
+      // A small tag beside the key says what it will do.
+      const w = label.length * 4 + 5;
+      rect(c, x + 9, y + 2, w + 2, 9, '#2a1e1a');
+      rect(c, x + 10, y + 3, w, 7, '#2b6cb0');
+      pixelText(c, label, x + 13, y + 9, '#ffffff', 4);
+    }
     rect(c, x - 1, y, 12, 12, '#2a1e1a');
     rect(c, x, y - 1, 10, 14, '#2a1e1a');
     rect(c, x, y + 1, 10, 10, '#fff');
@@ -597,18 +672,48 @@ export class TownScene implements Scene {
   }
 
   private drawWater(c: Ctx, t: number): void {
+    const wet = (x: number, y: number) => tileAt(x, y) === 'w';
     for (const [tx, ty] of this.water) {
       const x = tx * TILE;
       const y = ty * TILE;
       if (x > this.cam.x + VIEW_W || x + TILE < this.cam.x || y > this.cam.y + VIEW_H || y + TILE < this.cam.y) continue;
-      rect(c, x, y, TILE, TILE, '#3d8fd1');
+      const pond = isPondTile(tx, ty);
+      const deep = wet(tx - 1, ty) && wet(tx + 1, ty) && wet(tx, ty - 1) && wet(tx, ty + 1);
+      rect(c, x, y, TILE, TILE, pond ? (deep ? '#2f78ba' : '#3a86c8') : deep ? '#3584c6' : '#3d8fd1');
       const o = Math.floor((t * 4 + tx * 3 + ty * 5) % 16);
       rect(c, x + ((o + 2) % 12), y + 4, 4, 1, '#7fc2f0');
       rect(c, x + ((o + 9) % 12), y + 11, 3, 1, '#7fc2f0');
       if ((tx + ty + Math.floor(t * 2)) % 7 === 0) rect(c, x + 7, y + 7, 2, 1, '#c8e8fa');
-      if (tileAt(tx, ty - 1) !== 'w') {
+      // Shorelines on every side that meets land: sand on top, a shaded bank below, lips at the sides.
+      const shore = (nx: number, ny: number) => !wet(nx, ny) && tileAt(nx, ny) !== 'd';
+      const foam = Math.floor(t * 2 + tx) % 2;
+      if (shore(tx, ty - 1)) {
         rect(c, x, y, TILE, 3, '#e6d7a8');
-        rect(c, x, y + 3, TILE, 1, '#a8d8f8');
+        rect(c, x, y + 3, TILE, 1, foam ? '#a8d8f8' : '#d8f0ff');
+      }
+      if (shore(tx, ty + 1)) {
+        rect(c, x, y + 13, TILE, 3, '#2a6aa0');
+        rect(c, x, y + 12, TILE, 1, '#5aa8e0');
+      }
+      if (shore(tx - 1, ty)) {
+        rect(c, x, y, 2, TILE, '#e6d7a8');
+        rect(c, x + 2, y, 1, TILE, foam ? '#a8d8f8' : '#d8f0ff');
+      }
+      if (shore(tx + 1, ty)) {
+        rect(c, x + 14, y, 2, TILE, '#e6d7a8');
+        rect(c, x + 13, y, 1, TILE, foam ? '#a8d8f8' : '#d8f0ff');
+      }
+    }
+    // Lily pads drift a little on the meadow pond.
+    for (const [lx, ly] of LILIES) {
+      const x = lx * TILE + 8 + (this.reduced ? 0 : Math.round(Math.sin(t * 0.6 + lx) * 1));
+      const y = ly * TILE + 8;
+      ellipse(c, x, y, 4, 2.5, '#3f8a36');
+      ellipse(c, x, y - 0.5, 3.5, 2, '#5fae4a');
+      rect(c, x, y - 2, 3, 2, ly % 2 ? '#3a86c8' : '#2f78ba');
+      if (lx % 2) {
+        rect(c, x - 2, y - 2, 2, 2, '#ffb8d8');
+        rect(c, x - 1.5, y - 2.5, 1, 1, '#ffffff');
       }
     }
   }
@@ -692,7 +797,20 @@ export class TownScene implements Scene {
     const [cv, c] = makeCanvas(MAP_W * TILE, MAP_H * TILE);
     const R = rng(7);
     rect(c, 0, 0, cv.width, cv.height, '#5fae4a');
-    for (let i = 0; i < 3500; i++) rect(c, (R() * cv.width) | 0, (R() * cv.height) | 0, 1, 1, R() < 0.5 ? '#55a042' : '#6dbd55');
+    // Soft lighter and darker patches so the grass doesn't read as one flat sheet.
+    for (let i = 0; i < 90; i++) {
+      const x = R() * cv.width;
+      const y = R() * cv.height;
+      ellipse(c, x, y, 10 + R() * 22, 5 + R() * 10, R() < 0.5 ? 'rgba(120,200,90,0.18)' : 'rgba(40,110,40,0.14)');
+    }
+    for (let i = 0; i < 4500; i++) rect(c, (R() * cv.width) | 0, (R() * cv.height) | 0, 1, 1, R() < 0.5 ? '#55a042' : '#6dbd55');
+    // Pebbles.
+    for (let i = 0; i < 70; i++) {
+      const x = (R() * cv.width) | 0;
+      const y = (R() * cv.height) | 0;
+      rect(c, x, y, 2, 1, '#c8c0a8');
+      rect(c, x, y + 1, 2, 1, '#8a8270');
+    }
     for (let i = 0; i < 260; i++) {
       const x = (R() * cv.width) | 0;
       const y = (R() * cv.height) | 0;
@@ -708,11 +826,44 @@ export class TownScene implements Scene {
         if (t === 'p') {
           rect(c, x, y, TILE, TILE, '#d9b77a');
           for (let i = 0; i < 18; i++) rect(c, x + ((R() * 16) | 0), y + ((R() * 16) | 0), 1, 1, R() < 0.5 ? '#c9a466' : '#e6c890');
+          if (R() < 0.35) rect(c, x + ((R() * 13) | 0), y + ((R() * 13) | 0), 2, 1, '#b89c6a');
           const edge = '#b8955c';
-          if (tileAt(tx, ty - 1) !== 'p') rect(c, x, y, TILE, 1, edge);
-          if (tileAt(tx, ty + 1) !== 'p') rect(c, x, y + 15, TILE, 1, edge);
-          if (tileAt(tx - 1, ty) !== 'p') rect(c, x, y, 1, TILE, edge);
-          if (tileAt(tx + 1, ty) !== 'p') rect(c, x + 15, y, 1, TILE, edge);
+          const up = tileAt(tx, ty - 1) !== 'p';
+          const dn = tileAt(tx, ty + 1) !== 'p';
+          const lf = tileAt(tx - 1, ty) !== 'p';
+          const rt = tileAt(tx + 1, ty) !== 'p';
+          if (up) rect(c, x, y, TILE, 1, edge);
+          if (dn) rect(c, x, y + 15, TILE, 1, edge);
+          if (lf) rect(c, x, y, 1, TILE, edge);
+          if (rt) rect(c, x + 15, y, 1, TILE, edge);
+          // Rounded outer corners, with grass tufts nibbling at the edges.
+          const g = '#5fae4a';
+          if (up && lf) rect(c, x, y, 2, 2, g), rect(c, x + 2, y + 1, 1, 1, edge), rect(c, x + 1, y + 2, 1, 1, edge);
+          if (up && rt) rect(c, x + 14, y, 2, 2, g), rect(c, x + 13, y + 1, 1, 1, edge), rect(c, x + 14, y + 2, 1, 1, edge);
+          if (dn && lf) rect(c, x, y + 14, 2, 2, g), rect(c, x + 2, y + 14, 1, 1, edge), rect(c, x + 1, y + 13, 1, 1, edge);
+          if (dn && rt) rect(c, x + 14, y + 14, 2, 2, g), rect(c, x + 13, y + 14, 1, 1, edge), rect(c, x + 14, y + 13, 1, 1, edge);
+          if (up && R() < 0.5) rect(c, x + 3 + ((R() * 9) | 0), y, 2, 1, '#4f9a3c');
+          if (dn && R() < 0.5) rect(c, x + 3 + ((R() * 9) | 0), y + 15, 2, 1, '#4f9a3c');
+        } else if (t === 'G') {
+          // Long meadow grass: darker, in tufts.
+          rect(c, x, y, TILE, TILE, '#559e40');
+          for (let i = 0; i < 9; i++) {
+            const gx = x + ((R() * 14) | 0);
+            const gy = y + 3 + ((R() * 12) | 0);
+            rect(c, gx, gy - 3, 1, 4, '#3f8a36');
+            rect(c, gx + 1, gy - 4, 1, 5, '#4f9a3c');
+            rect(c, gx + 2, gy - 2, 1, 3, '#6dbd55');
+          }
+          if (R() < 0.2) rect(c, x + ((R() * 13) | 0), y + ((R() * 13) | 0), 1, 1, '#fff4a0');
+        } else if (t === 'o') {
+          // Reeds and cattails at the water's edge.
+          rect(c, x, y, TILE, TILE, '#5a9a48');
+          for (let i = 0; i < 6; i++) {
+            const rx = x + 1 + i * 2.5 + ((R() * 2) | 0);
+            const hgt = 7 + ((R() * 6) | 0);
+            rect(c, rx, y + 15 - hgt, 1, hgt, i % 2 ? '#6a8a3a' : '#7aa048');
+            if (i % 2 === 0) rect(c, rx - 0.5, y + 15 - hgt - 2, 2, 3, '#7a4a2a');
+          }
         } else if (t === 'r') {
           if (ty === 2) {
             for (let k = 0; k < TILE; k += 5) rect(c, x + k, y + 8, 3, 20, '#6b4a2a');
@@ -731,6 +882,13 @@ export class TownScene implements Scene {
           flowers(c, x, y, tx * 31 + ty * 17);
         }
       }
+    // Soft shadows to the lower right of every building, so they sit on the ground.
+    for (const b of BUILDINGS) {
+      c.globalAlpha = 0.16;
+      rect(c, b.x * TILE + 4, (b.y + b.h) * TILE - 4, b.w * TILE - 2, 5, '#1a2a10');
+      rect(c, (b.x + b.w) * TILE - 2, b.y * TILE + 10, 4, b.h * TILE - 9, '#1a2a10');
+      c.globalAlpha = 1;
+    }
     for (const b of BUILDINGS) {
       const x = b.x * TILE;
       const y = b.y * TILE;
@@ -742,12 +900,51 @@ export class TownScene implements Scene {
       else watchtower(c, x, y, w, hgt);
     }
     fountain(c, FOUNTAIN.x * TILE, FOUNTAIN.y * TILE);
-    for (const [lx, ly] of [[18, 13], [21, 13], [11, 14], [26, 14], [16, 25], [23, 25]] as const) lampPost(c, lx * TILE + 7, ly * TILE - 2);
+    for (const [lx, ly] of LAMPS) lampPost(c, lx * TILE + 7, ly * TILE - 2);
+    this.drawPostbox(c);
+    this.drawBench(c);
+    this.drawSignpost(c, 40 * TILE + 2, 13 * TILE + 2);
     container(c, 33 * TILE, 19 * TILE + 3, 20, 13, '#c0392b');
     container(c, 34 * TILE + 6, 19 * TILE + 3, 20, 13, '#2b6cb0');
     container(c, 36 * TILE - 4, 19 * TILE + 3, 18, 13, '#27ae60');
     container(c, 34 * TILE - 2, 19 * TILE - 8, 20, 12, '#e8a030');
     return cv;
+  }
+
+  /** The red postbox outside the Post office: start of the Letter Run. */
+  private drawPostbox(c: Ctx): void {
+    const x = POSTBOX.x * TILE + 3;
+    const y = POSTBOX.y * TILE - 4;
+    ellipse(c, x + 5, y + 19, 7, 2, 'rgba(0,0,0,0.2)');
+    rect(c, x - 1, y - 1, 12, 21, '#2a1e1a');
+    rect(c, x, y, 10, 19, '#c0392b');
+    rect(c, x, y, 10, 3, '#e05a48');
+    rect(c, x + 2, y + 5, 6, 1.5, '#2a1e1a');
+    rect(c, x + 1, y + 16, 8, 3, '#8a2a1a');
+    rect(c, x + 3, y + 9, 4, 3, '#ffd23f');
+    rect(c, x + 4, y + 10, 2, 1, '#c0392b');
+  }
+
+  /** A bench looking out over the meadow pond. */
+  private drawBench(c: Ctx): void {
+    const x = BENCH.x * TILE;
+    const y = BENCH.y * TILE + 4;
+    ellipse(c, x + 8, y + 11, 9, 2, 'rgba(0,0,0,0.18)');
+    rect(c, x, y, 16, 3, '#2a1e1a');
+    rect(c, x + 1, y + 0.5, 14, 2, '#a07a4a');
+    rect(c, x, y + 4, 16, 3, '#2a1e1a');
+    rect(c, x + 1, y + 4.5, 14, 2, '#c89a5a');
+    rect(c, x + 2, y + 7, 2, 4, '#5a3a1a');
+    rect(c, x + 12, y + 7, 2, 4, '#5a3a1a');
+  }
+
+  /** A wooden signpost at the edge of town pointing the way to the meadow. */
+  private drawSignpost(c: Ctx, x: number, y: number): void {
+    rect(c, x + 5, y + 4, 2, 12, '#5a3a1a');
+    rect(c, x - 3, y - 1, 20, 8, '#2a1e1a');
+    rect(c, x - 2, y, 18, 6, '#c89a5a');
+    rect(c, x + 17, y + 1, 2, 4, '#2a1e1a');
+    pixelText(c, 'POND', x - 1, y + 5, '#5a3a1a', 4);
   }
 }
 

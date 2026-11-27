@@ -3,9 +3,13 @@
  *
  * Tile codes:
  *   g grass   p path   w water   d dock planks   r rail   T tree   F flowers   B building / solid object
+ *   G tall meadow grass (walkable; where the bugs live)   o reeds at the pond's edge (walkable)
+ *
+ * The town is on the west; through a gap in the tree line, Lantern Meadow opens up to the east,
+ * with a fishing pond, a jetty and long grass for catching bugs.
  */
 export const TILE = 16;
-export const MAP_W = 40;
+export const MAP_W = 56;
 export const MAP_H = 28;
 
 export type BuildingKind = 'house' | 'station' | 'barn' | 'tower';
@@ -58,6 +62,22 @@ export const NPCS: NpcSpawn[] = [
 export const PLAYER_START = { x: 20, y: 17 };
 export const FOUNTAIN = { x: 24, y: 12 }; // tile whose centre holds the fountain (occupies 2x2 from x-1,y-1)
 export const CRANE = { x: 37, y: 17 };
+/** The red postbox outside the Post office, where the Letter Run starts. */
+export const POSTBOX = { x: 16, y: 14 };
+/** Lantern Meadow's pond: centre tile and the jetty tiles that reach into it. */
+export const POND = { x: 47, y: 7 };
+/** A bench by the pond, drawn on this tile (solid). */
+export const BENCH = { x: 50, y: 12 };
+/** Rows of the pond, top to bottom: [y, first x, last x]. */
+const POND_ROWS: [number, number, number][] = [
+  [4, 45, 49],
+  [5, 44, 50],
+  [6, 43, 51],
+  [7, 43, 51],
+  [8, 43, 51],
+  [9, 44, 50],
+  [10, 45, 49],
+];
 
 function buildGrid(): string[][] {
   const g: string[][] = Array.from({ length: MAP_H }, () => Array<string>(MAP_W).fill('g'));
@@ -69,17 +89,21 @@ function buildGrid(): string[][] {
   };
 
   // Water & harbor (south-east)
-  fill(28, 21, 39, 27, 'w');
+  fill(28, 21, 41, 27, 'w');
   fill(27, 19, 37, 20, 'd');
   // Border trees
-  fill(0, 0, 39, 1, 'T');
+  fill(0, 0, MAP_W - 1, 1, 'T');
   fill(0, 0, 1, 27, 'T');
-  fill(38, 0, 39, 20, 'T');
+  fill(MAP_W - 2, 0, MAP_W - 1, 27, 'T');
   fill(0, 26, 27, 27, 'T');
+  fill(42, 25, MAP_W - 1, 27, 'T');
+  // The old east edge is now a loose tree line with a gap for the road into the meadow.
+  for (let y = 4; y <= 13; y++) set(38 + (y % 2), y, 'T');
+  for (let y = 17; y <= 20; y++) set(38 + (y % 2), y, 'T');
   // Rail line
-  fill(2, 2, 37, 3, 'r');
+  fill(2, 2, MAP_W - 3, 3, 'r');
   // Roads
-  fill(2, 15, 37, 16, 'p'); // main street
+  fill(2, 15, MAP_W - 3, 16, 'p'); // main street, on into the meadow
   fill(19, 10, 20, 14, 'p'); // town hall to main street
   fill(19, 17, 20, 24, 'p'); // south road
   fill(2, 24, 26, 24, 'p'); // lower street
@@ -90,25 +114,46 @@ function buildGrid(): string[][] {
   fill(35, 14, 35, 14, 'p'); // watchtower
   fill(15, 23, 15, 23, 'p'); // granary
   fill(27, 17, 28, 18, 'p'); // to the dock
+  fill(POND.x, 12, POND.x, 14, 'p'); // meadow path up to the jetty
+  // Lantern Meadow: pond with reeds, a jetty, and long grass
+  for (const [y, x0, x1] of POND_ROWS) {
+    fill(x0, y, x1, y, 'w');
+    for (const x of [x0 - 1, x1 + 1]) if (g[y][x] === 'g') set(x, y, 'o');
+  }
+  for (const x of [44, 45, 49, 50]) set(x, 11, 'o');
+  fill(POND.x, 8, POND.x, 11, 'd'); // jetty
+  fill(41, 18, 52, 23, 'G');
+  fill(46, 19, 47, 20, 'g'); // a clearing in the long grass
+  fill(41, 17, 44, 17, 'G');
   // Scattered trees
   for (const [x, y] of [
     [24, 6], [25, 7], [3, 11], [3, 17], [9, 21], [23, 20], [24, 21], [25, 18], [35, 6], [36, 7], [2, 22], [14, 7], [26, 12], [10, 17], [33, 23 - 6],
+    // meadow
+    [41, 5], [42, 9], [52, 5], [53, 9], [41, 13], [53, 13], [43, 21], [51, 18], [53, 22], [45, 24],
   ]) set(x, y, 'T');
   // Flowers
   for (const [x, y] of [
     [16, 12], [9, 12], [22, 12], [26, 9], [11, 22], [21, 20], [30, 12], [5, 13], [24, 23],
+    [43, 13], [51, 14], [41, 11], [52, 11], [45, 17], [49, 17], [42, 15 - 1],
   ]) if (g[y][x] === 'g') set(x, y, 'F');
   // Buildings & big objects are solid
   for (const b of BUILDINGS) fill(b.x, b.y, b.x + b.w - 1, b.y + b.h - 1, 'B');
   fill(FOUNTAIN.x - 1, FOUNTAIN.y - 1, FOUNTAIN.x, FOUNTAIN.y, 'B');
   fill(33, 19, 36, 19, 'B'); // containers on the dock
   fill(CRANE.x, CRANE.y - 1, CRANE.x, CRANE.y + 3, 'B');
+  set(BENCH.x, BENCH.y, 'B');
+  set(POSTBOX.x, POSTBOX.y, 'B');
   return g;
 }
 
 export const GRID: readonly (readonly string[])[] = buildGrid();
 
 const SOLID = new Set(['w', 'r', 'T', 'B']);
+
+/** True for any water tile that belongs to the meadow pond (not the harbor). */
+export function isPondTile(tx: number, ty: number): boolean {
+  return POND_ROWS.some(([y, x0, x1]) => y === ty && tx >= x0 && tx <= x1);
+}
 
 export function tileAt(tx: number, ty: number): string {
   if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return 'T';

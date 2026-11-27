@@ -1,6 +1,7 @@
 import type { Look } from '../art/characters';
 import { LEVELS, levelsIn, type DistrictId, type LevelMeta } from '../levels/catalog';
 import { CURIO_IDS } from '../world/curios';
+import { BUG_IDS, FISH_IDS } from '../world/pastimes';
 
 export interface Avatar {
   name: string;
@@ -14,6 +15,12 @@ export interface Progress {
   avatar?: Avatar;
   /** Curios found around town (side quest). */
   found?: string[];
+  /** Fish landed, by kind: how many of each. */
+  fish?: Record<string, number>;
+  /** Bugs caught in the meadow, by kind: how many of each. */
+  bugs?: Record<string, number>;
+  /** Best Letter Run time, in seconds. */
+  runBest?: number;
 }
 
 export const STORAGE_KEY = 'ninefold.save.v1';
@@ -22,9 +29,18 @@ export function newProgress(): Progress {
   return { version: 1, trust: 50, completed: {} };
 }
 
-/** Start over: every ticket and all Trust are cleared, but the player keeps their avatar. */
+/**
+ * Start over: every ticket and all Trust are cleared, but the player keeps their avatar
+ * and their pastime collections (fish, bugs and Letter Run best), which aren't tickets.
+ */
 export function resetProgress(p: Progress): Progress {
-  return { ...newProgress(), ...(p.avatar ? { avatar: p.avatar } : {}) };
+  return {
+    ...newProgress(),
+    ...(p.avatar ? { avatar: p.avatar } : {}),
+    ...(p.fish ? { fish: p.fish } : {}),
+    ...(p.bugs ? { bugs: p.bugs } : {}),
+    ...(p.runBest !== undefined ? { runBest: p.runBest } : {}),
+  };
 }
 
 export const clampTrust = (n: number): number => Math.max(0, Math.min(100, Math.round(n)));
@@ -32,6 +48,18 @@ export const clampTrust = (n: number): number => Math.max(0, Math.min(100, Math.
 /** Record a curio found around town. Finding one twice changes nothing. */
 export function findCurio(p: Progress, id: string): Progress {
   return p.found?.includes(id) ? p : { ...p, found: [...(p.found ?? []), id] };
+}
+
+/** Add one to a pastime tally (fish or bugs). */
+export function tally(p: Progress, key: 'fish' | 'bugs', id: string): Progress {
+  const cur = p[key] ?? {};
+  return { ...p, [key]: { ...cur, [id]: (cur[id] ?? 0) + 1 } };
+}
+
+/** Record a Letter Run time. Only a faster time replaces the best. */
+export function recordRun(p: Progress, seconds: number): Progress {
+  const s = Math.round(seconds * 10) / 10;
+  return p.runBest !== undefined && p.runBest <= s ? p : { ...p, runBest: s };
 }
 
 /** Record a finished level. Replaying a level never earns its Trust twice. */
@@ -90,7 +118,28 @@ export function parseProgress(raw: unknown): Progress | undefined {
   }
   const avatar = validAvatar(data.avatar);
   const found = Array.isArray(data.found) ? [...new Set(data.found.filter((id): id is string => typeof id === 'string' && CURIO_IDS.has(id)))] : [];
-  return { version: 1, trust: clampTrust(data.trust), completed, ...(avatar ? { avatar } : {}), ...(found.length ? { found } : {}) };
+  const fish = validTally(data.fish, FISH_IDS);
+  const bugs = validTally(data.bugs, BUG_IDS);
+  const runBest = typeof data.runBest === 'number' && Number.isFinite(data.runBest) && data.runBest > 0 && data.runBest < 3600 ? Math.round(data.runBest * 10) / 10 : undefined;
+  return {
+    version: 1,
+    trust: clampTrust(data.trust),
+    completed,
+    ...(avatar ? { avatar } : {}),
+    ...(found.length ? { found } : {}),
+    ...(fish ? { fish } : {}),
+    ...(bugs ? { bugs } : {}),
+    ...(runBest !== undefined ? { runBest } : {}),
+  };
+}
+
+/** Keep only known ids with sensible whole-number counts. */
+function validTally(raw: unknown, known: Set<string>): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [id, n] of Object.entries(raw as Record<string, unknown>))
+    if (known.has(id) && typeof n === 'number' && Number.isFinite(n) && n >= 1) out[id] = Math.min(9999, Math.floor(n));
+  return Object.keys(out).length ? out : undefined;
 }
 
 const CODE_PREFIX = 'NF1-';
