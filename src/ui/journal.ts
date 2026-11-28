@@ -31,7 +31,7 @@ export class Journal {
     const nBugs = BUGS.filter((b) => bugs[b.id]).length;
 
     const fishSec = h('div', 'jn-sec');
-    fishSec.append(h('div', 'jn-title', `🎣 FISH ${nFish}/${FISH.length}`), h('div', 'jn-hint', 'Cast from the meadow jetty or the harbor dock. Some only bite at night.'));
+    fishSec.append(h('div', 'jn-title', `🎣 FISH ${nFish}/${FISH.length}`), h('div', 'jn-hint', 'Cast from any bank of the meadow pond or the sea. Some only bite at night.'));
     const fishGrid = h('div', 'jn-grid');
     for (const f of FISH) {
       const n = fish[f.id] ?? 0;
